@@ -95,7 +95,7 @@ export function MovingAverages({ companyData, symbol }: MovingAveragesProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {Object.entries(movingAverages).map(([key, { data }]) => {
+                  {Object.entries(movingAverages).map(([key, { data, isLoading }]) => {
                     const { ma, isAbove, percentDiff, difference } = data
                     
                     return (
@@ -103,46 +103,60 @@ export function MovingAverages({ companyData, symbol }: MovingAveragesProps) {
                         key={key} 
                         className={cn(
                           "group hover:bg-muted/50",
-                          isAbove ? "bg-emerald-50/50 dark:bg-emerald-950/50" : "bg-rose-50/50 dark:bg-rose-950/50"
+                          isLoading 
+                            ? "bg-muted/50"
+                            : isAbove 
+                              ? "bg-emerald-50/50 dark:bg-emerald-950/50" 
+                              : "bg-rose-50/50 dark:bg-rose-950/50"
                         )}
                       >
                         <TableCell>
-                          <Badge variant={isAbove ? "positive" : "destructive"} className="font-medium">
-                            {isAbove ? 'Above' : 'Below'}
-                          </Badge>
+                          {isLoading ? (
+                            <Badge variant="secondary" className="font-medium">
+                              Loading
+                            </Badge>
+                          ) : (
+                            <Badge variant={isAbove ? "positive" : "destructive"} className="font-medium">
+                              {isAbove ? 'Above' : 'Below'}
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell className="font-medium text-foreground">
                           {LABELS[key as keyof typeof LABELS]}
                         </TableCell>
                         <TableCell className="font-mono text-muted-foreground">
-                          ${formatter.format(ma)}
+                          {isLoading ? "..." : `$${formatter.format(ma)}`}
                         </TableCell>
                         <TableCell>
-                          <div className="flex items-center gap-2">
-                            <div className={cn(
-                              "flex items-center gap-1",
-                              isAbove ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
-                            )}>
-                              {isAbove ? (
-                                <ArrowUpIcon className="h-4 w-4" />
-                              ) : (
-                                <ArrowDownIcon className="h-4 w-4" />
-                              )}
-                              <span className="font-mono">
-                                ${formatter.format(difference)}
-                              </span>
-                            </div>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="cursor-help text-xs text-muted-foreground">
-                                  ({formatter.format(percentDiff)}%)
+                          {isLoading ? (
+                            <div className="text-muted-foreground">Loading...</div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <div className={cn(
+                                "flex items-center gap-1",
+                                isAbove ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                              )}>
+                                {isAbove ? (
+                                  <ArrowUpIcon className="h-4 w-4" />
+                                ) : (
+                                  <ArrowDownIcon className="h-4 w-4" />
+                                )}
+                                <span className="font-mono">
+                                  ${formatter.format(difference)}
                                 </span>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Percentage difference from current price</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
+                              </div>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="cursor-help text-xs text-muted-foreground">
+                                    ({formatter.format(percentDiff)}%)
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Percentage difference from current price</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     )

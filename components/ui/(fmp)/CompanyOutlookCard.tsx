@@ -225,13 +225,13 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
             <Activity className="w-4 h-4" /> Statistics
           </TabsTrigger>
           <TabsTrigger value="insiders" className="flex items-center gap-2">
-            <Users className="w-4 h-4" /> Insider
+            <Users className="w-4 h-4" /> Insider Activity
           </TabsTrigger>
           <TabsTrigger value="executives" className="flex items-center gap-2">
             <Users className="w-4 h-4" /> Executives
           </TabsTrigger>
           <TabsTrigger value="dividends" className="flex items-center gap-2">
-            <DollarSign className="w-4 h-4" /> Dividends
+            <DollarSign className="w-4 h-4" /> Dividend History
           </TabsTrigger>
         </TabsList>
 
