@@ -41,13 +41,13 @@ export default function MarketMostActive() {
     return (
       <Card className="border border-border/50 shadow-sm max-w-4xl mx-auto">
         <CardContent className="pt-6">
-          <div className="text-destructive">{error}</div>
+          <div className="text-destructive">{error?.message}</div>
         </CardContent>
       </Card>
     );
   }
 
-  const sortedData = [...data].sort((a, b) => {
+  const sortedData = [...(data || [])].sort((a, b) => {
     if (!sortConfig) return 0;
 
     let comparison = 0;

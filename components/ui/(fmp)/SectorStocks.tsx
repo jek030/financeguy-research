@@ -6,7 +6,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { ArrowUpDown } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface SectorStock {
   symbol: string;
@@ -55,7 +54,7 @@ export default function SectorStocks({ sector }: SectorStocksProps) {
     return (
       <Card className="border border-border/50 shadow-sm max-w-6xl mx-auto">
         <CardContent className="pt-6">
-          <div className="text-destructive">{error}</div>
+          <div className="text-destructive">{error?.message}</div>
         </CardContent>
       </Card>
     );

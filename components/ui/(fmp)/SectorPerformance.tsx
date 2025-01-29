@@ -14,7 +14,7 @@ interface SectorPerformance {
 
 
 export default function SectorPerformance() {
-  const { data, isLoading, error } = useSectorPerformance();
+  const { data = [], isLoading, error } = useSectorPerformance();
   const router = useRouter();
   const [sortConfig, setSortConfig] = useState<{
     key: keyof SectorPerformance;
@@ -35,7 +35,7 @@ export default function SectorPerformance() {
     return (
       <Card className="border border-border/50 shadow-sm max-w-2xl mx-auto">
         <CardContent className="pt-6">
-          <div className="text-destructive">{error}</div>
+          <div className="text-destructive">{error?.message}</div>
         </CardContent>
       </Card>
     );

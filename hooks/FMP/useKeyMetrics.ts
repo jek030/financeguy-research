@@ -1,5 +1,4 @@
 import { useQueries } from '@tanstack/react-query';
-import { KeyMetrics } from '../../lib/types';
 
 const apiKey = process.env.NEXT_PUBLIC_FMP_API_KEY || '';
 

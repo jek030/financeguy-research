@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
 import useEarningsConfirmed from '@/hooks/FMP/useEarningsConfirmed';
-import useDowJonesConstituents from '@/hooks/FMP/useDowJonesConstituents';
-import useSP500Constituents from '@/hooks/FMP/useSP500Constituents';
+import { useDowJonesConstituents } from '@/hooks/FMP/useDowJonesConstituents';
+import { useSP500Constituents } from '@/hooks/FMP/useSP500Constituents';
 
 interface EventCategory {
   name: string;
