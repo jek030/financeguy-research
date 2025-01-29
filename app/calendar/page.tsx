@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
-import useEarningsConfirmed from '@/hooks/FMP/useEarningsConfirmed';
+import { useEarningsConfirmed } from '@/hooks/FMP/useEarningsConfirmed';
 import { useDowJonesConstituents } from '@/hooks/FMP/useDowJonesConstituents';
 import { useSP500Constituents } from '@/hooks/FMP/useSP500Constituents';
 
@@ -51,9 +51,9 @@ const CalendarPage: React.FC = () => {
   });
   const [editingEvent, setEditingEvent] = useState<{ index: number; text: string } | null>(null);
   
-  const { earnings, isLoading: earningsLoading, error: earningsError } = useEarningsConfirmed(currentDate);
-  const { constituents: dowConstituents, isLoading: dowLoading } = useDowJonesConstituents();
-  const { constituents: spConstituents, isLoading: spLoading } = useSP500Constituents();
+  const { data: earnings = [], isLoading: earningsLoading, error: earningsError } = useEarningsConfirmed(currentDate);
+  const { data: dowConstituents = new Set(), isLoading: dowLoading } = useDowJonesConstituents();
+  const { data: spConstituents = new Set(), isLoading: spLoading } = useSP500Constituents();
 
   // Add useEffect to handle earnings data
   useEffect(() => {

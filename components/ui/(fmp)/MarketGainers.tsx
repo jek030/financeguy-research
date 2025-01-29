@@ -17,7 +17,7 @@ interface MarketGainer {
 
 export default function MarketGainers() {
   const router = useRouter();
-  const { data, isLoading, error } = useMarketGainers();
+  const { data = [], isLoading, error } = useMarketGainers();
   const [sortConfig, setSortConfig] = useState<{
     key: keyof MarketGainer;
     direction: 'asc' | 'desc';
@@ -40,7 +40,7 @@ export default function MarketGainers() {
     return (
       <Card className="border border-border/50 shadow-sm max-w-4xl mx-auto">
         <CardContent className="pt-6">
-          <div className="text-destructive">{error}</div>
+          <div className="text-destructive">{error?.message}</div>
         </CardContent>
       </Card>
     );
