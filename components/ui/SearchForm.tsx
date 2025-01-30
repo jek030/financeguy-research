@@ -37,6 +37,7 @@ const SearchForm: React.FC<SearchFormProps> = ({ className = "" }) => {
 
   function onSubmit(data: z.infer<typeof FormSchema>) {
     router.push(`/search/${data.symbol.toUpperCase()}`);
+    form.reset();
   }
 
   return (
