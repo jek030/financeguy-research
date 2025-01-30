@@ -1,16 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { CompanyOutlook } from '@/lib/types';
 
-const apiKey = process.env.NEXT_PUBLIC_FMP_API_KEY || '';
-
-async function fetchCompanyOutlook(symbol: string) {
-  if (!symbol || !apiKey) {
-    throw new Error('Symbol and API key are required');
+async function fetchCompanyOutlook(symbol: string): Promise<CompanyOutlook> {
+  if (!symbol) {
+    throw new Error('Symbol is required');
   }
 
-  const response = await fetch(
-    `https://financialmodelingprep.com/api/v4/company-outlook?symbol=${symbol}&apikey=${apiKey}`
-  );
+  const response = await fetch(`/api/fmp/companyoutlook?symbol=${symbol}`);
 
   if (!response.ok) {
     throw new Error(`API call failed: ${response.statusText}`);
@@ -18,6 +14,7 @@ async function fetchCompanyOutlook(symbol: string) {
 
   const rawData = await response.json();
 
+  // Map the raw data to our CompanyOutlook type
   return {
     profile: rawData.profile || null,
     metrics: rawData.metrics || null,
@@ -40,6 +37,6 @@ export function useCompanyOutlook(symbol: string) {
   return useQuery({
     queryKey: ['company-outlook', symbol],
     queryFn: () => fetchCompanyOutlook(symbol),
-    enabled: Boolean(symbol && apiKey),
+    enabled: Boolean(symbol),
   });
 }

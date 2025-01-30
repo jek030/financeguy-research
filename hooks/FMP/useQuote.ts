@@ -2,12 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import type { Ticker } from '@/lib/types';
 
 async function fetchQuote(symbol: string): Promise<Ticker[]> {
-  const apiKey = process.env.NEXT_PUBLIC_FMP_API_KEY;
-  if (!apiKey) throw new Error('FMP API key is not configured');
+  if (!symbol) {
+    throw new Error('Symbol is required');
+  }
 
-  const response = await fetch(
-    `https://financialmodelingprep.com/api/v3/quote/${symbol}?apikey=${apiKey}`
-  );
+  const response = await fetch(`/api/fmp/quote?symbol=${symbol}`);
 
   if (!response.ok) {
     throw new Error('Failed to fetch quote data');

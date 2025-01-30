@@ -1,21 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { StockDividend } from '../../lib/types';
+import { StockDividend } from '@/lib/types';
 
 interface DividendHistoryResponse {
   symbol: string;
   historical: StockDividend[];
 }
 
-const apiKey = process.env.NEXT_PUBLIC_FMP_API_KEY || '';
-
-async function fetchDividendHistory(symbol: string) {
-  if (!symbol || !apiKey) {
-    throw new Error('Symbol and API key are required');
+async function fetchDividendHistory(symbol: string): Promise<StockDividend[]> {
+  if (!symbol) {
+    throw new Error('Symbol is required');
   }
 
-  const response = await fetch(
-    `https://financialmodelingprep.com/api/v3/historical-price-full/stock_dividend/${symbol}?apikey=${apiKey}`
-  );
+  const response = await fetch(`/api/fmp/dividendhistory?symbol=${symbol}`);
   
   if (!response.ok) {
     throw new Error('Failed to fetch dividend history');
@@ -29,6 +25,6 @@ export function useDividendHistory(symbol: string) {
   return useQuery({
     queryKey: ['dividend-history', symbol],
     queryFn: () => fetchDividendHistory(symbol),
-    enabled: Boolean(symbol && apiKey),
+    enabled: Boolean(symbol),
   });
 } 

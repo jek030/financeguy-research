@@ -10,46 +10,43 @@ interface MovingAverageDataPoint {
   ma: number;
 }
 
-const apiKey = process.env.NEXT_PUBLIC_FMP_API_KEY || '';
-
 async function fetchMovingAverageData(
-  symbol: string, 
-  type: string, 
-  period: string, 
+  symbol: string,
+  type: string,
+  period: string,
   timeframe: string
-) {
-  if (!symbol || !type || !period || !timeframe || !apiKey) {
-    throw new Error('All parameters and API key are required');
+): Promise<MovingAverageDataPoint[]> {
+  if (!symbol || !type || !period || !timeframe) {
+    throw new Error('All parameters are required');
   }
 
   const response = await fetch(
-    `https://financialmodelingprep.com/api/v3/technical_indicator/${timeframe}/${symbol}?type=${type}&period=${period}&apikey=${apiKey}`
+    `/api/fmp/technical/moving-average?symbol=${symbol}&type=${type}&period=${period}&timeframe=${timeframe}`
   );
-  
+
   if (!response.ok) {
     throw new Error('Failed to fetch moving average data');
   }
-  
+
   const result = await response.json();
   
-  const normalizedResult = result?.map((item: any) => ({
+  // Normalize the response to always use 'ma' property
+  return result.map((item: any) => ({
     ...item,
     ma: item.ema || item.sma || item.ma
   }));
-  
-  return normalizedResult || [];
 }
 
 export function useMovingAverageData(
-  symbol: string, 
-  type: string, 
-  period: string, 
+  symbol: string,
+  type: string,
+  period: string,
   timeframe: string
 ) {
   const { data = [], isLoading, error } = useQuery({
     queryKey: ['moving-average', symbol, type, period, timeframe],
     queryFn: () => fetchMovingAverageData(symbol, type, period, timeframe),
-    enabled: Boolean(symbol && type && period && timeframe && apiKey),
+    enabled: Boolean(symbol && type && period && timeframe),
     staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
     gcTime: 10 * 60 * 1000, // Keep data in cache for 10 minutes
   });

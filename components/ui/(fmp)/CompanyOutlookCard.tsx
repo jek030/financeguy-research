@@ -1,7 +1,7 @@
 "use client"
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { PriceHistory } from '@/lib/types';
+import { PriceHistory, KeyMetrics } from '@/lib/types';
 import {Building2, TrendingUp, Users, Newspaper, AlertCircle, DollarSign, Calendar, PieChart, TrendingDown, Activity} from 'lucide-react';
 
 //UI Components
@@ -45,8 +45,8 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
   /** Float Data from FMP */
   const { data: floatData, isLoading: floatLoading } = useFloat(symbol);
 
-  const getRSIStatus = (value: number | null) => {
-    if (!value) return { color: 'black', label: 'N/A' };
+  const getRSIStatus = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return { color: 'black', label: 'N/A' };
     if (value >= 70) return { color: 'red', label: '- OVERBOUGHT' };
     if (value <= 30) return { color: 'green', label: '- OVERSOLD' };
     return { color: 'black', label: '' };
@@ -500,7 +500,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
                       </TableHeader>
                       <TableBody>
                         {keyMetricsAnnual && keyMetricsAnnual.length > 0 ? (
-                          keyMetricsAnnual.map((metric) => (
+                          keyMetricsAnnual.map((metric: KeyMetrics) => (
                             <TableRow key={`annual-${metric.date}-${metric.period}`}>
                               <TableCell>{new Date(metric.date).toLocaleDateString()}</TableCell>
                               <TableCell>{metric.period}</TableCell>
@@ -549,7 +549,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
                       </TableHeader>
                       <TableBody>
                         {keyMetricsQuarterly && keyMetricsQuarterly.length > 0 ? (
-                          keyMetricsQuarterly.map((metric) => (
+                          keyMetricsQuarterly.map((metric: KeyMetrics) => (
                             <TableRow key={`quarterly-${metric.date}-${metric.period}`}>
                               <TableCell>{new Date(metric.date).toLocaleDateString()}</TableCell>
                               <TableCell>{metric.period}</TableCell>
@@ -595,7 +595,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
                       </TableHeader>
                       <TableBody>
                         {keyMetricsTtm && keyMetricsTtm.length > 0 ? (
-                          keyMetricsTtm.map((metric) => (
+                          keyMetricsTtm.map((metric: KeyMetrics) => (
                             <TableRow key={`ttm-${metric.date}-${metric.calendarYear}`}>
                               <TableCell className="text-right">${(metric.revenuePerShareTTM ?? 0).toFixed(2)}</TableCell>
                               <TableCell className="text-right">${(metric.roeTTM ?? 0).toFixed(2)}</TableCell>

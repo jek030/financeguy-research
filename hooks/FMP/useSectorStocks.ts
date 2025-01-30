@@ -14,38 +14,27 @@ interface SectorStock {
   exchangeShortName: string;
   country: string;
   isEtf: boolean;
-  isFund: boolean;
+  isActivelyTrading: boolean;
 }
 
-const apiKey = process.env.NEXT_PUBLIC_FMP_API_KEY || '';
+const apiKey = process.env.FMP_API_KEY || '';
 
-async function fetchSectorStocks(sector: string) {
-  if (!sector || !apiKey) {
-    throw new Error('Sector and API key are required');
-  }
-
-  const response = await fetch(
-    `https://financialmodelingprep.com/api/v3/stock-screener?sector=${encodeURIComponent(sector)}&isActivelyTrading=true&apikey=${apiKey}`
-  );
+async function fetchSectorStocks(sector: string): Promise<SectorStock[]> {
+  const response = await fetch(`/api/fmp/market/sector-stocks?sector=${encodeURIComponent(sector)}`);
 
   if (!response.ok) {
-    throw new Error('Failed to fetch sector stocks data');
+    throw new Error('Failed to fetch sector stocks');
   }
 
-  const data = await response.json();
-  return (data as SectorStock[]).filter(
-    item => item.exchangeShortName === 'NASDAQ' || 
-           item.exchangeShortName === 'NYSE' || 
-           item.exchangeShortName === 'AMEX'
-  );
+  return response.json();
 }
 
 export function useSectorStocks(sector: string) {
   return useQuery({
     queryKey: ['sector-stocks', sector],
     queryFn: () => fetchSectorStocks(sector),
-    enabled: Boolean(sector && apiKey),
-    staleTime: 3 * 60 * 1000, // Consider data fresh for 3 minutes
-    gcTime: 5 * 60 * 1000, // Keep data in cache for 5 minutes
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    gcTime: 10 * 60 * 1000, // Keep data in cache for 10 minutes
+    enabled: Boolean(sector),
   });
 } 

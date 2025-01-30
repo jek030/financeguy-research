@@ -1,28 +1,17 @@
 import { useQueries } from '@tanstack/react-query';
 
-const apiKey = process.env.NEXT_PUBLIC_FMP_API_KEY || '';
-
 async function fetchKeyMetrics(symbol: string, period: 'annual' | 'quarter' | 'ttm') {
-  if (!symbol || !apiKey) {
-    throw new Error('Symbol and API key are required');
+  if (!symbol) {
+    throw new Error('Symbol is required');
   }
 
-  const url = period === 'ttm'
-    ? `https://financialmodelingprep.com/api/v3/key-metrics-ttm/${symbol}?apikey=${apiKey}`
-    : `https://financialmodelingprep.com/api/v3/key-metrics/${symbol}?period=${period}&apikey=${apiKey}`;
-
-  const response = await fetch(url);
+  const response = await fetch(`/api/fmp/keymetrics?symbol=${symbol}&period=${period}`);
 
   if (!response.ok) {
     throw new Error('Failed to fetch key metrics data');
   }
 
-  const data = await response.json();
-  if (!Array.isArray(data)) {
-    throw new Error('Invalid key metrics data format');
-  }
-
-  return data;
+  return response.json();
 }
 
 export function useKeyMetrics(symbol: string) {
@@ -31,17 +20,17 @@ export function useKeyMetrics(symbol: string) {
       {
         queryKey: ['key-metrics', symbol, 'annual'],
         queryFn: () => fetchKeyMetrics(symbol, 'annual'),
-        enabled: Boolean(symbol && apiKey),
+        enabled: Boolean(symbol),
       },
       {
         queryKey: ['key-metrics', symbol, 'quarter'],
         queryFn: () => fetchKeyMetrics(symbol, 'quarter'),
-        enabled: Boolean(symbol && apiKey),
+        enabled: Boolean(symbol),
       },
       {
         queryKey: ['key-metrics', symbol, 'ttm'],
         queryFn: () => fetchKeyMetrics(symbol, 'ttm'),
-        enabled: Boolean(symbol && apiKey),
+        enabled: Boolean(symbol),
       },
     ],
   });

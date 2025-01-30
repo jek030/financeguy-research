@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-interface Constituent {
+interface SP500Constituent {
   symbol: string;
   name: string;
   sector: string;
@@ -11,30 +11,23 @@ interface Constituent {
   founded: string;
 }
 
-const apiKey = process.env.NEXT_PUBLIC_FMP_API_KEY || '';
-
-async function fetchSP500Constituents() {
-  if (!apiKey) {
-    throw new Error('API key is required');
-  }
-
-  const response = await fetch(
-    `https://financialmodelingprep.com/api/v3/sp500_constituent?apikey=${apiKey}`
-  );
+async function fetchSP500Constituents(): Promise<SP500Constituent[]> {
+  const response = await fetch('/api/fmp/market/sp500');
 
   if (!response.ok) {
     throw new Error('Failed to fetch S&P 500 constituents');
   }
 
-  const data: Constituent[] = await response.json();
-  return new Set(data.map(item => item.symbol));
+  return response.json();
 }
 
 export function useSP500Constituents() {
   return useQuery({
     queryKey: ['sp500-constituents'],
-    queryFn: fetchSP500Constituents,
-    enabled: Boolean(apiKey),
+    queryFn: async () => {
+      const data = await fetchSP500Constituents();
+      return new Set(data.map(item => item.symbol));
+    },
     staleTime: 24 * 60 * 60 * 1000, // Consider data fresh for 24 hours
     gcTime: 7 * 24 * 60 * 60 * 1000, // Keep data in cache for 7 days
   });

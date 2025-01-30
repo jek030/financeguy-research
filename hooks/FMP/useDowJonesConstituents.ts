@@ -11,16 +11,8 @@ interface Constituent {
   founded: string;
 }
 
-const apiKey = process.env.NEXT_PUBLIC_FMP_API_KEY || '';
-
-async function fetchDowJonesConstituents() {
-  if (!apiKey) {
-    throw new Error('API key is required');
-  }
-
-  const response = await fetch(
-    `https://financialmodelingprep.com/api/v3/dowjones_constituent?apikey=${apiKey}`
-  );
+async function fetchDowJonesConstituents(): Promise<Set<string>> {
+  const response = await fetch('/api/fmp/dowjones');
 
   if (!response.ok) {
     throw new Error('Failed to fetch Dow Jones constituents');
@@ -34,7 +26,6 @@ export function useDowJonesConstituents() {
   return useQuery({
     queryKey: ['dowjones-constituents'],
     queryFn: fetchDowJonesConstituents,
-    enabled: Boolean(apiKey),
     staleTime: 24 * 60 * 60 * 1000, // Consider data fresh for 24 hours
     gcTime: 7 * 24 * 60 * 60 * 1000, // Keep data in cache for 7 days
   });
