@@ -76,10 +76,10 @@ export function MovingAverages({ companyData, symbol }: MovingAveragesProps) {
     <div className="space-y-4">
       <Card className="border-border">
         <CardHeader>
-          <CardTitle className="text-foreground">Moving Averages Analysis</CardTitle>
-          <CardDescription>
-            Current Price: ${formatter.format(currentPrice)}
-          </CardDescription>
+              <CardTitle className="text-foreground">Moving Averages Analysis</CardTitle>
+              <CardDescription>
+                Current Price: ${formatter.format(currentPrice)}
+              </CardDescription>
         </CardHeader>
         
         <CardContent>

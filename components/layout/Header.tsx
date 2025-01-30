@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { cn } from '@/components/lib/utils';
+import { cn } from '@/lib/utils';
 import SearchForm from '@/components/ui/SearchForm';
 
 interface PageHeaderProps {

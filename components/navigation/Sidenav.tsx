@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import NavLinks from '@/components/navigation/NavLinks';
 import Image from 'next/image';
-import { cn } from '@/components/lib/utils';
+import { cn } from '@/lib/utils';
 import { useState } from 'react';
 
 export default function SideNav() {

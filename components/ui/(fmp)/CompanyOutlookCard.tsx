@@ -12,8 +12,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/Table";
 import { Badge } from '@/components/ui/Badge';
 import { ScrollArea } from '@/components/ui/ScrollArea';
-
+import { Separator } from '@/components/ui/Separator';
 import { Financials } from '@/components/ui/(fmp)/Financials';
+import { cn } from '@/lib/utils';
 
 //FMP Hooks
 import { useCompanyOutlook } from '@/hooks/FMP/useCompanyOutlook';
@@ -26,6 +27,7 @@ import { useNewsHistory } from '@/hooks/FMP/useNewsHistory';
 import { MovingAverages } from '@/components/ui/(fmp)/MovingAverages';
 import { useRSIData } from '@/hooks/FMP/useRSIData';
 import { useQuote } from '@/hooks/FMP/useQuote';
+import { useFloat } from '@/hooks/FMP/useFloat';
 
 interface CompanyOutlookProps {
   symbol: string;
@@ -39,6 +41,9 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
   /** RSI Data from FMP */
   const { data: rsiData, isLoading: rsiLoading } = useRSIData(symbol);
   const rsi = rsiData?.rsi;
+
+  /** Float Data from FMP */
+  const { data: floatData, isLoading: floatLoading } = useFloat(symbol);
 
   const getRSIStatus = (value: number | null) => {
     if (!value) return { color: 'black', label: 'N/A' };
@@ -136,69 +141,122 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
   return (
     <div className="space-y-6">
       {/* Company Header Card */}
-      <Card className="border-2">
-        <CardHeader>
-          <div className="flex justify-between items-start">
-            <div className="flex items-center space-x-4">
+      <Card className="w-full bg-card border shadow-lg">
+        <CardHeader className="pb-4">
+          <div className="flex flex-col lg:flex-row justify-between gap-6">
+            <div className="flex gap-4">
               {companyData.profile.image && (
                 <img
                   src={companyData.profile.image}
                   alt={companyData.profile.companyName || 'Company logo'}
-                  className="w-16 h-16 rounded-full"
+                  className="w-16 h-16 rounded-lg object-cover"
                 />
               )}
               <div>
-                <CardTitle className="text-3xl font-bold">
-                  {companyData.profile.companyName}
-                  {quote.change && (
-                    <span className="ml-2">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <h2 className="text-2xl font-bold tracking-tight">
+                    {companyData.profile.companyName}
+                  </h2>
+                  {quote?.change && (
+                    <div className="flex gap-2">
                       <Badge variant={quote.change >= 0 ? "positive" : "destructive"}>
-                        {quote.change >= 0 ? '+' : ''}{quote.change.toFixed(2)}
+                        {quote.change >= 0 ? '+' : ''}{safeFormat(quote.change)}
                       </Badge>
-                      <span className="mx-1" />
-                      <Badge variant={quote.changesPercentage ? (quote.changesPercentage >= 0 ? "positive" : "destructive") : "default"}>
+                      <Badge variant={quote.changesPercentage ? (quote.changesPercentage >= 0 ? "positive" : "destructive") : "secondary"}>
                         {quote.changesPercentage ? (quote.changesPercentage >= 0 ? '+' : '') : ''}
-                        {quote.changesPercentage ? quote.changesPercentage.toFixed(2) : 'N/A'}%
+                        {quote.changesPercentage ? safeFormat(quote.changesPercentage) : 'N/A'}%
                       </Badge>
-                    </span>
+                    </div>
                   )}
-                </CardTitle>
-                <CardDescription className="text-lg">
-                  {quote.symbol} • {quote.exchange || 'N/A'}
-                </CardDescription>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {quote?.symbol} • {quote?.exchange || 'N/A'}
+                </div>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-4xl font-bold">
-                ${typeof quote.price === 'number' ? quote.price.toFixed(2) : 'N/A'}
+
+            <div className="lg:text-right">
+              <div className="text-3xl font-bold">
+                ${typeof quote.price === 'number' ? safeFormat(quote.price) : 'N/A'}
               </div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground mt-1">
                 Market Cap: {quote.marketCap ? formatMarketCap(quote.marketCap) : 'N/A'}
               </div>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-4 gap-4">
-            <div className="p-4 bg-secondary rounded-lg">
-              <h3 className="text-sm font-medium text-muted-foreground">Volume</h3>
-              <p className="text-2xl font-bold">{formatLargeNumber(quote.volume)}</p>
+
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              {
+                label: "Day Range",
+                value: `Prev Close: $${safeFormat(quote.previousClose)}\nOpen: $${safeFormat(quote.open)}\nLow: $${safeFormat(quote.dayLow)}\nHigh: $${safeFormat(quote.dayHigh)}`
+              },
+              {
+                label: "Moving Averages",
+                value: `50Day: $${safeFormat(quote.priceAvg50)}\n200Day: $${safeFormat(quote.priceAvg200)}`
+              },
+              {
+                label: "52 Week Range",
+                value: `$${safeFormat(quote.yearLow)} - $${safeFormat(quote.yearHigh)}`
+              },      
+              {
+                label: "P/E Ratio",
+                value: quote.pe ? safeFormat(quote.pe) : 'N/A'
+              }     
+            ].map((item, index) => (
+              <div key={index} className="p-4 rounded-lg bg-secondary/50 hover:bg-secondary/70 transition-colors">
+                <h4 className="text-sm font-medium text-muted-foreground mb-2">{item.label}</h4>
+                <p className="font-mono text-sm whitespace-pre-line">{item.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <Separator className="my-4" />
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              {
+                label: "Volume",
+                value: floatLoading || !floatData?.[0]?.floatShares
+                  ? formatLargeNumber(quote.volume)
+                  : `Volume: ${formatLargeNumber(quote.volume)}\n` +
+                    `% Float Traded: ${((quote.volume / floatData[0].floatShares) * 100).toFixed(2)}%`
+              },
+              {
+                label: "Shares Outstanding",
+                value: floatLoading 
+                  ? "Loading..." 
+                  : !floatData?.[0] 
+                    ? (quote.sharesOutstanding ? formatLargeNumber(quote.sharesOutstanding) : 'N/A')
+                    : `Outstanding: ${formatLargeNumber(floatData[0].outstandingShares)}\n` +
+                      `Float: ${formatLargeNumber(floatData[0].floatShares)}\n` +
+                      `Free Float: ${floatData[0].freeFloat.toFixed(2)}%`
+              },
+              {
+                label: "RSI (14)",
+                value: rsiLoading ? "Loading..." : (rsi ? `${safeFormat(rsi)} ${rsiStatus.label}` : 'N/A'),
+                color: !rsiLoading && rsi ? rsiStatus.color : undefined
+              },
+            ].map((item, index) => (
+              <div key={index} className="p-4 rounded-lg bg-secondary/50 hover:bg-secondary/70 transition-colors">
+                <h4 className="text-sm font-medium text-muted-foreground mb-2">{item.label}</h4>
+                <p className={cn("text-sm font-medium font-mono whitespace-pre-line", item.color)}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col md:flex-row justify-between text-sm text-muted-foreground mt-4 pt-4 border-t">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">Next Earnings:</span>
+              {quote.earningsAnnouncement ? 
+                new Date(quote.earningsAnnouncement).toLocaleDateString() : 'N/A'}
             </div>
-            <div className="p-4 bg-secondary rounded-lg">
-              <h3 className="text-sm font-medium text-muted-foreground">RSI (14)</h3>
-                {rsiLoading ? (<span className="text-gray-400">Loading...</span>):(
-                  <span className="text-2xl font-bold" style={{ color: rsiStatus.color }}>
-                    {rsi ? `${safeFormat(rsi)} ${rsiStatus.label}` : 'N/A'}
-                  </span>
-                )}        
-            </div>
-            <div className="p-4 bg-secondary rounded-lg">
-              <h3 className="text-sm font-medium text-muted-foreground">Exchange</h3>
-              <p className="text-2xl font-bold">{quote.exchange}</p>
-            </div>
-            <div className="p-4 bg-secondary rounded-lg">
-              <h3 className="text-sm font-medium text-muted-foreground">P/E Ratio</h3>
-              <p className="text-2xl font-bold">{quote.pe ? quote.pe.toFixed(2) : 'N/A'}</p>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">Last Updated:</span>
+              {quote.timestamp ? 
+                new Date(quote.timestamp * 1000).toLocaleString() : 'N/A'}
             </div>
           </div>
         </CardContent>
