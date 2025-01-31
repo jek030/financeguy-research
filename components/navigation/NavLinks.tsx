@@ -1,8 +1,6 @@
 "use client";
 import {
   HomeIcon,
-  TableCellsIcon,
-  UserGroupIcon,
   CalendarIcon,
   EyeIcon,
   CurrencyDollarIcon,

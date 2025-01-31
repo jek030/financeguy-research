@@ -1,33 +1,33 @@
 "use client";
-import { useEffect, useState, useCallback } from 'react';
+import {  useState } from 'react';
 import { use } from 'react';
 //import { PriceHistoryCard } from '@/app/components/PriceHistoryCard';
-import { Suspense } from 'react';
+//import { Suspense } from 'react';
 //import { getFirstBusinessDay, PriceHistory, Ticker } from '@/app/lib/utils';
 //import Header from '@/app/components/Header';
 import RRCard from '@/components/ui/RRCard';
 import CompanyOutlookCard from '@/components/ui/(fmp)/CompanyOutlookCard';
 //import { useRSIData } from '@/app/FMP/hooks/useRSIData';
-import { Ticker } from '@/lib/types';
+//import { Ticker } from '@/lib/types';
 
 export default function Page({ params }: { params: Promise<{ symbol: string }> }) {
   const resolvedParams = use(params);
   const symbol = resolvedParams.symbol.toUpperCase();
   //const [tickerData, setTickerData] = useState<Ticker>({} as Ticker);
   //const [priceHistory, setPriceHistory] = useState<PriceHistory[]>([]);
-  const [currentPrice, setCurrentPrice] = useState<number>(0);
+  const [currentPrice] = useState<number>(0);
   //const [startDate, setStartDate] = useState(getFirstBusinessDay());
-  const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  //const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+  //const [isLoading, setIsLoading] = useState(false);
+  //const [error, setError] = useState<string | null>(null);
 
   //const { rsi, isLoading: rsiLoading } = useRSIData(ticker, apiKey);
 
 
-  const isValidDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date instanceof Date && !isNaN(date.getTime());
-  };
+  //const isValidDate = (dateStr: string) => {
+  //  const date = new Date(dateStr);
+  //  return date instanceof Date && !isNaN(date.getTime());
+  //};
  
   //const fetchPriceHistory = useCallback(async () => {    
     //if (!isValidDate(startDate) || !isValidDate(endDate)) {

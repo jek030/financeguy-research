@@ -1,4 +1,4 @@
-export default function Footer({ className }: { className?: string }) {
+export default function Footer() {
   return (
     <footer className="border-t border-border bg-muted/40 px-4 py-3">
       <div className="text-xs text-muted-foreground text-center">

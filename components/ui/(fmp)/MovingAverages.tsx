@@ -18,6 +18,11 @@ interface MovingAveragesProps {
   symbol: string;
 }
 
+interface MovingAverageResponse {
+  ma: number;
+  date: string;
+}
+
 interface MovingAverageData {
   ma: number;
   isAbove: boolean;
@@ -26,15 +31,8 @@ interface MovingAverageData {
 }
 
 function useMovingAverages(symbol: string, currentPrice: number) {
-  const periods = {
-    tenEma: { type: 'ema', period: '10', interval: '1day' },
-    twentyEma: { type: 'ema', period: '20', interval: '1day' },
-    fiftySma: { type: 'sma', period: '50', interval: '1day' },
-    twoHundredSma: { type: 'sma', period: '200', interval: '1day' },
-    twentyWeekSma: { type: 'sma', period: '20', interval: '1week' },
-  } as const;
 
-  const getMovingAverageValue = (data: any[] | undefined) => 
+  const getMovingAverageValue = (data: MovingAverageResponse[] | undefined) => 
     data && data.length > 0 && data[0]?.ma ? data[0].ma : 0;
 
   const calculateMovingAverageData = (maValue: number): MovingAverageData => {
@@ -49,23 +47,37 @@ function useMovingAverages(symbol: string, currentPrice: number) {
     return { ma: maValue, isAbove, percentDiff, difference };
   };
 
-  return Object.entries(periods).reduce((acc, [key, params]) => {
-    const { data, isLoading } = useMovingAverageData(
-      symbol,
-      params.type,
-      params.period,
-      params.interval
-    );
-    
-    const maValue = getMovingAverageValue(data);
-    return {
-      ...acc,
-      [key]: {
-        data: calculateMovingAverageData(maValue),
-        isLoading
-      }
-    };
-  }, {} as Record<keyof typeof periods, { data: MovingAverageData, isLoading: boolean }>);
+  // Call hooks at the top level
+  const tenEmaData = useMovingAverageData(symbol, 'ema', '10', '1day');
+  const twentyEmaData = useMovingAverageData(symbol, 'ema', '20', '1day');
+  const fiftyEmaData = useMovingAverageData(symbol, 'sma', '50', '1day');
+  const twoHundredSmaData = useMovingAverageData(symbol, 'sma', '200', '1day');
+  const twentyWeekSmaData = useMovingAverageData(symbol, 'sma', '20', '1week');
+
+  const movingAverages = {
+    tenEma: {
+      data: calculateMovingAverageData(getMovingAverageValue(tenEmaData.data)),
+      isLoading: tenEmaData.isLoading
+    },
+    twentyEma: {
+      data: calculateMovingAverageData(getMovingAverageValue(twentyEmaData.data)),
+      isLoading: twentyEmaData.isLoading
+    },
+    fiftySma: {
+      data: calculateMovingAverageData(getMovingAverageValue(fiftyEmaData.data)),
+      isLoading: fiftyEmaData.isLoading
+    },
+    twoHundredSma: {
+      data: calculateMovingAverageData(getMovingAverageValue(twoHundredSmaData.data)),
+      isLoading: twoHundredSmaData.isLoading
+    },
+    twentyWeekSma: {
+      data: calculateMovingAverageData(getMovingAverageValue(twentyWeekSmaData.data)),
+      isLoading: twentyWeekSmaData.isLoading
+    }
+  } as const;
+
+  return movingAverages;
 }
 
 export function MovingAverages({ companyData, symbol }: MovingAveragesProps) {

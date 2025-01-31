@@ -1,13 +1,14 @@
 "use client"
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { PriceHistory, KeyMetrics } from '@/lib/types';
-import {Building2, TrendingUp, Users, Newspaper, AlertCircle, DollarSign, Calendar, PieChart, TrendingDown, Activity} from 'lucide-react';
+import {Building2, Users, DollarSign, PieChart, TrendingDown, Activity} from 'lucide-react';
 
 //UI Components
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/Table";
 import { Badge } from '@/components/ui/Badge';
@@ -65,7 +66,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
   /*Company Outlook Data from FMP*/
   const { data: companyData, isLoading, error } = useCompanyOutlook(symbol);
   /*Key Metrics Data from FMP*/
-  const { annualData: keyMetricsAnnual, quarterlyData: keyMetricsQuarterly, ttmData: keyMetricsTtm, isLoading: keyMetricsLoading } = useKeyMetrics(symbol);
+  const { annualData: keyMetricsAnnual, quarterlyData: keyMetricsQuarterly, ttmData: keyMetricsTtm } = useKeyMetrics(symbol);
   
   /*Insider Trading Data from FMP*/
   const { data: insiderTrades, isLoading: insiderLoading, error: insiderError } = useInsiderTrading(symbol);
@@ -77,40 +78,6 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
   const range5Day = calculateRanges(priceHistory, 5);
   const range20Day = calculateRanges(priceHistory, 20);
   // Prepare quarterly revenue data for chart
-  const quarterlyData = React.useMemo(() => {
-    if (!companyData?.financialsQuarter?.income) {
-      return [];
-    }
-
-    return companyData.financialsQuarter.income
-      .filter(quarter => quarter && quarter.date)
-      .map(quarter => ({
-        date: new Date(quarter.date).toLocaleDateString('en-US', { 
-          month: 'short', 
-          year: '2-digit' 
-        }),
-        revenue: (quarter.revenue || 0) / 1e9,
-        profit: (quarter.netIncome || 0) / 1e9
-      }))
-      .reverse();
-  }, [companyData?.financialsQuarter?.income]);
-
-  const annualData = React.useMemo(() => {
-    if (!companyData?.financialsAnnual?.income) {
-      return [];
-    }
-  
-    return companyData.financialsAnnual.income
-      .filter(year => year && year.date)
-      .map(year => ({
-        date: new Date(year.date).toLocaleDateString('en-US', { 
-          year: '2-digit'
-        }),
-        revenue: (year.revenue || 0) / 1e9,
-        profit: (year.netIncome || 0) / 1e9
-      }))
-      .reverse();
-  }, [companyData?.financialsAnnual?.income]);
 
 
   if (isLoading || quoteLoading) {
@@ -146,10 +113,12 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
           <div className="flex flex-col lg:flex-row justify-between gap-6">
             <div className="flex gap-4">
               {companyData.profile.image && (
-                <img
+                <Image
                   src={companyData.profile.image}
                   alt={companyData.profile.companyName || 'Company logo'}
-                  className="w-16 h-16 rounded-lg object-cover"
+                  width={64}
+                  height={64}
+                  className="rounded-lg object-cover"
                 />
               )}
               <div>
@@ -411,14 +380,16 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
                   <ScrollArea className="h-[400px]">
                     <div className="space-y-4">
                       {newsData && newsData.length > 0 ? (
-                        newsData.map((news, index) => (
+                        newsData.map((news) => (
                           <div key={`${news.publishedDate}-${news.title}-${news.site}`} className="flex gap-4 p-4 border rounded-lg">
                             {news.image && (
                               <div className="flex-shrink-0">
-                                <img 
+                                <Image 
                                   src={news.image} 
                                   alt={news.title} 
-                                  className="w-24 h-24 object-cover rounded-md"
+                                  width={96}
+                                  height={96}
+                                  className="object-cover rounded-md"
                                   onError={(e) => {
                                     const target = e.target as HTMLImageElement;
                                     target.style.display = 'none';
