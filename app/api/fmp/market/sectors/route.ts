@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import {  NextResponse } from 'next/server';
 import { FMP_API_KEY, FMP_BASE_URL } from '../../../fmp/config';
 
 export async function GET() {

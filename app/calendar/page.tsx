@@ -28,30 +28,19 @@ interface EventsState {
   [key: string]: CalendarEvent[];
 }
 
-const THEME_COLORS = [
-  'bg-primary/10 text-primary',
-  'bg-secondary/10 text-secondary',
-  'bg-accent/10 text-accent',
-  'bg-muted/10 text-muted-foreground',
-  'bg-positive/10 text-positive',
-  'bg-negative/10 text-negative',
-  'bg-popover/10 text-popover-foreground',
-  'bg-card/10 text-card-foreground',
-];
-
 const CalendarPage: React.FC = () => {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [events, setEvents] = useState<EventsState>({});
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [newEvent, setNewEvent] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('default');
-  const [eventCategories, setEventCategories] = useState<Record<string, EventCategory>>({
+  const [eventCategories] = useState<Record<string, EventCategory>>({
     default: { name: 'Default', color: 'bg-primary/10 text-primary' },
     earnings: { name: 'Earnings', color: 'bg-info/10 text-primary' },
   });
   const [editingEvent, setEditingEvent] = useState<{ index: number; text: string } | null>(null);
   
-  const { data: earnings = [], isLoading: earningsLoading, error: earningsError } = useEarningsConfirmed(currentDate);
+  const { data: earnings = [] } = useEarningsConfirmed(currentDate);
   const { data: dowConstituents = new Set(), isLoading: dowLoading } = useDowJonesConstituents();
   const { data: spConstituents = new Set(), isLoading: spLoading } = useSP500Constituents();
 
@@ -116,9 +105,7 @@ const CalendarPage: React.FC = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
   };
 
-  const getDateKey = (year: number, month: number, day: number): string => {
-    return `${year}-${month}-${day}`;
-  };
+
 
   const handleAddEvent = (): void => {
     if (newEvent.trim() && selectedDate) {
@@ -293,18 +280,6 @@ const CalendarPage: React.FC = () => {
     return days;
   };
 
-  // Function to get previous business day
-  const getPreviousBusinessDay = (date: Date): Date => {
-    const previousDay = new Date(date);
-    previousDay.setDate(date.getDate() - 1);
-
-    // Keep going back until we find a weekday (0 = Sunday, 6 = Saturday)
-    while (previousDay.getDay() === 0 || previousDay.getDay() === 6) {
-      previousDay.setDate(previousDay.getDate() - 1);
-    }
-
-    return previousDay;
-  };
 
   return (
     <div className="flex flex-col">
