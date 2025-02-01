@@ -5,9 +5,11 @@ import {
   EyeIcon,
   CurrencyDollarIcon,
   BookOpenIcon,
+  BookmarkIcon,
   MapIcon,
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
+
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
@@ -20,7 +22,7 @@ const mainLinks = [
     icon: HomeIcon 
   },
   {
-    name: 'Calendar',
+    name: 'Earnings Calendar',
     href: '/calendar',
     icon: CalendarIcon,
   },
@@ -30,7 +32,7 @@ const mainLinks = [
     icon: EyeIcon,
   },
   {
-    name: 'FMP Scans',
+    name: 'Market Scans',
     href: '/scans',
     icon: MapIcon,
   },
@@ -47,7 +49,13 @@ const marketLinks = [
     href: '/canslim',
     icon: BookOpenIcon,
   },
+  {
+    name: 'Resources',
+    href: '/resources',
+    icon: BookmarkIcon,
+  },
 ];
+
 
 interface NavLinksProps {
   collapsed?: boolean;
