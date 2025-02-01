@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
+import { electrolize } from '@/lib/fonts';
 
 const mainLinks = [
   { 
@@ -64,7 +65,8 @@ export default function NavLinks({ collapsed = false }: NavLinksProps) {
         variant={pathname === link.href ? "secondary" : "ghost"}
         className={cn(
           "w-full",
-          collapsed ? "justify-center px-2" : "justify-start"
+          collapsed ? "justify-center px-2" : "justify-start",
+          electrolize.className
         )}
       >
         <Link href={link.href}>

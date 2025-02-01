@@ -4,6 +4,7 @@ import NavLinks from '@/components/navigation/NavLinks';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
+import { electrolize } from '@/lib/fonts';
 
 export default function SideNav() {
   const [isHovered, setIsHovered] = useState(false);
@@ -35,10 +36,11 @@ export default function SideNav() {
         </div>
         <div className={cn(
           "flex flex-col overflow-hidden transition-all duration-300",
-          isHovered ? "opacity-100 w-auto" : "opacity-0 w-0"
+          isHovered ? "opacity-100 w-auto" : "opacity-0 w-0",
+          electrolize.className
         )}>
-          <span className="text-lg font-bold text-foreground">Finance</span>
-          <span className="text-lg font-bold text-foreground">Guy</span>
+          <span className="text-lg text-foreground">Finance</span>
+          <span className="text-lg text-foreground">Guy</span>
         </div>
       </Link>
       

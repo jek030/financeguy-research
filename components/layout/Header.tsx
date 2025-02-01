@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import SearchForm from '@/components/ui/SearchForm';
+import { electrolize } from '@/lib/fonts';
 
 interface PageHeaderProps {
   title?: string;
@@ -36,7 +37,7 @@ export default function Header({
     <header className={cn('w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60', className)}>
       <div className="px-4 py-3">
         <div className="flex flex-col sm:flex-row items-center gap-2">
-          <h1 className="text-base font-bold whitespace-nowrap">{title}</h1>
+          <h1 className={cn("text-base whitespace-nowrap", electrolize.className)}>{title}</h1>
           <div className="flex-1 w-full sm:max-w-2xl">
             <SearchForm />
           </div>
