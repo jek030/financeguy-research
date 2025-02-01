@@ -6,4 +6,7 @@ export const SUPPORTED_CRYPTOCURRENCIES = [
   { value: 'MATICUSD', label: 'Polygon (MATIC/USD)' },
   { value: 'AVAXUSD', label: 'Avalanche (AVAX/USD)' },
   { value: 'BCHUSD', label: 'Bitcoin Cash (BCH/USD)' },
+  { value: 'TRUMPUSD', label: 'Trump (TRUMP/USD)' },
+  { value: 'SOLUSD', label: 'Solana (SOL/USD)' },
+  { value: 'ADAUSD', label: 'Cardano (ADA/USD)' },
 ] as const; 
