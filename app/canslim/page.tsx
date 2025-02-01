@@ -91,7 +91,7 @@ export default function CanslimPage() {
           CANSLIM Methodology
         </h1>
         <p className="text-muted-foreground max-w-2xl mx-auto">
-          William J. O'Neil's proven strategy for identifying high-potential growth stocks. 
+          William J. O&apos;Neil&apos;s proven strategy for identifying high-potential growth stocks. 
           Each letter represents a key characteristic to look for in potential investments.
         </p>
       </div>
