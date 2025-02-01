@@ -5,7 +5,7 @@ import SideNav from "@/components/navigation/Sidenav";
 import Footer from "@/components/layout/Footer";
 import Header from "@/components/layout/Header";
 import { Providers } from "./providers";
-
+import { Analytics } from "@vercel/analytics/react"
 export const metadata: Metadata = {
   title: "Finance Guy",
   description: "Finance Guy Research Tool",
@@ -26,6 +26,7 @@ export default function RootLayout({
               <Header />
               <main className="flex-1 overflow-y-auto p-4">
                 {children}
+                <Analytics />
               </main>
               <Footer />
             </div>
