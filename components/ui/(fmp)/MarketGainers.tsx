@@ -6,6 +6,7 @@ import { ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useRouter } from 'next/navigation';
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/Input";
 
 interface MarketGainer {
   symbol: string;
@@ -18,6 +19,7 @@ interface MarketGainer {
 export default function MarketGainers() {
   const router = useRouter();
   const { data = [], isLoading, error } = useMarketGainers();
+  const [minPrice, setMinPrice] = useState<number>(2);
   const [sortConfig, setSortConfig] = useState<{
     key: keyof MarketGainer;
     direction: 'asc' | 'desc';
@@ -26,6 +28,12 @@ export default function MarketGainers() {
   const handleSymbolClick = (symbol: string) => {
     router.push(`/search/${symbol}`);
   };
+
+  const handleMinPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    setMinPrice(isNaN(value) ? 0 : value);
+  };
+
   if (isLoading) {
     return (
       <Card className="border border-border/50 shadow-sm max-w-4xl mx-auto">
@@ -46,7 +54,9 @@ export default function MarketGainers() {
     );
   }
 
-  const sortedData = [...data].sort((a, b) => {
+  const sortedData = [...data]
+    .filter(stock => stock.price >= minPrice)
+    .sort((a, b) => {
     if (!sortConfig) return 0;
 
     let comparison = 0;
@@ -76,9 +86,25 @@ export default function MarketGainers() {
       <CardHeader className="pb-3 space-y-2">
         <CardTitle className="text-xl font-semibold">Biggest Gainers</CardTitle>
         <CardDescription>
-          Stocks with the highest daily value gains, indicating strong upward momentum and potential investment opportunities
-          <br /><br />
-          <span className="text-muted-foreground/75 italic text-sm">https://financialmodelingprep.com/api/v3/stock_market/gainers?apikey=</span>
+          <div className="space-y-4">
+            <span className="block">
+              Stocks with the highest daily value gains, indicating strong upward momentum and potential investment opportunities
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Minimum Price ($):</span>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={minPrice}
+                onChange={handleMinPriceChange}
+                className="w-24"
+              />
+            </div>
+            <span className="block text-muted-foreground/75 italic text-sm">
+              https://financialmodelingprep.com/api/v3/stock_market/gainers?apikey=
+            </span>
+          </div>
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-0">

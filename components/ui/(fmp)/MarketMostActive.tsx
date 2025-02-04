@@ -6,6 +6,7 @@ import { ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useRouter } from 'next/navigation';
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/Input";
 
 interface MarketMostActive {
   symbol: string;
@@ -18,6 +19,7 @@ interface MarketMostActive {
 export default function MarketMostActive() {
   const router = useRouter();
   const { data, isLoading, error } = useMarketMostActive();
+  const [minPrice, setMinPrice] = useState<number>(2);
   const [sortConfig, setSortConfig] = useState<{
     key: keyof MarketMostActive;
     direction: 'asc' | 'desc';
@@ -25,6 +27,11 @@ export default function MarketMostActive() {
 
   const handleSymbolClick = (symbol: string) => {
     router.push(`/search/${symbol}`);
+  };
+
+  const handleMinPriceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    setMinPrice(isNaN(value) ? 0 : value);
   };
 
   if (isLoading) {
@@ -47,7 +54,9 @@ export default function MarketMostActive() {
     );
   }
 
-  const sortedData = [...(data || [])].sort((a, b) => {
+  const sortedData = [...(data || [])]
+    .filter(stock => stock.price >= minPrice)
+    .sort((a, b) => {
     if (!sortConfig) return 0;
 
     let comparison = 0;
@@ -77,9 +86,25 @@ export default function MarketMostActive() {
       <CardHeader className="pb-3 space-y-2">
         <CardTitle className="text-xl font-semibold">Most Active Stocks</CardTitle>
         <CardDescription>
-          Stocks with the highest relative trading volume, indicating significant market activity and investor interest
-          <br /><br />
-          <span className="text-muted-foreground/75 italic text-sm">https://financialmodelingprep.com/api/v3/stock_market/actives?apikey=</span>
+          <div className="space-y-4">
+            <span className="block">
+              Stocks with the highest relative trading volume, indicating significant market activity and investor interest
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Minimum Price ($):</span>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={minPrice}
+                onChange={handleMinPriceChange}
+                className="w-24"
+              />
+            </div>
+            <span className="block text-muted-foreground/75 italic text-sm">
+              https://financialmodelingprep.com/api/v3/stock_market/actives?apikey=
+            </span>
+          </div>
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-0">
