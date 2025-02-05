@@ -66,9 +66,10 @@ export default function Chart({ symbol }: ChartProps) {
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
         textColor: 'rgb(156 163 175)',
+        fontSize: 12,
       },
       width: chartContainerRef.current.clientWidth,
-      height: 400,
+      height: 480,
       grid: {
         vertLines: { color: 'rgba(42, 46, 57, 0.2)' },
         horzLines: { color: 'rgba(42, 46, 57, 0.2)' },
@@ -77,14 +78,30 @@ export default function Chart({ symbol }: ChartProps) {
         timeVisible: true,
         secondsVisible: false,
         borderColor: 'rgba(42, 46, 57, 0.2)',
+        barSpacing: 6,
+        minBarSpacing: 4,
       },
       rightPriceScale: {
         mode: 1, // 1 represents logarithmic price scale
         borderColor: 'rgba(42, 46, 57, 0.2)',
         autoScale: true,
         scaleMargins: {
-          top: 0.1,
+          top: 0.2, // Increased top margin
           bottom: 0.1,
+        },
+        entireTextOnly: true,
+      },
+      crosshair: {
+        mode: 0, // 0 represents normal crosshair mode
+        vertLine: {
+          color: 'rgba(42, 46, 57, 0.5)',
+          width: 1,
+          style: 3, // 3 represents dotted line
+        },
+        horzLine: {
+          color: 'rgba(42, 46, 57, 0.5)',
+          width: 1,
+          style: 3, // 3 represents dotted line
         },
       },
     });
@@ -96,13 +113,18 @@ export default function Chart({ symbol }: ChartProps) {
       borderVisible: false,
       wickUpColor: '#26a69a',
       wickDownColor: '#ef5350',
+      priceFormat: {
+        type: 'price',
+        precision: 2,
+        minMove: 0.01,
+      },
     });
 
     // Set candlestick series margins
     candlestickSeries.priceScale().applyOptions({
       scaleMargins: {
-        top: 0.1,
-        bottom: 0.4,
+        top: 0.2,
+        bottom: 0.2,
       },
     });
 
@@ -118,7 +140,7 @@ export default function Chart({ symbol }: ChartProps) {
     // Set volume series margins
     volumeSeries.priceScale().applyOptions({
       scaleMargins: {
-        top: 0.7, // Position volume at bottom 30% of chart
+        top: 0.8, // Position volume at bottom 20% of chart
         bottom: 0,
       },
     });
@@ -187,7 +209,7 @@ export default function Chart({ symbol }: ChartProps) {
         </div>
         <div 
           ref={chartContainerRef} 
-          className="w-full h-[400px]"
+          className="w-full h-[480px]"
         />
       </CardContent>
       <CardFooter className="text-xs">
