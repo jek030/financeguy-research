@@ -12,6 +12,7 @@ Naming Conventions
 - Use PascalCase for component names (e.g., `UserProfile`, `ChatScreen`).
 - Directory names should be lowercase and hyphenated (e.g., `user-profile`, `chat-screen`).
 - react components should have first letter capitalized
+- react component files should have first letter capitalized
 
 TypeScript Usage
 - Use TypeScript for all code; prefer interfaces over types.
