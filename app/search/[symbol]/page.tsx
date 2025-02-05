@@ -8,7 +8,7 @@ import { use } from 'react';
 import RRCard from '@/components/ui/RRCard';
 import CompanyOutlookCard from '@/components/ui/(fmp)/CompanyOutlookCard';
 import { useIntradayChart } from '@/hooks/FMP/useIntradayChart';
-import IntradayChart from '@/components/ui/(fmp)/IntradayChart';
+import IntradayChart from '@/components/ui/(fmp)/Chart';
 //import { useRSIData } from '@/app/FMP/hooks/useRSIData';
 //import { Ticker } from '@/lib/types';
 

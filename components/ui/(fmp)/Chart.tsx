@@ -3,44 +3,60 @@
 import { createChart, ColorType, CandlestickSeries, HistogramSeries, Time } from 'lightweight-charts';
 import { useEffect, useRef, useState } from 'react';
 import { useIntradayChart } from '@/hooks/FMP/useIntradayChart';
+import { useDailyPrices } from '@/hooks/FMP/useDailyPrices';
 import { Card, CardContent, CardFooter } from '@/components/ui/Card';
 import { DatePicker } from '@/components/ui/date-picker';
 import { addDays, format } from 'date-fns';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 
 const timeframes = [
-  { value: '1min', label: '1M' },
-  { value: '5min', label: '5M' },
-  { value: '15min', label: '15M' },
-  { value: '30min', label: '30M' },
-  { value: '1hour', label: '1H' },
+  { value: '1D', label: '1D' },
   { value: '4hour', label: '4H' },
+  { value: '1hour', label: '1H' },
+  { value: '30min', label: '30M' },
+  { value: '15min', label: '15M' },
+  { value: '5min', label: '5M' },
+  { value: '1min', label: '1M' },
 ] as const;
 
 type TimeframeType = typeof timeframes[number]['value'];
 
-interface IntradayChartProps {
+interface ChartProps {
   symbol: string;
 }
 
-export default function IntradayChart({ symbol }: IntradayChartProps) {
+export default function Chart({ symbol }: ChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   
   // Get today's date and format it
   const today = new Date();
   const [fromDate, setFromDate] = useState<Date>(addDays(today, -365));
   const [toDate, setToDate] = useState<Date>(today);
-  const [timeframe, setTimeframe] = useState<TimeframeType>('1hour');
+  const [timeframe, setTimeframe] = useState<TimeframeType>('1D');
+
+  // Fetch data based on timeframe
+  const isDaily = timeframe === '1D';
+  const formattedFromDate = format(fromDate, 'yyyy-MM-dd');
+  const formattedToDate = format(toDate, 'yyyy-MM-dd');
 
   const { data: intradayData } = useIntradayChart({
     symbol,
-    timeframe,
-    from: format(fromDate, 'yyyy-MM-dd'),
-    to: format(toDate, 'yyyy-MM-dd'),
+    timeframe: timeframe as Exclude<TimeframeType, '1D'>,
+    from: formattedFromDate,
+    to: formattedToDate,
+    enabled: !isDaily,
+  });
+
+  const { data: dailyData } = useDailyPrices({
+    symbol,
+    from: formattedFromDate,
+    to: formattedToDate,
+    enabled: isDaily,
   });
 
   useEffect(() => {
-    if (!chartContainerRef.current || !intradayData) return;
+    if (!chartContainerRef.current) return;
+    if ((!intradayData && !isDaily) || (!dailyData && isDaily)) return;
 
     const handleResize = () => {
       chart.applyOptions({ width: chartContainerRef.current!.clientWidth });
@@ -63,7 +79,7 @@ export default function IntradayChart({ symbol }: IntradayChartProps) {
         borderColor: 'rgba(42, 46, 57, 0.2)',
       },
       rightPriceScale: {
-        mode: 1, // 2 represents logarithmic scale
+        mode: 1, // 1 represents logarithmic price scale
         borderColor: 'rgba(42, 46, 57, 0.2)',
         autoScale: true,
         scaleMargins: {
@@ -107,8 +123,11 @@ export default function IntradayChart({ symbol }: IntradayChartProps) {
       },
     });
 
-    // Format and set candlestick data
-    const formattedCandlestickData = intradayData
+    // Format and set data based on timeframe
+    const data = isDaily ? dailyData : intradayData;
+    if (!data) return;
+
+    const formattedCandlestickData = data
       .map((item) => ({
         time: (new Date(item.date).getTime() / 1000) as Time,
         open: item.open,
@@ -118,8 +137,7 @@ export default function IntradayChart({ symbol }: IntradayChartProps) {
       }))
       .sort((a, b) => (a.time as number) - (b.time as number));
 
-    // Format and set volume data
-    const formattedVolumeData = intradayData
+    const formattedVolumeData = data
       .map((item) => ({
         time: (new Date(item.date).getTime() / 1000) as Time,
         value: item.volume,
@@ -137,7 +155,7 @@ export default function IntradayChart({ symbol }: IntradayChartProps) {
       window.removeEventListener('resize', handleResize);
       chart.remove();
     };
-  }, [intradayData]);
+  }, [intradayData, dailyData, isDaily]);
 
   return (
     <Card>
