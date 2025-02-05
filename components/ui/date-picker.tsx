@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { addDays, format, subDays, subMonths, subYears } from "date-fns";
+import {  format, subDays, subMonths, subYears } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
@@ -54,8 +54,6 @@ const presets = [
 ];
 
 export function DatePicker({ 
-  date,
-  onDateChange,
   label,
   fromDate,
   toDate,

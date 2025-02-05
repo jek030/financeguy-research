@@ -1,6 +1,6 @@
 "use client";
 
-import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, Time } from 'lightweight-charts';
+import { createChart, ColorType, CandlestickSeries, HistogramSeries, LineSeries, Time, MouseEventParams, SeriesDataItemTypeMap } from 'lightweight-charts';
 import { useEffect, useRef, useState } from 'react';
 import { useIntradayChart } from '@/hooks/FMP/useIntradayChart';
 import { useDailyPrices } from '@/hooks/FMP/useDailyPrices';
@@ -25,8 +25,21 @@ interface ChartProps {
   symbol: string;
 }
 
-function calculateEMA(data: any[], period: number) {
-  const emaData = [];
+interface CandleData {
+  time: Time;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+interface MAData {
+  time: Time;
+  value?: number;
+}
+
+function calculateEMA(data: CandleData[], period: number): MAData[] {
+  const emaData: MAData[] = [];
   const multiplier = 2 / (period + 1);
 
   let initialSum = 0;
@@ -59,8 +72,8 @@ function calculateEMA(data: any[], period: number) {
   return emaData;
 }
 
-function calculateSMA(data: any[], period: number) {
-  const smaData = [];
+function calculateSMA(data: CandleData[], period: number): MAData[] {
+  const smaData: MAData[] = [];
 
   for (let i = 0; i < data.length; i++) {
     if (i < period - 1) {
@@ -296,20 +309,20 @@ export default function Chart({ symbol }: ChartProps) {
 
     const formatPrice = (price: number) => price.toFixed(2);
 
-    const updateLegends = (param: any) => {
+    const updateLegends = (param: MouseEventParams | undefined) => {
       if (!data || data.length === 0) return;
 
       let price, ema10, ema20, sma50;
-      if (param && param.time && param.seriesData) {
-        const candleData = param.seriesData.get(candlestickSeries);
-        const ema10Data = param.seriesData.get(ema10Series);
-        const ema20Data = param.seriesData.get(ema20Series);
-        const sma50Data = param.seriesData.get(sma50Series);
+      if (param?.time && param?.seriesData) {
+        const candleData = param.seriesData.get(candlestickSeries) as SeriesDataItemTypeMap['Candlestick'] | undefined;
+        const ema10Data = param.seriesData.get(ema10Series) as SeriesDataItemTypeMap['Line'] | undefined;
+        const ema20Data = param.seriesData.get(ema20Series) as SeriesDataItemTypeMap['Line'] | undefined;
+        const sma50Data = param.seriesData.get(sma50Series) as SeriesDataItemTypeMap['Line'] | undefined;
         
-        price = candleData?.close;
-        ema10 = ema10Data?.value;
-        ema20 = ema20Data?.value;
-        sma50 = sma50Data?.value;
+        price = candleData && 'close' in candleData ? candleData.close : undefined;
+        ema10 = ema10Data && 'value' in ema10Data ? ema10Data.value : undefined;
+        ema20 = ema20Data && 'value' in ema20Data ? ema20Data.value : undefined;
+        sma50 = sma50Data && 'value' in sma50Data ? sma50Data.value : undefined;
       }
       
       if (!price || !ema10 || !ema20 || !sma50) {
@@ -339,7 +352,7 @@ export default function Chart({ symbol }: ChartProps) {
     chart.subscribeCrosshairMove(updateLegends);
 
     // Initial legend update
-    updateLegends(null);
+    updateLegends(undefined);
 
     chart.timeScale().fitContent();
 
@@ -349,7 +362,7 @@ export default function Chart({ symbol }: ChartProps) {
       window.removeEventListener('resize', handleResize);
       chart.remove();
     };
-  }, [intradayData, dailyData, isDaily]);
+  }, [intradayData, dailyData, isDaily, symbol]);
 
   return (
     <Card>
