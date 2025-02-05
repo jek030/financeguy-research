@@ -59,49 +59,53 @@ export default function Chart({ symbol }: ChartProps) {
     if ((!intradayData && !isDaily) || (!dailyData && isDaily)) return;
 
     const handleResize = () => {
-      chart.applyOptions({ width: chartContainerRef.current!.clientWidth });
+      const container = chartContainerRef.current!;
+      chart.applyOptions({ 
+        width: container.clientWidth,
+        height: 480,
+      });
     };
 
     const chart = createChart(chartContainerRef.current, {
       layout: {
-        background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: 'rgb(156 163 175)',
+        background: { type: ColorType.Solid, color: '#1a1a1a' },
+        textColor: '#d1d4dc',
         fontSize: 12,
       },
       width: chartContainerRef.current.clientWidth,
       height: 480,
       grid: {
-        vertLines: { color: 'rgba(42, 46, 57, 0.2)' },
-        horzLines: { color: 'rgba(42, 46, 57, 0.2)' },
+        vertLines: { color: 'rgba(42, 46, 57, 0.6)' },
+        horzLines: { color: 'rgba(42, 46, 57, 0.6)' },
       },
       timeScale: {
         timeVisible: true,
         secondsVisible: false,
-        borderColor: 'rgba(42, 46, 57, 0.2)',
+        borderColor: 'rgba(42, 46, 57, 0.6)',
         barSpacing: 6,
         minBarSpacing: 4,
       },
       rightPriceScale: {
         mode: 1, // 1 represents logarithmic price scale
-        borderColor: 'rgba(42, 46, 57, 0.2)',
+        borderColor: 'rgba(42, 46, 57, 0.6)',
         autoScale: true,
         scaleMargins: {
-          top: 0.2, // Increased top margin
+          top: 0.2,
           bottom: 0.1,
         },
         entireTextOnly: true,
       },
       crosshair: {
-        mode: 0, // 0 represents normal crosshair mode
+        mode: 0,
         vertLine: {
-          color: 'rgba(42, 46, 57, 0.5)',
+          color: 'rgba(224, 227, 235, 0.1)',
           width: 1,
-          style: 3, // 3 represents dotted line
+          style: 3,
         },
         horzLine: {
-          color: 'rgba(42, 46, 57, 0.5)',
+          color: 'rgba(224, 227, 235, 0.1)',
           width: 1,
-          style: 3, // 3 represents dotted line
+          style: 3,
         },
       },
     });
@@ -184,18 +188,15 @@ export default function Chart({ symbol }: ChartProps) {
       <CardContent className="pt-6">
         <div className="flex flex-col gap-4 mb-4">
           <div className="flex justify-between items-center">
-            <div className="flex gap-4">
-              <DatePicker
-                date={fromDate}
-                onDateChange={setFromDate}
-                label="From Date"
-              />
-              <DatePicker
-                date={toDate}
-                onDateChange={setToDate}
-                label="To Date"
-              />
-            </div>
+            <DatePicker
+              fromDate={fromDate}
+              toDate={toDate}
+              onRangeChange={({ from, to }) => {
+                setFromDate(from);
+                setToDate(to);
+              }}
+              label="Select date range"
+            />
             <Tabs value={timeframe} onValueChange={(v) => setTimeframe(v as TimeframeType)}>
               <TabsList>
                 {timeframes.map((tf) => (
