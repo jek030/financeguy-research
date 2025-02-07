@@ -427,7 +427,7 @@ export default function Chart({ symbol }: ChartProps) {
       mediaQuery.removeEventListener('change', handleScreenChange);
       chart.remove();
     };
-  }, [intradayData, dailyData, isDaily, symbol, isLoading]);
+  }, [intradayData, dailyData, isDaily, symbol, isLoading, data]);
 
   return (
     <Card>
