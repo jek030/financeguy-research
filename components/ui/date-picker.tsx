@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import {  format, subDays, subMonths, subYears } from "date-fns";
+import { format, subDays, subMonths, subYears } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
@@ -14,8 +14,6 @@ import {
 } from "@/components/ui/Popover";
 
 interface DatePickerProps {
-  date?: Date;
-  onDateChange?: (date: Date) => void;
   label?: string;
   fromDate?: Date;
   toDate?: Date;
@@ -54,82 +52,128 @@ const presets = [
 ];
 
 export function DatePicker({ 
-  label,
   fromDate,
   toDate,
   onRangeChange 
 }: DatePickerProps) {
-  const [selectedRange, setSelectedRange] = React.useState<DateRange | undefined>({
+  const [selectedRange, setSelectedRange] = React.useState<DateRange>({
     from: fromDate || subYears(new Date(), 1),
     to: toDate || new Date(),
   });
 
-  const handleRangeSelect = (range: DateRange | undefined) => {
-    if (!range) return;
-    setSelectedRange(range);
-    if (onRangeChange && range.from && range.to) {
-      onRangeChange({ from: range.from, to: range.to });
+  const handleFromDateSelect = (date: Date | undefined) => {
+    if (!date) return;
+    const newRange = {
+      from: date,
+      to: selectedRange.to || new Date(),
+    };
+    setSelectedRange(newRange);
+    if (onRangeChange && newRange.to) {
+      onRangeChange(newRange);
+    }
+  };
+
+  const handleToDateSelect = (date: Date | undefined) => {
+    if (!date) return;
+    const newRange = {
+      from: selectedRange.from || subYears(new Date(), 1),
+      to: date,
+    };
+    setSelectedRange(newRange);
+    if (onRangeChange && newRange.from) {
+      onRangeChange(newRange);
     }
   };
 
   return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant={"outline"}
-          className={cn(
-            "w-[300px] justify-start text-left font-normal",
-            !selectedRange && "text-muted-foreground"
-          )}
-        >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {selectedRange?.from ? (
-            selectedRange.to ? (
-              <>
-                {format(selectedRange.from, "LLL dd, y")} -{" "}
-                {format(selectedRange.to, "LLL dd, y")}
-              </>
-            ) : (
-              format(selectedRange.from, "LLL dd, y")
-            )
-          ) : (
-            <span>{label || "Pick a date range"}</span>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <div className="grid gap-2 p-4">
-          <div className="flex flex-wrap gap-2">
-            {presets.map((preset) => (
-              <Button
-                key={preset.label}
-                onClick={() => {
-                  const range = preset.getValue();
-                  setSelectedRange(range);
-                  if (onRangeChange) {
-                    onRangeChange(range);
-                  }
-                }}
-                variant="outline"
-                size="sm"
-                className="text-xs"
-              >
-                {preset.label}
-              </Button>
-            ))}
-          </div>
-          <div className="border-t my-2" />
-          <Calendar
-            initialFocus
-            mode="range"
-            defaultMonth={selectedRange?.from}
-            selected={selectedRange}
-            onSelect={handleRangeSelect}
-            numberOfMonths={2}
-            disabled={(date) => date > new Date()}
-          />
-        </div>
-      </PopoverContent>
-    </Popover>
+    <div className="flex flex-col sm:flex-row gap-2">
+      <div className="flex items-center gap-2">
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={"outline"}
+              className={cn(
+                "w-[140px] justify-start text-left font-normal",
+                !selectedRange.from && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {selectedRange.from ? (
+                format(selectedRange.from, "LLL dd, y")
+              ) : (
+                <span>Start date</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              initialFocus
+              mode="single"
+              defaultMonth={selectedRange.from}
+              selected={selectedRange.from}
+              onSelect={handleFromDateSelect}
+              disabled={(date) => 
+                date > (selectedRange.to || new Date()) || 
+                date > new Date()
+              }
+            />
+          </PopoverContent>
+        </Popover>
+
+        <span className="text-muted-foreground">to</span>
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={"outline"}
+              className={cn(
+                "w-[140px] justify-start text-left font-normal",
+                !selectedRange.to && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {selectedRange.to ? (
+                format(selectedRange.to, "LLL dd, y")
+              ) : (
+                <span>End date</span>
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              initialFocus
+              mode="single"
+              defaultMonth={selectedRange.to}
+              selected={selectedRange.to}
+              onSelect={handleToDateSelect}
+              disabled={(date) => 
+                date < (selectedRange.from || subYears(new Date(), 1)) || 
+                date > new Date()
+              }
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {presets.map((preset) => (
+          <Button
+            key={preset.label}
+            onClick={() => {
+              const range = preset.getValue();
+              setSelectedRange(range);
+              if (onRangeChange) {
+                onRangeChange(range);
+              }
+            }}
+            variant="outline"
+            size="sm"
+            className="text-xs"
+          >
+            {preset.label}
+          </Button>
+        ))}
+      </div>
+    </div>
   );
 } 

@@ -39,13 +39,21 @@ interface MAData {
 }
 
 function calculateEMA(data: CandleData[], period: number): MAData[] {
+  if (!data || data.length === 0 || data.length < period) {
+    return [];
+  }
+
   const emaData: MAData[] = [];
   const multiplier = 2 / (period + 1);
 
   let initialSum = 0;
   // Calculate first SMA for initial EMA
   for (let i = 0; i < period; i++) {
-    initialSum += data[i].close;
+    if (data[i] && typeof data[i].close === 'number') {
+      initialSum += data[i].close;
+    } else {
+      return []; // Return empty array if any required data is missing
+    }
     // Add empty points for the initial period
     emaData.push({ time: data[i].time });
   }
@@ -59,20 +67,28 @@ function calculateEMA(data: CandleData[], period: number): MAData[] {
 
   // Calculate subsequent EMAs
   for (let i = period; i < data.length; i++) {
-    const currentClose = data[i].close;
-    const currentEMA = (currentClose - previousEMA) * multiplier + previousEMA;
-    previousEMA = currentEMA;
-    
-    emaData.push({
-      time: data[i].time,
-      value: currentEMA
-    });
+    if (data[i] && typeof data[i].close === 'number') {
+      const currentClose = data[i].close;
+      const currentEMA = (currentClose - previousEMA) * multiplier + previousEMA;
+      previousEMA = currentEMA;
+      
+      emaData.push({
+        time: data[i].time,
+        value: currentEMA
+      });
+    } else {
+      emaData.push({ time: data[i].time }); // Add point without value if data is invalid
+    }
   }
 
   return emaData;
 }
 
 function calculateSMA(data: CandleData[], period: number): MAData[] {
+  if (!data || data.length === 0 || data.length < period) {
+    return [];
+  }
+
   const smaData: MAData[] = [];
 
   for (let i = 0; i < data.length; i++) {
@@ -82,13 +98,23 @@ function calculateSMA(data: CandleData[], period: number): MAData[] {
     } else {
       // Calculate SMA
       let sum = 0;
+      let validPoints = 0;
+      
       for (let j = 0; j < period; j++) {
-        sum += data[i - j].close;
+        if (data[i - j] && typeof data[i - j].close === 'number') {
+          sum += data[i - j].close;
+          validPoints++;
+        }
       }
-      smaData.push({
-        time: data[i].time,
-        value: sum / period
-      });
+      
+      if (validPoints === period) {
+        smaData.push({
+          time: data[i].time,
+          value: sum / period
+        });
+      } else {
+        smaData.push({ time: data[i].time }); // Add point without value if not enough valid data
+      }
     }
   }
 
@@ -109,7 +135,7 @@ export default function Chart({ symbol }: ChartProps) {
   const formattedFromDate = format(fromDate, 'yyyy-MM-dd');
   const formattedToDate = format(toDate, 'yyyy-MM-dd');
 
-  const { data: intradayData } = useIntradayChart({
+  const { data: intradayData, isLoading: isIntradayLoading } = useIntradayChart({
     symbol,
     timeframe: timeframe as Exclude<TimeframeType, '1D'>,
     from: formattedFromDate,
@@ -117,16 +143,20 @@ export default function Chart({ symbol }: ChartProps) {
     enabled: !isDaily,
   });
 
-  const { data: dailyData } = useDailyPrices({
+  const { data: dailyData, isLoading: isDailyLoading } = useDailyPrices({
     symbol,
     from: formattedFromDate,
     to: formattedToDate,
     enabled: isDaily,
   });
 
+  const isLoading = isDaily ? isDailyLoading : isIntradayLoading;
+  const data = isDaily ? dailyData : intradayData;
+
   useEffect(() => {
     if (!chartContainerRef.current) return;
-    if ((!intradayData && !isDaily) || (!dailyData && isDaily)) return;
+    if (isLoading) return;
+    if (!data || data.length === 0) return;
 
     const handleResize = () => {
       const container = chartContainerRef.current!;
@@ -154,6 +184,13 @@ export default function Chart({ symbol }: ChartProps) {
         borderColor: 'rgba(42, 46, 57, 0.6)',
         barSpacing: 6,
         minBarSpacing: 4,
+        tickMarkFormatter: (time: number) => {
+          const date = new Date(time * 1000);
+          return date.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric'
+          });
+        },
       },
       rightPriceScale: {
         mode: 1,
@@ -181,10 +218,9 @@ export default function Chart({ symbol }: ChartProps) {
     });
 
     // Format and set data based on timeframe
-    const data = isDaily ? dailyData : intradayData;
-    if (!data) return;
-
     const formattedCandlestickData = data
+      .filter(item => item && typeof item.open === 'number' && typeof item.high === 'number' && 
+                      typeof item.low === 'number' && typeof item.close === 'number')
       .map((item) => ({
         time: (new Date(item.date).getTime() / 1000) as Time,
         open: item.open,
@@ -194,15 +230,18 @@ export default function Chart({ symbol }: ChartProps) {
       }))
       .sort((a, b) => (a.time as number) - (b.time as number));
 
+    if (formattedCandlestickData.length === 0) return; // Exit if no valid data
+
     const formattedVolumeData = data
+      .filter(item => item && typeof item.volume === 'number')
       .map((item) => ({
         time: (new Date(item.date).getTime() / 1000) as Time,
         value: item.volume,
-        color: item.close >= item.open ? '#26a69a' : '#ef5350', // Green if up, red if down
+        color: item.close >= item.open ? '#26a69a' : '#ef5350',
       }))
       .sort((a, b) => (a.time as number) - (b.time as number));
 
-    // Calculate moving average data
+    // Calculate moving average data only if we have enough points
     const ema10Data = calculateEMA(formattedCandlestickData, 10);
     const ema20Data = calculateEMA(formattedCandlestickData, 20);
     const sma50Data = calculateSMA(formattedCandlestickData, 50);
@@ -277,7 +316,7 @@ export default function Chart({ symbol }: ChartProps) {
     mainLegend.style.left = '12px';
     mainLegend.style.top = '12px';
     mainLegend.style.zIndex = '2';
-    mainLegend.style.fontSize = '14px';
+    mainLegend.style.fontSize = '12px';
     mainLegend.style.fontFamily = 'sans-serif';
     mainLegend.style.lineHeight = '18px';
     mainLegend.style.color = '#d1d4dc';
@@ -285,22 +324,43 @@ export default function Chart({ symbol }: ChartProps) {
     mainLegend.style.backgroundColor = 'rgba(26, 26, 26, 0.9)';
     mainLegend.style.borderRadius = '4px';
     mainLegend.style.pointerEvents = 'none';
+    mainLegend.style.width = '100px'; // Fixed width for main legend
 
     const maLegend = document.createElement('div');
     maLegend.style.position = 'absolute';
-    maLegend.style.right = '100px';
+    maLegend.style.left = '120px'; // Position right after main legend
     maLegend.style.top = '12px';
     maLegend.style.zIndex = '2';
-    maLegend.style.fontSize = '12px';
+    maLegend.style.fontSize = '10px'; // Smaller font size
     maLegend.style.fontFamily = 'sans-serif';
-    maLegend.style.lineHeight = '18px';
+    maLegend.style.lineHeight = '16px'; // Reduced line height
     maLegend.style.color = '#d1d4dc';
-    maLegend.style.padding = '4px 8px';
+    maLegend.style.padding = '8px';
     maLegend.style.backgroundColor = 'rgba(26, 26, 26, 0.9)';
     maLegend.style.borderRadius = '4px';
     maLegend.style.pointerEvents = 'none';
     maLegend.style.display = 'flex';
-    maLegend.style.gap = '12px';
+    maLegend.style.gap = '12px'; // Slightly increased gap
+    maLegend.style.whiteSpace = 'nowrap'; // Prevent wrapping
+
+    // Add media query for desktop screens
+    const mediaQuery = window.matchMedia('(min-width: 640px)');
+    
+    function handleScreenChange(e: MediaQueryListEvent | MediaQueryList) {
+      if (e.matches) {
+        // Desktop layout
+        maLegend.style.left = '80px';
+      } else {
+        // Mobile layout - still next to main legend but with adjusted position
+        maLegend.style.left = '80';
+      }
+    }
+
+    // Initial check
+    handleScreenChange(mediaQuery);
+    
+    // Listen for screen size changes
+    mediaQuery.addEventListener('change', handleScreenChange);
 
     // Make sure the chart container has relative positioning
     chartContainerRef.current.style.position = 'relative';
@@ -328,6 +388,8 @@ export default function Chart({ symbol }: ChartProps) {
       if (!price || !ema10 || !ema20 || !sma50) {
         // If no crosshair point, use the last values
         const lastBar = data[data.length - 1];
+        if (!lastBar) return; // Guard against empty data
+
         price = lastBar.close;
         ema10 = ema10Data[ema10Data.length - 1]?.value;
         ema20 = ema20Data[ema20Data.length - 1]?.value;
@@ -336,23 +398,25 @@ export default function Chart({ symbol }: ChartProps) {
 
       // Update main legend with symbol and price
       mainLegend.innerHTML = `
-        <div style="font-size: 24px; margin: 4px 0px; font-weight: 500;">${symbol.toUpperCase()}</div>
-        <div style="font-size: 22px; margin: 4px 0px; font-weight: 500;">$${formatPrice(price)}</div>
+        <div style="font-size: 20px; margin: 0px; font-weight: 500; white-space: nowrap;">${symbol.toUpperCase()}</div>
+        <div style="font-size: 18px; margin: 0px; font-weight: 500;">$${formatPrice(price)}</div>
       `;
 
-      // Update MA legend
+      // Update MA legend with more compact layout
       maLegend.innerHTML = `
-        <div style="color: #FFD700">EMA10: ${ema10 ? '$' + formatPrice(ema10) : 'N/A'}</div>
-        <div style="color: #00CED1">EMA20: ${ema20 ? '$' + formatPrice(ema20) : 'N/A'}</div>
-        <div style="color: #9370DB">SMA50: ${sma50 ? '$' + formatPrice(sma50) : 'N/A'}</div>
+        <div style="color: #FFD700">EMA10:$${ema10 ? formatPrice(ema10) : 'N/A'}</div>
+        <div style="color: #00CED1">EMA20:$${ema20 ? formatPrice(ema20) : 'N/A'}</div>
+        <div style="color: #9370DB">SMA50:$${sma50 ? formatPrice(sma50) : 'N/A'}</div>
       `;
     };
 
     // Subscribe to crosshair moves
     chart.subscribeCrosshairMove(updateLegends);
 
-    // Initial legend update
-    updateLegends(undefined);
+    // Initial legend update - only if we have data
+    if (data && data.length > 0) {
+      updateLegends(undefined);
+    }
 
     chart.timeScale().fitContent();
 
@@ -360,39 +424,59 @@ export default function Chart({ symbol }: ChartProps) {
 
     return () => {
       window.removeEventListener('resize', handleResize);
+      mediaQuery.removeEventListener('change', handleScreenChange);
       chart.remove();
     };
-  }, [intradayData, dailyData, isDaily, symbol]);
+  }, [intradayData, dailyData, isDaily, symbol, isLoading, data]);
 
   return (
     <Card>
       <CardContent className="pt-6">
         <div className="flex flex-col gap-4 mb-4">
-          <div className="flex justify-between items-center">
-            <DatePicker
-              fromDate={fromDate}
-              toDate={toDate}
-              onRangeChange={({ from, to }) => {
-                setFromDate(from);
-                setToDate(to);
-              }}
-              label="Select date range"
-            />
-            <Tabs value={timeframe} onValueChange={(v) => setTimeframe(v as TimeframeType)}>
-              <TabsList>
-                {timeframes.map((tf) => (
-                  <TabsTrigger key={tf.value} value={tf.value}>
-                    {tf.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="w-full sm:w-auto">
+              <DatePicker
+                fromDate={fromDate}
+                toDate={toDate}
+                onRangeChange={({ from, to }) => {
+                  setFromDate(from);
+                  setToDate(to);
+                }}
+                label="Select date range"
+              />
+            </div>
+            <div className="w-full sm:w-auto">
+              <Tabs 
+                value={timeframe} 
+                onValueChange={(v) => setTimeframe(v as TimeframeType)}
+                className="w-full sm:w-auto"
+              >
+                <TabsList className="w-full sm:w-auto grid grid-cols-7 sm:flex">
+                  {timeframes.map((tf) => (
+                    <TabsTrigger 
+                      key={tf.value} 
+                      value={tf.value}
+                      className="flex-1"
+                      disabled={isLoading}
+                    >
+                      {tf.label}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            </div>
           </div>
         </div>
         <div 
           ref={chartContainerRef} 
-          className="w-full h-[480px]"
-        />
+          className="w-full h-[480px] relative"
+        >
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+              <div className="text-muted-foreground">Loading...</div>
+            </div>
+          )}
+        </div>
       </CardContent>
       <CardFooter className="text-xs">
         <p>
