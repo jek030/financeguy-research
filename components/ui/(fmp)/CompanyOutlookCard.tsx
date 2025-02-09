@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Badge } from '@/components/ui/Badge';
 import { Financials } from '@/components/ui/(fmp)/Financials';
 import { cn } from '@/lib/utils';
+import { Skeleton } from "@/components/ui/Skeleton";
 
 //FMP Hooks
 import { useCompanyOutlook } from '@/hooks/FMP/useCompanyOutlook';
@@ -53,7 +54,71 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   if (isLoading || quoteLoading) {
-    return <div>Loading company outlook...</div>;
+    return (
+      <div className="space-y-6">
+        <Card className="w-full bg-card border shadow-lg">
+          <CardHeader className="pb-4">
+            <div className="flex flex-col lg:flex-row justify-between gap-6">
+              <div className="flex gap-4">
+                <Skeleton className="h-16 w-16 rounded-lg" />
+                <div>
+                  <Skeleton className="h-8 w-64 mb-2" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              </div>
+              <div className="lg:text-right">
+                <Skeleton className="h-8 w-32 mb-2" />
+                <Skeleton className="h-4 w-48" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="border-b pb-4">
+              <Skeleton className="h-16 w-full" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-b pb-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    {[...Array(4)].map((_, j) => (
+                      <div key={j}>
+                        <Skeleton className="h-4 w-20 mb-2" />
+                        <Skeleton className="h-4 w-24" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="p-4 rounded-lg bg-secondary/50">
+                  <div className="space-y-2">
+                    {[...Array(4)].map((_, j) => (
+                      <div key={j} className="flex justify-between items-center">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-20" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Skeleton className="h-[400px] w-full" />
+
+        <div className="space-y-4">
+          <div className="grid w-full grid-cols-8 gap-2">
+            {[...Array(8)].map((_, i) => (
+              <Skeleton key={i} className="h-10" />
+            ))}
+          </div>
+          <Skeleton className="h-[600px] w-full" />
+        </div>
+      </div>
+    );
   }
 
   if (error) {
@@ -63,7 +128,20 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
 
   if (!companyData || !quote) {
     console.log('CompanyOutlookCard: No data available');
-    return <div>No outlook data available</div>;
+    return (
+      <div className="space-y-6">
+        <Card className="w-full bg-card border shadow-lg">
+          <CardHeader>
+            <CardTitle>Invalid Symbol</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              Unable to load data for symbol: {symbol}. Please enter a valid stock or crypto symbol. For example: AAPL, BTCUSD, etc.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   /*Format Market Cap*/
