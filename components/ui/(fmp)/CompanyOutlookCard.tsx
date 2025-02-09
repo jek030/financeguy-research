@@ -207,96 +207,111 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
 
         <CardContent className="space-y-6">
           {/* Company Description */}
-          <div className="border-b pb-4">
-            <div className="relative">
-              <p className={cn(
-                "text-sm text-muted-foreground",
-                !isDescriptionExpanded && "line-clamp-2"
-              )}>
-                {companyData.profile.description}
-              </p>
-              <button
-                onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                className="mt-2 flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
-              >
-                {isDescriptionExpanded ? (
-                  <>
-                    Show Less <ChevronUp className="h-4 w-4" />
-                  </>
-                ) : (
-                  <>
-                    Read More <ChevronDown className="h-4 w-4" />
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Key Company Info Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-b pb-4">
-            {/* Quick Stats */}
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Sector</h3>
-                  <p className="text-sm font-medium">{companyData.profile.sector}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Industry</h3>
-                  <p className="text-sm font-medium">{companyData.profile.industry}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">CEO</h3>
-                  <p className="text-sm font-medium">{companyData.profile.ceo}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Employees</h3>
-                  <p className="text-sm font-medium">{companyData.profile.fullTimeEmployees}</p>
-                </div>
-    
-                
-              </div>
-            </div>
-
-            {/* Contact Info */}
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm text-muted-foreground">Address</h3>
-                <p className="text-sm">
-                  {companyData.profile.address}<br />
-                  {companyData.profile.city}, {companyData.profile.state} {companyData.profile.zip}<br />
-                  {companyData.profile.country}
-
+          {companyData.profile.description && (
+            <div className="border-b pb-4">
+              <div className="relative">
+                <p className={cn(
+                  "text-sm text-muted-foreground",
+                  !isDescriptionExpanded && "line-clamp-2"
+                )}>
+                  {companyData.profile.description}
                 </p>
+                <button
+                  onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                  className="mt-2 flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+                >
+                  {isDescriptionExpanded ? (
+                    <>
+                      Show Less <ChevronUp className="h-4 w-4" />
+                    </>
+                  ) : (
+                    <>
+                      Read More <ChevronDown className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
               </div>
             </div>
+          )}
 
-            {/* Links and Website */}
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Website</h3>
-                <a 
-                  href={companyData.profile.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800"
-                >
-                  {companyData.profile.website}
-                </a>
+          {/* Key Company Info Grid - Only show if any company data exists */}
+          {(companyData.profile.sector || companyData.profile.industry || companyData.profile.ceo || 
+            companyData.profile.fullTimeEmployees || companyData.profile.address || companyData.profile.website) && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-b pb-4">
+              {/* Quick Stats */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  {companyData.profile.sector && (
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">Sector</h3>
+                      <p className="text-sm font-medium">{companyData.profile.sector}</p>
+                    </div>
+                  )}
+                  {companyData.profile.industry && (
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">Industry</h3>
+                      <p className="text-sm font-medium">{companyData.profile.industry}</p>
+                    </div>
+                  )}
+                  {companyData.profile.ceo && (
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">CEO</h3>
+                      <p className="text-sm font-medium">{companyData.profile.ceo}</p>
+                    </div>
+                  )}
+                  {companyData.profile.fullTimeEmployees && (
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">Employees</h3>
+                      <p className="text-sm font-medium">{companyData.profile.fullTimeEmployees}</p>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Link 
-                  className="inline-flex items-center justify-center rounded-md bg-purple-500 px-4 py-2 text-sm font-medium text-white hover:bg-purple-400 transition-colors"
-                  href={`https://finance.yahoo.com/quote/${symbol}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Yahoo Finance
-                </Link>
-                
+
+              {/* Contact Info */}
+              {(companyData.profile.address || companyData.profile.city) && (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm text-muted-foreground">Address</h3>
+                    <p className="text-sm">
+                      {companyData.profile.address && <>{companyData.profile.address}<br /></>}
+                      {companyData.profile.city && (
+                        <>{companyData.profile.city}, {companyData.profile.state} {companyData.profile.zip}<br /></>
+                      )}
+                      {companyData.profile.country}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Links and Website */}
+              <div className="space-y-4">
+                {companyData.profile.website && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Website</h3>
+                    <a 
+                      href={companyData.profile.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      {companyData.profile.website}
+                    </a>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Link 
+                    className="inline-flex items-center justify-center rounded-md bg-purple-500 px-4 py-2 text-sm font-medium text-white hover:bg-purple-400 transition-colors"
+                    href={`https://finance.yahoo.com/quote/${symbol}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Yahoo Finance
+                  </Link>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Trading Stats Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
