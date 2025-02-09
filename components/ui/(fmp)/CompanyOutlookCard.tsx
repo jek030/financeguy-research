@@ -2,33 +2,32 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { PriceHistory, KeyMetrics } from '@/lib/types';
-import {Building2, Users, DollarSign, PieChart, TrendingDown, Activity} from 'lucide-react';
+import { PriceHistory } from '@/lib/types';
+import {Building2, Users, DollarSign, PieChart, TrendingDown, Activity, ChevronDown, ChevronUp} from 'lucide-react';
 
 //UI Components
-import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/Table";
 import { Badge } from '@/components/ui/Badge';
-import { ScrollArea } from '@/components/ui/ScrollArea';
-import { Separator } from '@/components/ui/Separator';
 import { Financials } from '@/components/ui/(fmp)/Financials';
 import { cn } from '@/lib/utils';
+import { Skeleton } from "@/components/ui/Skeleton";
 
 //FMP Hooks
 import { useCompanyOutlook } from '@/hooks/FMP/useCompanyOutlook';
-import { useKeyMetrics } from '@/hooks/FMP/useKeyMetrics';
 import { calculateRanges } from '@/lib/priceCalculations';
 import { safeFormat, safeFormatVol } from '@/lib/formatters';
-import { useInsiderTrading } from '@/hooks/FMP/useInsiderTrading';
-import { useDividendHistory } from '@/hooks/FMP/useDividendHistory';
-import { useNewsHistory } from '@/hooks/FMP/useNewsHistory';
 import { MovingAverages } from '@/components/ui/(fmp)/MovingAverages';
 import { useRSIData } from '@/hooks/FMP/useRSIData';
 import { useQuote } from '@/hooks/FMP/useQuote';
 import { useFloat } from '@/hooks/FMP/useFloat';
+import News from '@/components/ui/(fmp)/News';
+import KeyMetrics from '@/components/ui/(fmp)/KeyMetrics';
+import InsiderActivity from '@/components/ui/(fmp)/InsiderActivity';
+import Executives from '@/components/ui/(fmp)/Executives';
+import DividendHistory from '@/components/ui/(fmp)/DividendHistory';
+import IntradayChart from '@/components/ui/(fmp)/Chart';
+import PriceHistoryComponent from '@/components/ui/(fmp)/PriceHistory';
 
 interface CompanyOutlookProps {
   symbol: string;
@@ -46,42 +45,81 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
   /** Float Data from FMP */
   const { data: floatData, isLoading: floatLoading } = useFloat(symbol);
 
-  const getRSIStatus = (value: number | null | undefined) => {
-    if (value === null || value === undefined) return { color: 'black', label: 'N/A' };
-    if (value >= 70) return { color: 'red', label: '- OVERBOUGHT' };
-    if (value <= 30) return { color: 'green', label: '- OVERSOLD' };
-    return { color: 'black', label: '' };
-  };
-  const rsiStatus = getRSIStatus(rsi);
-  /*News History Start and End Dates*/
-  const [newsStartDate, setNewsStartDate] = useState(() => {
-    const date = new Date();
-    date.setDate(date.getDate() - 30);
-    return date.toISOString().split('T')[0];
-  });
-  const [newsEndDate, setNewsEndDate] = useState(() => {
-    return new Date().toISOString().split('T')[0];
-  });
-  const [newsTrigger, setNewsTrigger] = useState(0);
   /*Company Outlook Data from FMP*/
   const { data: companyData, isLoading, error } = useCompanyOutlook(symbol);
-  /*Key Metrics Data from FMP*/
-  const { annualData: keyMetricsAnnual, quarterlyData: keyMetricsQuarterly, ttmData: keyMetricsTtm } = useKeyMetrics(symbol);
   
-  /*Insider Trading Data from FMP*/
-  const { data: insiderTrades, isLoading: insiderLoading, error: insiderError } = useInsiderTrading(symbol);
-  /*Dividend History Data from FMP*/
-  const { data: dividendHistory, isLoading: dividendLoading, error: dividendError } = useDividendHistory(symbol);
-  /*News History Data from FMP*/
-  const { data: newsData, isLoading: newsLoading, error: newsError } = useNewsHistory(symbol, newsStartDate, newsEndDate, newsTrigger);
-  /*Calculate 5 and 20 ADR/STR with Price History Data from Schwab - TODO - replace schwab API call with FMP*/
+  /*Calculate 5 and 20 ADR/STR with Price History Data*/
   const range5Day = calculateRanges(priceHistory, 5);
   const range20Day = calculateRanges(priceHistory, 20);
-  // Prepare quarterly revenue data for chart
 
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   if (isLoading || quoteLoading) {
-    return <div>Loading company outlook...</div>;
+    return (
+      <div className="space-y-6">
+        <Card className="w-full bg-card border shadow-lg">
+          <CardHeader className="pb-4">
+            <div className="flex flex-col lg:flex-row justify-between gap-6">
+              <div className="flex gap-4">
+                <Skeleton className="h-16 w-16 rounded-lg" />
+                <div>
+                  <Skeleton className="h-8 w-64 mb-2" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              </div>
+              <div className="lg:text-right">
+                <Skeleton className="h-8 w-32 mb-2" />
+                <Skeleton className="h-4 w-48" />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="border-b pb-4">
+              <Skeleton className="h-16 w-full" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-b pb-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    {[...Array(4)].map((_, j) => (
+                      <div key={j}>
+                        <Skeleton className="h-4 w-20 mb-2" />
+                        <Skeleton className="h-4 w-24" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="p-4 rounded-lg bg-secondary/50">
+                  <div className="space-y-2">
+                    {[...Array(4)].map((_, j) => (
+                      <div key={j} className="flex justify-between items-center">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-4 w-20" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Skeleton className="h-[400px] w-full" />
+
+        <div className="space-y-4">
+          <div className="grid w-full grid-cols-8 gap-2">
+            {[...Array(8)].map((_, i) => (
+              <Skeleton key={i} className="h-10" />
+            ))}
+          </div>
+          <Skeleton className="h-[600px] w-full" />
+        </div>
+      </div>
+    );
   }
 
   if (error) {
@@ -91,7 +129,20 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
 
   if (!companyData || !quote) {
     console.log('CompanyOutlookCard: No data available');
-    return <div>No outlook data available</div>;
+    return (
+      <div className="space-y-6">
+        <Card className="w-full bg-card border shadow-lg">
+          <CardHeader>
+            <CardTitle>Invalid Symbol</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              Unable to load data for symbol: {symbol}. Please enter a valid stock or crypto symbol. For example: AAPL, BTCUSD, etc.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   /*Format Market Cap*/
@@ -156,64 +207,219 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
         </CardHeader>
 
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              {
-                label: "Day Range",
-                value: `Prev Close: $${safeFormat(quote.previousClose)}\nOpen: $${safeFormat(quote.open)}\nLow: $${safeFormat(quote.dayLow)}\nHigh: $${safeFormat(quote.dayHigh)}`
-              },
-              {
-                label: "Moving Averages",
-                value: `50Day: $${safeFormat(quote.priceAvg50)}\n200Day: $${safeFormat(quote.priceAvg200)}`
-              },
-              {
-                label: "52 Week Range",
-                value: `$${safeFormat(quote.yearLow)} - $${safeFormat(quote.yearHigh)}`
-              },      
-              {
-                label: "P/E Ratio",
-                value: quote.pe ? safeFormat(quote.pe) : 'N/A'
-              }     
-            ].map((item, index) => (
-              <div key={index} className="p-4 rounded-lg bg-secondary/50 hover:bg-secondary/70 transition-colors">
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">{item.label}</h4>
-                <p className="font-mono text-sm whitespace-pre-line">{item.value}</p>
+          {/* Company Description */}
+          {companyData.profile.description && (
+            <div className="border-b pb-4">
+              <div className="relative">
+                <p className={cn(
+                  "text-sm text-muted-foreground",
+                  !isDescriptionExpanded && "line-clamp-2"
+                )}>
+                  {companyData.profile.description}
+                </p>
+                <button
+                  onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                  className="mt-2 flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+                >
+                  {isDescriptionExpanded ? (
+                    <>
+                      Show Less <ChevronUp className="h-4 w-4" />
+                    </>
+                  ) : (
+                    <>
+                      Read More <ChevronDown className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
 
-          <Separator className="my-4" />
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              {
-                label: "Volume",
-                value: floatLoading || !floatData?.[0]?.floatShares
-                  ? formatLargeNumber(quote.volume)
-                  : `Volume: ${formatLargeNumber(quote.volume)}\n` +
-                    `% Float Traded: ${((quote.volume / floatData[0].floatShares) * 100).toFixed(2)}%`
-              },
-              {
-                label: "Shares Outstanding",
-                value: floatLoading 
-                  ? "Loading..." 
-                  : !floatData?.[0] 
-                    ? (quote.sharesOutstanding ? formatLargeNumber(quote.sharesOutstanding) : 'N/A')
-                    : `Outstanding: ${formatLargeNumber(floatData[0].outstandingShares)}\n` +
-                      `Float: ${formatLargeNumber(floatData[0].floatShares)}\n` +
-                      `Free Float: ${floatData[0].freeFloat.toFixed(2)}%`
-              },
-              {
-                label: "RSI (14)",
-                value: rsiLoading ? "Loading..." : (rsi ? `${safeFormat(rsi)} ${rsiStatus.label}` : 'N/A'),
-                color: !rsiLoading && rsi ? rsiStatus.color : undefined
-              },
-            ].map((item, index) => (
-              <div key={index} className="p-4 rounded-lg bg-secondary/50 hover:bg-secondary/70 transition-colors">
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">{item.label}</h4>
-                <p className={cn("text-sm font-medium font-mono whitespace-pre-line", item.color)}>{item.value}</p>
+          {/* Key Company Info Grid - Only show if any company data exists */}
+          {(companyData.profile.sector || companyData.profile.industry || companyData.profile.ceo || 
+            companyData.profile.fullTimeEmployees || companyData.profile.address || companyData.profile.website) && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-b pb-4">
+              {/* Quick Stats */}
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  {companyData.profile.sector && (
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">Sector</h3>
+                      <p className="text-sm font-medium">{companyData.profile.sector}</p>
+                    </div>
+                  )}
+                  {companyData.profile.industry && (
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">Industry</h3>
+                      <p className="text-sm font-medium">{companyData.profile.industry}</p>
+                    </div>
+                  )}
+                  {companyData.profile.ceo && (
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">CEO</h3>
+                      <p className="text-sm font-medium">{companyData.profile.ceo}</p>
+                    </div>
+                  )}
+                  {companyData.profile.fullTimeEmployees && (
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">Employees</h3>
+                      <p className="text-sm font-medium">{companyData.profile.fullTimeEmployees}</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            ))}
+
+              {/* Contact Info */}
+              {(companyData.profile.address || companyData.profile.city) && (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-sm text-muted-foreground">Address</h3>
+                    <p className="text-sm">
+                      {companyData.profile.address && <>{companyData.profile.address}<br /></>}
+                      {companyData.profile.city && (
+                        <>{companyData.profile.city}, {companyData.profile.state} {companyData.profile.zip}<br /></>
+                      )}
+                      {companyData.profile.country}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Links and Website */}
+              <div className="space-y-4">
+                {companyData.profile.website && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground">Website</h3>
+                    <a 
+                      href={companyData.profile.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      {companyData.profile.website}
+                    </a>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Link 
+                    className="inline-flex items-center justify-center rounded-md bg-purple-500 px-4 py-2 text-sm font-medium text-white hover:bg-purple-400 transition-colors"
+                    href={`https://finance.yahoo.com/quote/${symbol}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Yahoo Finance
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Trading Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="p-4 rounded-lg bg-secondary/50">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Previous Close</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <span className="font-medium">${safeFormat(quote.previousClose)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Open</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <span className="font-medium">${safeFormat(quote.open)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Day&apos;s Low</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <span className="font-medium">${safeFormat(quote.dayLow)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Day&apos;s High</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <span className="font-medium">${safeFormat(quote.dayHigh)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">52 Week Low</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <div className="text-right">
+                    <span className="font-medium">${safeFormat(quote.yearLow)}</span>
+                    <div className="text-xs text-green-600">
+                      +{((quote.price - quote.yearLow) / quote.yearLow * 100).toFixed(2)}%
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">52 Week High</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <div className="text-right">
+                    <span className="font-medium">${safeFormat(quote.yearHigh)}</span>
+                    <div className="text-xs text-red-600">
+                      {((quote.price - quote.yearHigh) / quote.yearHigh * 100).toFixed(2)}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-lg bg-secondary/50">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Volume</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <span className="font-medium">{formatLargeNumber(quote.volume)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Avg. Volume</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <span className="font-medium">{formatLargeNumber(quote.avgVolume)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">RSI (14)</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <span className={cn("font-medium", {
+                    "text-positive": rsi && rsi >= 70,
+                    "text-negative": rsi && rsi <= 30
+                  })}>
+
+                    {rsiLoading ? "Loading..." : (rsi ? `${safeFormat(rsi)}` : 'N/A')}
+                  </span>
+                </div>
+              <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">P/E Ratio</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <span className="font-medium">{quote.pe ? safeFormat(quote.pe) : 'N/A'}</span>
+              </div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-lg bg-secondary/50">
+              <div className="space-y-2">
+                {!floatLoading && floatData?.[0] && (
+                  <>
+                  <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Shares Outstanding</span>
+                      <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                      <span className="font-medium">{formatLargeNumber(floatData[0].outstandingShares)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Float</span>
+                      <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                      <span className="font-medium">{formatLargeNumber(floatData[0].floatShares)}</span>
+                    </div>                   
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Free Float</span>
+                      <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                      <span className="font-medium">{floatData[0].freeFloat.toFixed(2)}%</span>
+                    </div>                                  
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">% Float Traded</span>
+                      <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                      <span className="font-medium">{((quote.volume / floatData[0].floatShares) * 100).toFixed(2)}%</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-col md:flex-row justify-between text-sm text-muted-foreground mt-4 pt-4 border-t">
@@ -231,13 +437,15 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
         </CardContent>
       </Card>
 
-      
+
+      <IntradayChart symbol={symbol} />
+         
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-8">
-          <TabsTrigger value="overview" className="flex items-center gap-2">
-            <Building2 className="w-4 h-4" /> Overview
+      <Tabs defaultValue="news" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-9">
+          <TabsTrigger value="news" className="flex items-center gap-2">
+            <Building2 className="w-4 h-4" /> News
           </TabsTrigger>
           <TabsTrigger value="financials" className="flex items-center gap-2">
             <DollarSign className="w-4 h-4" /> Financials
@@ -258,347 +466,25 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
             <Users className="w-4 h-4" /> Executives
           </TabsTrigger>
           <TabsTrigger value="dividends" className="flex items-center gap-2">
-            <DollarSign className="w-4 h-4" /> Dividend History
+            <DollarSign className="w-4 h-4" /> Dividends
+          </TabsTrigger>
+          <TabsTrigger value="pricehistory" className="flex items-center gap-2">
+            <Activity className="w-4 h-4" /> Price History
           </TabsTrigger>
         </TabsList>
 
-        {/* Overview Tab */}
-        <TabsContent value="overview">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Company Profile</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {companyData.profile.description}
-                </p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div key="ceo">
-                    <h3 className="font-medium text-sm text-muted-foreground">CEO</h3>
-                    <p className="font-medium">{companyData.profile.ceo}</p>
-                  </div>
-                  <div key="employees">
-                    <h3 className="font-medium text-sm text-muted-foreground">Employees</h3>
-                    <p className="font-medium">{companyData.profile.fullTimeEmployees}</p>
-                  </div>
-                  <div key="industry">
-                    <h3 className="font-medium text-sm text-muted-foreground">Industry</h3>
-                    <p className="font-medium">{companyData.profile.industry}</p>
-                  </div>
-                  <div key="sector">
-                    <h3 className="font-medium text-sm text-muted-foreground">Sector</h3>
-                    <p className="font-medium">{companyData.profile.sector}</p>
-                  </div>
-                  <div className="space-y-4">
-                    <div key="address">
-                      <h3 className="font-medium text-sm text-muted-foreground">Address</h3>
-                      <p className="font-medium">
-                        {companyData.profile.address}<br />
-                        {companyData.profile.city}, {companyData.profile.state} {companyData.profile.zip}<br />
-                        {companyData.profile.country}
-                      </p>
-                    </div>
-                    <div key="phone">
-                      <h3 className="font-medium text-sm text-muted-foreground">Phone</h3>
-                      <p className="font-medium">{companyData.profile.phone}</p>
-                    </div>
-                    <div key="website">
-                      <h3 className="font-medium text-sm text-muted-foreground">Website</h3>
-                      <a 
-                        href={companyData.profile.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        {companyData.profile.website}
-                      </a>
-                    </div>          
-                  </div>
-                  <div>
-                    <Link 
-                      className="mt-4 inline-block rounded-md bg-purple-500 px-4 py-2 text-sm text-white hover:bg-purple-400"
-                      href={`https://finance.yahoo.com/quote/${symbol}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Yahoo Finance
-                    </Link>
-                  </div> 
-                </div>
-                
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>News</CardTitle>
-                <div className="flex items-end gap-4">
-                  <div className="flex-1">
-                    <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
-                      Start Date
-                    </label>
-                    <Input
-                      id="startDate"
-                      type="date"
-                      value={newsStartDate}
-                      onChange={(e) => setNewsStartDate(e.target.value)}
-                      max={newsEndDate}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
-                      End Date
-                    </label>
-                    <Input
-                      id="endDate"
-                      type="date"
-                      value={newsEndDate}
-                      onChange={(e) => setNewsEndDate(e.target.value)}
-                      min={newsStartDate}
-                      max={new Date().toISOString().split('T')[0]}
-                    />
-                  </div>
-                  <Button 
-                    onClick={() => setNewsTrigger(prev => prev + 1)}
-                    disabled={newsLoading}
-                  >
-                    {newsLoading ? 'Searching...' : 'Search News'}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {newsLoading ? (
-                  <div className="flex items-center justify-center p-4">
-                    Loading news...
-                  </div>
-                ) : newsError ? (
-                  <div className="flex items-center justify-center p-4 text-red-600">
-                    Error loading news: {newsError.message}
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[400px]">
-                    <div className="space-y-4">
-                      {newsData && newsData.length > 0 ? (
-                        newsData.map((news) => (
-                          <div key={`${news.publishedDate}-${news.title}-${news.site}`} className="flex gap-4 p-4 border rounded-lg">
-                            {news.image && (
-                              <div className="flex-shrink-0">
-                                <Image 
-                                  src={news.image} 
-                                  alt={news.title} 
-                                  width={96}
-                                  height={96}
-                                  className="object-cover rounded-md"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = 'none';
-                                  }}
-                                />
-                              </div>
-                            )}
-                            <div className="flex-1">
-                              <h3 className="font-semibold mb-2">
-                                <a 
-                                  href={news.url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="hover:text-blue-600"
-                                >
-                                  {news.title}
-                                </a>
-                              </h3>
-                              <p className="text-sm text-gray-600 mb-2">{news.text}</p>
-                              <div className="flex items-center gap-2 text-xs text-gray-500">
-                                <span>{news.site}</span>
-                                <span>•</span>
-                                <span>{new Date(news.publishedDate).toLocaleDateString()}</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center text-gray-500">
-                          No news available
-                        </div>
-                      )}
-                    </div>
-                  </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+        <TabsContent value="news">
+          <News symbol={symbol} />
         </TabsContent>
-
-        {/* Financials Tab */}
         <TabsContent value="financials">
-        <Financials companyData={companyData} />
+          <Financials companyData={companyData} />
         </TabsContent>
-
-        {/* Key Metrics Tab */}
         <TabsContent value="keymetrics">
-          <Card>
-            <CardHeader>
-              <CardTitle>Key Metrics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="annual" className="space-y-4">
-                <TabsList>
-                  <TabsTrigger value="annual">Annual</TabsTrigger>
-                  <TabsTrigger value="quarterly">Quarterly</TabsTrigger>
-                  <TabsTrigger value="ttm">TTM</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="annual">
-                  <ScrollArea className="h-[600px]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Period</TableHead>
-                          <TableHead className="text-right">Revenue Per Share</TableHead>
-                          <TableHead className="text-right">Dividend Yield</TableHead>
-                          <TableHead className="text-right">ROE</TableHead>
-                          <TableHead className="text-right">Net Income Per Share</TableHead>
-                          <TableHead className="text-right">Operating Cash Flow Per Share</TableHead>
-                          <TableHead className="text-right">Free Cash Flow Per Share</TableHead>
-                          <TableHead className="text-right">Cash Per Share</TableHead>
-                          <TableHead className="text-right">Book Value Per Share</TableHead>
-                          <TableHead className="text-right">Market Cap</TableHead>
-                          <TableHead className="text-right">Enterprise Value</TableHead>
-                          <TableHead className="text-right">PE Ratio</TableHead>                                                  
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {keyMetricsAnnual && keyMetricsAnnual.length > 0 ? (
-                          keyMetricsAnnual.map((metric: KeyMetrics) => (
-                            <TableRow key={`annual-${metric.date}-${metric.period}`}>
-                              <TableCell>{new Date(metric.date).toLocaleDateString()}</TableCell>
-                              <TableCell>{metric.period}</TableCell>
-                              <TableCell className="text-right">${metric.revenuePerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">{(metric.dividendYield * 100)?.toFixed(2)}%</TableCell>                         
-                              <TableCell className="text-right">{(metric.roe * 100)?.toFixed(2)}%</TableCell>
-                              <TableCell className="text-right">${metric.netIncomePerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${metric.operatingCashFlowPerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${metric.freeCashFlowPerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${metric.cashPerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${metric.bookValuePerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${formatLargeNumber(metric.marketCap)}</TableCell>
-                              <TableCell className="text-right">${formatLargeNumber(metric.enterpriseValue)}</TableCell>
-                              <TableCell className="text-right">{metric.peRatio?.toFixed(2)}</TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={54} className="text-center">No annual key metrics data available</TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </TabsContent>
-
-                <TabsContent value="quarterly">
-                  <ScrollArea className="h-[600px]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Period</TableHead>
-                          <TableHead className="text-right">Revenue Per Share</TableHead>
-                          <TableHead className="text-right">Dividend Yield</TableHead>
-                          <TableHead className="text-right">ROE</TableHead>
-                          <TableHead className="text-right">Net Income Per Share</TableHead>
-                          <TableHead className="text-right">Operating Cash Flow Per Share</TableHead>
-                          <TableHead className="text-right">Free Cash Flow Per Share</TableHead>
-                          <TableHead className="text-right">Cash Per Share</TableHead>
-                          <TableHead className="text-right">Book Value Per Share</TableHead>
-                          <TableHead className="text-right">Market Cap</TableHead>
-                          <TableHead className="text-right">Enterprise Value</TableHead>
-                          <TableHead className="text-right">PE Ratio</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {keyMetricsQuarterly && keyMetricsQuarterly.length > 0 ? (
-                          keyMetricsQuarterly.map((metric: KeyMetrics) => (
-                            <TableRow key={`quarterly-${metric.date}-${metric.period}`}>
-                              <TableCell>{new Date(metric.date).toLocaleDateString()}</TableCell>
-                              <TableCell>{metric.period}</TableCell>
-                              <TableCell className="text-right">${metric.revenuePerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">{(metric.dividendYield * 100)?.toFixed(2)}%</TableCell>
-                              <TableCell className="text-right">{(metric.roe * 100)?.toFixed(2)}%</TableCell>
-                              <TableCell className="text-right">${metric.netIncomePerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${metric.operatingCashFlowPerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${metric.freeCashFlowPerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${metric.cashPerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${metric.bookValuePerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${formatLargeNumber(metric.marketCap)}</TableCell>
-                              <TableCell className="text-right">${formatLargeNumber(metric.enterpriseValue)}</TableCell>
-                              <TableCell className="text-right">{metric.peRatio?.toFixed(2)}</TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={13} className="text-center">No quarterly key metrics data available</TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </TabsContent>
-
-                <TabsContent value="ttm">
-                  <ScrollArea className="h-[600px]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-right">Revenue Per Share TTM</TableHead>
-                          <TableHead className="text-right">ROE TTM</TableHead>
-                          <TableHead className="text-right">Net Income Per Share TTM</TableHead>
-                          <TableHead className="text-right">Operating Cash Flow Per Share TTM</TableHead>
-                          <TableHead className="text-right">Free Cash Flow Per Share TTM</TableHead>
-                          <TableHead className="text-right">Cash Per Share TTM</TableHead>
-                          <TableHead className="text-right">Book Value Per Share TTM</TableHead>
-                          <TableHead className="text-right">Market Cap TTM</TableHead>
-                          <TableHead className="text-right">Enterprise Value TTM</TableHead>
-                          <TableHead className="text-right">PE Ratio TTM</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {keyMetricsTtm && keyMetricsTtm.length > 0 ? (
-                          keyMetricsTtm.map((metric: KeyMetrics) => (
-                            <TableRow key={`ttm-${metric.date}-${metric.calendarYear}`}>
-                              <TableCell className="text-right">${(metric.revenuePerShareTTM ?? 0).toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${(metric.roeTTM ?? 0).toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${(metric.netIncomePerShareTTM ?? 0).toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${(metric.operatingCashFlowPerShareTTM ?? 0).toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${(metric.freeCashFlowPerShareTTM ?? 0).toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${(metric.cashPerShareTTM ?? 0).toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${(metric.bookValuePerShareTTM ?? 0).toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${formatLargeNumber(metric.marketCapTTM ?? 0)}</TableCell>
-                              <TableCell className="text-right">${formatLargeNumber(metric.enterpriseValueTTM ?? 0)}</TableCell>
-                              <TableCell className="text-right">{(metric.peRatioTTM ?? 0).toFixed(2)}</TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={13} className="text-center">No TTM key metrics data available</TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
+          <KeyMetrics symbol={symbol} />
         </TabsContent>
-
-        {/* Moving Averages Tab */}
         <TabsContent value="movingavgs">
           <MovingAverages companyData={companyData} symbol={companyData.profile.symbol} />
         </TabsContent>
-        {/* Statistics Tab */}
         <TabsContent value="statistics">
           <Card>
             <CardHeader>
@@ -623,7 +509,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
                 52 week high: ${safeFormat(quote.yearHigh)} <br />
                 52 week low: ${safeFormat(quote.yearLow)}
               </div>
-                        
+                     
               <div className="py-2">
                 Volume: {safeFormatVol(quote.volume)} <br />      
                 Avg Volume: {safeFormatVol(quote.avgVolume)}
@@ -636,184 +522,24 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
           </Card>
         </TabsContent>
 
-        {/* Insiders Tab */}
         <TabsContent value="insiders">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Insider Transactions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {insiderLoading ? (
-                <div className="flex items-center justify-center p-4">
-                  Loading insider trading data...
-                </div>
-              ) : insiderError ? (
-                <div className="flex items-center justify-center p-4 text-red-600">
-                  Error loading insider trading data: {insiderError.message}
-                </div>
-              ) : (
-                <ScrollArea className="h-[600px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Filing Date</TableHead>
-                        <TableHead>Transaction Date</TableHead>
-                        <TableHead>Insider Name</TableHead>
-                        <TableHead>Transaction Type</TableHead>
-                        <TableHead className="text-right">Price</TableHead>
-                        <TableHead className="text-right">Shares</TableHead>
-                        <TableHead className="text-right">Value</TableHead>
-                        <TableHead className="text-right">Shares Total</TableHead>
-                        <TableHead>Form</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {Array.isArray(insiderTrades) && insiderTrades.length > 0 ? (
-                        insiderTrades.map((trade) => (
-                          <TableRow key={`${trade.filingDate}-${trade.reportingName}-${trade.transactionDate}-${trade.transactionType}-${trade.securitiesTransacted}-${trade.price}-${trade.securitiesOwned}`}>
-                            <TableCell>{new Date(trade.filingDate).toLocaleDateString()}</TableCell>
-                            <TableCell>{new Date(trade.transactionDate).toLocaleDateString()}</TableCell>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">{trade.reportingName}</p>
-                                <p className="text-sm text-gray-500">{trade.typeOfOwner}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                trade.acquistionOrDisposition === 'A' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {trade.transactionType} ({trade.acquistionOrDisposition === 'A' ? 'Buy' : 'Sell'})
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-right">{trade.price ? `$${trade.price.toFixed(2)}` : 'N/A'}</TableCell>
-                            <TableCell className="text-right">{formatLargeNumber(trade.securitiesTransacted)}</TableCell>
-                            <TableCell className="text-right">${formatLargeNumber(trade.securitiesTransacted * (trade.price || 0))}</TableCell>
-                            <TableCell className="text-right">${formatLargeNumber(trade.securitiesOwned)}</TableCell>
-                            <TableCell>
-                              <a 
-                                href={trade.link} 
-                                target="_blank" 
-                                rel="noopener noreferrer" 
-                                className="text-blue-600 hover:text-blue-800"
-                              >
-                                {trade.formType}
-                              </a>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={9} className="text-center">No insider trades available</TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              )}
-            </CardContent>
-          </Card>
+          <InsiderActivity symbol={symbol} />
         </TabsContent>
 
-        {/* Executives Tab */}
         <TabsContent value="executives">
-          <Card>
-            <CardHeader>
-              <CardTitle>Key Executives</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[600px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead className="text-right">Pay</TableHead>
-                      <TableHead>Gender</TableHead>
-                      <TableHead className="text-right">Year Born</TableHead>
-                      <TableHead className="text-right">Title Since</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {Array.isArray(companyData.keyExecutives) && companyData.keyExecutives.length > 0 ? (
-                      companyData.keyExecutives.map((executive, index) => (
-                        <TableRow key={`${executive.name}-${index}`}>
-                          <TableCell className="font-medium">{executive.name}</TableCell>
-                          <TableCell>{executive.title}</TableCell>
-                          <TableCell className="text-right">
-                            {executive.pay ? ` $${formatLargeNumber(executive.pay)}` : 'N/A'}
-                          </TableCell>
-                          <TableCell>{executive.gender || 'N/A'}</TableCell>
-                          <TableCell className="text-right">{executive.yearBorn || 'N/A'}</TableCell>
-                          <TableCell className="text-right">{executive.titleSince || 'N/A'}</TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center">No executive data available</TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+          <Executives companyData={companyData} />
         </TabsContent>
 
-        {/* Dividends Tab */}
         <TabsContent value="dividends">
-          <Card>
-            <CardHeader>
-              <CardTitle>Dividend History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {dividendLoading ? (
-                <div className="flex items-center justify-center p-4">
-                  Loading dividend history...
-                </div>
-              ) : dividendError ? (
-                <div className="flex items-center justify-center p-4 text-red-600">
-                  Error loading dividend history: {dividendError.message}
-                </div>
-              ) : (
-                <ScrollArea className="h-[600px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Declaration Date</TableHead>
-                        <TableHead>Record Date</TableHead>
-                        <TableHead>Payment Date</TableHead>
-                        <TableHead className="text-right">Dividend</TableHead>
-                        <TableHead className="text-right">Adjusted Dividend</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {dividendHistory && dividendHistory.length > 0 ? (
-                        dividendHistory.map((dividend) => (
-                          <TableRow key={`${dividend.date}-${dividend.dividend}`}>
-                            <TableCell>{new Date(dividend.declarationDate).toLocaleDateString()}</TableCell>
-                            <TableCell>{new Date(dividend.recordDate).toLocaleDateString()}</TableCell>
-                            <TableCell>{new Date(dividend.paymentDate).toLocaleDateString()}</TableCell>
-                            <TableCell className="text-right">${dividend.dividend.toFixed(4)}</TableCell>
-                            <TableCell className="text-right">${dividend.adjDividend.toFixed(4)}</TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center">No dividend history available</TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              )}
-            </CardContent>
-          </Card>
+          <DividendHistory symbol={symbol} />
+        </TabsContent>
+
+        <TabsContent value="pricehistory">
+          <PriceHistoryComponent symbol={symbol} />
         </TabsContent>
       </Tabs>
     </div>
+
   );
 };
 
