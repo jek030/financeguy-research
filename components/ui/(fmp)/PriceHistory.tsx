@@ -91,32 +91,32 @@ const PriceHistoryComponent: React.FC<PriceHistoryComponentProps> = ({ symbol })
             Error loading price history: {error.message}
           </div>
         ) : (
-          <ScrollArea className="h-[600px]">
+          <div className="relative border rounded-md">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>
+                  <TableHead className="text-xs w-[120px]">
                     <Button
                       variant="ghost"
                       onClick={() => handleSort('date')}
-                      className="h-8 flex items-center gap-1"
+                      className="h-8 flex items-center gap-1 text-xs"
                     >
                       Date
                       <ArrowUpDown className="h-4 w-4" />
                     </Button>
                   </TableHead>
-                  <TableHead className="text-right">Open</TableHead>
-                  <TableHead className="text-right">High</TableHead>
-                  <TableHead className="text-right">Low</TableHead>
-                  <TableHead className="text-right">Close</TableHead>
-                  <TableHead className="text-right">Adj Close</TableHead>
-                  <TableHead className="text-right">Volume</TableHead>
-                  <TableHead className="text-right">Day Change</TableHead>
-                  <TableHead className="text-right">
+                  <TableHead className="text-xs text-right w-[100px]">Open</TableHead>
+                  <TableHead className="text-xs text-right w-[100px]">High</TableHead>
+                  <TableHead className="text-xs text-right w-[100px]">Low</TableHead>
+                  <TableHead className="text-xs text-right w-[100px]">Close</TableHead>
+                  <TableHead className="text-xs text-right w-[100px]">Adj Close</TableHead>
+                  <TableHead className="text-xs text-right w-[100px]">Volume</TableHead>
+                  <TableHead className="text-xs text-right w-[100px]">Day Change</TableHead>
+                  <TableHead className="text-xs text-right w-[120px]">
                     <Button
                       variant="ghost"
                       onClick={() => handleSort('changePercent')} 
-                      className="h-8 flex items-center gap-1 ml-auto"
+                      className="h-8 w-full flex items-center justify-end gap-1 text-xs"
                     >
                       Day Change %
                       <ArrowUpDown className="h-4 w-4" />
@@ -124,38 +124,42 @@ const PriceHistoryComponent: React.FC<PriceHistoryComponentProps> = ({ symbol })
                   </TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody>
-                {Array.isArray(sortedPriceHistory) && sortedPriceHistory.length > 0 ? (
-                  sortedPriceHistory.map((price) => {
-                    const change = price.close - price.open;
-                    const changePercent = (change / price.open) * 100;
-                    
-                    return (
-                      <TableRow key={price.date}>
-                        <TableCell>{formatDate(price.date)}</TableCell>
-                        <TableCell className="text-right">${price.open.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${price.high.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${price.low.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${price.close.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${price.adjClose.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">{price.volume.toLocaleString()}</TableCell>
-                        <TableCell className={`text-right ${change >= 0 ? 'text-positive' : 'text-negative'}`}>
-                          ${Math.abs(change).toFixed(2)}
-                        </TableCell>
-                        <TableCell className={`text-right ${changePercent >= 0 ? 'text-positive' : 'text-negative'}`}>
-                          {changePercent >= 0 ? '+' : '-'}{Math.abs(changePercent).toFixed(2)}%
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center">No price history available</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
             </Table>
-          </ScrollArea>
+            <ScrollArea className="h-[600px]">
+              <Table>
+                <TableBody>
+                  {Array.isArray(sortedPriceHistory) && sortedPriceHistory.length > 0 ? (
+                    sortedPriceHistory.map((price) => {
+                      const change = price.close - price.open;
+                      const changePercent = (change / price.open) * 100;
+                      
+                      return (
+                        <TableRow key={price.date}>
+                          <TableCell className="text-xs w-[110px]">{formatDate(price.date)}</TableCell>
+                          <TableCell className="text-xs text-right w-[100px]">${price.open.toFixed(2)}</TableCell>
+                          <TableCell className="text-xs text-right w-[100px]">${price.high.toFixed(2)}</TableCell>
+                          <TableCell className="text-xs text-right w-[100px]">${price.low.toFixed(2)}</TableCell>
+                          <TableCell className="text-xs text-right w-[100px]">${price.close.toFixed(2)}</TableCell>
+                          <TableCell className="text-xs text-right w-[100px]">${price.adjClose.toFixed(2)}</TableCell>
+                          <TableCell className="text-xs text-right w-[100px]">{price.volume.toLocaleString()}</TableCell>
+                          <TableCell className={`text-xs text-right w-[100px] ${change >= 0 ? 'text-positive' : 'text-negative'}`}>
+                            ${Math.abs(change).toFixed(2)}
+                          </TableCell>
+                          <TableCell className={`text-xs text-right w-[120px] ${changePercent >= 0 ? 'text-positive' : 'text-negative'}`}>
+                            {changePercent >= 0 ? '+' : '-'}{Math.abs(changePercent).toFixed(2)}%
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={9} className="text-center">No price history available</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </div>
         )}
       </CardContent>
     </Card>
