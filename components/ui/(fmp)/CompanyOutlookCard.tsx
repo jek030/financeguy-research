@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { PriceHistory, KeyMetrics } from '@/lib/types';
-import {Building2, Users, DollarSign, PieChart, TrendingDown, Activity} from 'lucide-react';
+import {Building2, Users, DollarSign, PieChart, TrendingDown, Activity, ChevronDown, ChevronUp} from 'lucide-react';
 
 //UI Components
 import { Input } from '@/components/ui/Input';
@@ -46,13 +46,6 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
   /** Float Data from FMP */
   const { data: floatData, isLoading: floatLoading } = useFloat(symbol);
 
-  const getRSIStatus = (value: number | null | undefined) => {
-    if (value === null || value === undefined) return { color: 'black', label: 'N/A' };
-    if (value >= 70) return { color: 'red', label: '- OVERBOUGHT' };
-    if (value <= 30) return { color: 'green', label: '- OVERSOLD' };
-    return { color: 'black', label: '' };
-  };
-  const rsiStatus = getRSIStatus(rsi);
   /*News History Start and End Dates*/
   const [newsStartDate, setNewsStartDate] = useState(() => {
     const date = new Date();
@@ -79,6 +72,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
   const range20Day = calculateRanges(priceHistory, 20);
   // Prepare quarterly revenue data for chart
 
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   if (isLoading || quoteLoading) {
     return <div>Loading company outlook...</div>;
@@ -156,64 +150,206 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
         </CardHeader>
 
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              {
-                label: "Day Range",
-                value: `Prev Close: $${safeFormat(quote.previousClose)}\nOpen: $${safeFormat(quote.open)}\nLow: $${safeFormat(quote.dayLow)}\nHigh: $${safeFormat(quote.dayHigh)}`
-              },
-              {
-                label: "Moving Averages",
-                value: `50Day: $${safeFormat(quote.priceAvg50)}\n200Day: $${safeFormat(quote.priceAvg200)}`
-              },
-              {
-                label: "52 Week Range",
-                value: `$${safeFormat(quote.yearLow)} - $${safeFormat(quote.yearHigh)}`
-              },      
-              {
-                label: "P/E Ratio",
-                value: quote.pe ? safeFormat(quote.pe) : 'N/A'
-              }     
-            ].map((item, index) => (
-              <div key={index} className="p-4 rounded-lg bg-secondary/50 hover:bg-secondary/70 transition-colors">
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">{item.label}</h4>
-                <p className="font-mono text-sm whitespace-pre-line">{item.value}</p>
-              </div>
-            ))}
+          {/* Company Description */}
+          <div className="border-b pb-4">
+            <div className="relative">
+              <p className={cn(
+                "text-sm text-muted-foreground",
+                !isDescriptionExpanded && "line-clamp-2"
+              )}>
+                {companyData.profile.description}
+              </p>
+              <button
+                onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                className="mt-2 flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+              >
+                {isDescriptionExpanded ? (
+                  <>
+                    Show Less <ChevronUp className="h-4 w-4" />
+                  </>
+                ) : (
+                  <>
+                    Read More <ChevronDown className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
-          <Separator className="my-4" />
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              {
-                label: "Volume",
-                value: floatLoading || !floatData?.[0]?.floatShares
-                  ? formatLargeNumber(quote.volume)
-                  : `Volume: ${formatLargeNumber(quote.volume)}\n` +
-                    `% Float Traded: ${((quote.volume / floatData[0].floatShares) * 100).toFixed(2)}%`
-              },
-              {
-                label: "Shares Outstanding",
-                value: floatLoading 
-                  ? "Loading..." 
-                  : !floatData?.[0] 
-                    ? (quote.sharesOutstanding ? formatLargeNumber(quote.sharesOutstanding) : 'N/A')
-                    : `Outstanding: ${formatLargeNumber(floatData[0].outstandingShares)}\n` +
-                      `Float: ${formatLargeNumber(floatData[0].floatShares)}\n` +
-                      `Free Float: ${floatData[0].freeFloat.toFixed(2)}%`
-              },
-              {
-                label: "RSI (14)",
-                value: rsiLoading ? "Loading..." : (rsi ? `${safeFormat(rsi)} ${rsiStatus.label}` : 'N/A'),
-                color: !rsiLoading && rsi ? rsiStatus.color : undefined
-              },
-            ].map((item, index) => (
-              <div key={index} className="p-4 rounded-lg bg-secondary/50 hover:bg-secondary/70 transition-colors">
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">{item.label}</h4>
-                <p className={cn("text-sm font-medium font-mono whitespace-pre-line", item.color)}>{item.value}</p>
+          {/* Key Company Info Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Quick Stats */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Sector</h3>
+                  <p className="text-sm font-medium">{companyData.profile.sector}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Industry</h3>
+                  <p className="text-sm font-medium">{companyData.profile.industry}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">CEO</h3>
+                  <p className="text-sm font-medium">{companyData.profile.ceo}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Employees</h3>
+                  <p className="text-sm font-medium">{companyData.profile.fullTimeEmployees}</p>
+                </div>
+    
+                
               </div>
-            ))}
+            </div>
+
+            {/* Contact Info */}
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm text-muted-foreground">Address</h3>
+                <p className="text-sm">
+                  {companyData.profile.address}<br />
+                  {companyData.profile.city}, {companyData.profile.state} {companyData.profile.zip}<br />
+                  {companyData.profile.country}
+
+                </p>
+              </div>
+            </div>
+
+            {/* Links and Website */}
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-medium text-muted-foreground">Website</h3>
+                <a 
+                  href={companyData.profile.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  {companyData.profile.website}
+                </a>
+              </div>
+              <div className="flex gap-2">
+                <Link 
+                  className="inline-flex items-center justify-center rounded-md bg-purple-500 px-4 py-2 text-sm font-medium text-white hover:bg-purple-400 transition-colors"
+                  href={`https://finance.yahoo.com/quote/${symbol}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Yahoo Finance
+                </Link>
+                
+              </div>
+            </div>
+          </div>
+
+          {/* Trading Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="p-4 rounded-lg bg-secondary/50">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Previous Close</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <span className="font-medium">${safeFormat(quote.previousClose)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Open</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <span className="font-medium">${safeFormat(quote.open)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Day's Low</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <span className="font-medium">${safeFormat(quote.dayLow)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Day's High</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <span className="font-medium">${safeFormat(quote.dayHigh)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">52 Week Low</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <div className="text-right">
+                    <span className="font-medium">${safeFormat(quote.yearLow)}</span>
+                    <div className="text-xs text-green-600">
+                      +{((quote.price - quote.yearLow) / quote.yearLow * 100).toFixed(2)}%
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">52 Week High</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <div className="text-right">
+                    <span className="font-medium">${safeFormat(quote.yearHigh)}</span>
+                    <div className="text-xs text-red-600">
+                      {((quote.price - quote.yearHigh) / quote.yearHigh * 100).toFixed(2)}%
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+
+
+            <div className="p-4 rounded-lg bg-secondary/50">
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Volume</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <span className="font-medium">{formatLargeNumber(quote.volume)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Avg. Volume</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <span className="font-medium">{formatLargeNumber(quote.avgVolume)}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">RSI (14)</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <span className={cn("font-medium", {
+                    "text-positive": rsi && rsi >= 70,
+                    "text-negative": rsi && rsi <= 30
+                  })}>
+
+                    {rsiLoading ? "Loading..." : (rsi ? `${safeFormat(rsi)}` : 'N/A')}
+                  </span>
+                </div>
+              <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">P/E Ratio</span>
+                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                  <span className="font-medium">{quote.pe ? safeFormat(quote.pe) : 'N/A'}</span>
+              </div>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-lg bg-secondary/50">
+              <div className="space-y-2">
+                {!floatLoading && floatData?.[0] && (
+                  <>
+                  <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Shares Outstanding</span>
+                      <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                      <span className="font-medium">{formatLargeNumber(floatData[0].outstandingShares)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Float</span>
+                      <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                      <span className="font-medium">{formatLargeNumber(floatData[0].floatShares)}</span>
+                    </div>                   
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Free Float</span>
+                      <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                      <span className="font-medium">{floatData[0].freeFloat.toFixed(2)}%</span>
+                    </div>                                  
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">% Float Traded</span>
+                      <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                      <span className="font-medium">{((quote.volume / floatData[0].floatShares) * 100).toFixed(2)}%</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-col md:flex-row justify-between text-sm text-muted-foreground mt-4 pt-4 border-t">
@@ -231,13 +367,11 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
         </CardContent>
       </Card>
 
-      
-
       {/* Main Content Tabs */}
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-8">
-          <TabsTrigger value="overview" className="flex items-center gap-2">
-            <Building2 className="w-4 h-4" /> Overview
+      <Tabs defaultValue="news" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-7">
+          <TabsTrigger value="news" className="flex items-center gap-2">
+            <Building2 className="w-4 h-4" /> News
           </TabsTrigger>
           <TabsTrigger value="financials" className="flex items-center gap-2">
             <DollarSign className="w-4 h-4" /> Financials
@@ -257,177 +391,107 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
           <TabsTrigger value="executives" className="flex items-center gap-2">
             <Users className="w-4 h-4" /> Executives
           </TabsTrigger>
-          <TabsTrigger value="dividends" className="flex items-center gap-2">
-            <DollarSign className="w-4 h-4" /> Dividend History
-          </TabsTrigger>
         </TabsList>
 
-        {/* Overview Tab */}
-        <TabsContent value="overview">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Company Profile</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {companyData.profile.description}
-                </p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div key="ceo">
-                    <h3 className="font-medium text-sm text-muted-foreground">CEO</h3>
-                    <p className="font-medium">{companyData.profile.ceo}</p>
-                  </div>
-                  <div key="employees">
-                    <h3 className="font-medium text-sm text-muted-foreground">Employees</h3>
-                    <p className="font-medium">{companyData.profile.fullTimeEmployees}</p>
-                  </div>
-                  <div key="industry">
-                    <h3 className="font-medium text-sm text-muted-foreground">Industry</h3>
-                    <p className="font-medium">{companyData.profile.industry}</p>
-                  </div>
-                  <div key="sector">
-                    <h3 className="font-medium text-sm text-muted-foreground">Sector</h3>
-                    <p className="font-medium">{companyData.profile.sector}</p>
-                  </div>
+        {/* News Tab */}
+        <TabsContent value="news">
+          <Card>
+            <CardHeader>
+              <CardTitle>News</CardTitle>
+              <div className="flex items-end gap-4">
+                <div className="flex-1">
+                  <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
+                    Start Date
+                  </label>
+                  <Input
+                    id="startDate"
+                    type="date"
+                    value={newsStartDate}
+                    onChange={(e) => setNewsStartDate(e.target.value)}
+                    max={newsEndDate}
+                  />
+                </div>
+                <div className="flex-1">
+                  <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
+                    End Date
+                  </label>
+                  <Input
+                    id="endDate"
+                    type="date"
+                    value={newsEndDate}
+                    onChange={(e) => setNewsEndDate(e.target.value)}
+                    min={newsStartDate}
+                    max={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+                <Button 
+                  onClick={() => setNewsTrigger(prev => prev + 1)}
+                  disabled={newsLoading}
+                >
+                  {newsLoading ? 'Searching...' : 'Search News'}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {newsLoading ? (
+                <div className="flex items-center justify-center p-4">
+                  Loading news...
+                </div>
+              ) : newsError ? (
+                <div className="flex items-center justify-center p-4 text-red-600">
+                  Error loading news: {newsError.message}
+                </div>
+              ) : (
+                <ScrollArea className="h-[400px]">
                   <div className="space-y-4">
-                    <div key="address">
-                      <h3 className="font-medium text-sm text-muted-foreground">Address</h3>
-                      <p className="font-medium">
-                        {companyData.profile.address}<br />
-                        {companyData.profile.city}, {companyData.profile.state} {companyData.profile.zip}<br />
-                        {companyData.profile.country}
-                      </p>
-                    </div>
-                    <div key="phone">
-                      <h3 className="font-medium text-sm text-muted-foreground">Phone</h3>
-                      <p className="font-medium">{companyData.profile.phone}</p>
-                    </div>
-                    <div key="website">
-                      <h3 className="font-medium text-sm text-muted-foreground">Website</h3>
-                      <a 
-                        href={companyData.profile.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        {companyData.profile.website}
-                      </a>
-                    </div>          
-                  </div>
-                  <div>
-                    <Link 
-                      className="mt-4 inline-block rounded-md bg-purple-500 px-4 py-2 text-sm text-white hover:bg-purple-400"
-                      href={`https://finance.yahoo.com/quote/${symbol}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Yahoo Finance
-                    </Link>
-                  </div> 
-                </div>
-                
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>News</CardTitle>
-                <div className="flex items-end gap-4">
-                  <div className="flex-1">
-                    <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
-                      Start Date
-                    </label>
-                    <Input
-                      id="startDate"
-                      type="date"
-                      value={newsStartDate}
-                      onChange={(e) => setNewsStartDate(e.target.value)}
-                      max={newsEndDate}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
-                      End Date
-                    </label>
-                    <Input
-                      id="endDate"
-                      type="date"
-                      value={newsEndDate}
-                      onChange={(e) => setNewsEndDate(e.target.value)}
-                      min={newsStartDate}
-                      max={new Date().toISOString().split('T')[0]}
-                    />
-                  </div>
-                  <Button 
-                    onClick={() => setNewsTrigger(prev => prev + 1)}
-                    disabled={newsLoading}
-                  >
-                    {newsLoading ? 'Searching...' : 'Search News'}
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {newsLoading ? (
-                  <div className="flex items-center justify-center p-4">
-                    Loading news...
-                  </div>
-                ) : newsError ? (
-                  <div className="flex items-center justify-center p-4 text-red-600">
-                    Error loading news: {newsError.message}
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[400px]">
-                    <div className="space-y-4">
-                      {newsData && newsData.length > 0 ? (
-                        newsData.map((news) => (
-                          <div key={`${news.publishedDate}-${news.title}-${news.site}`} className="flex gap-4 p-4 border rounded-lg">
-                            {news.image && (
-                              <div className="flex-shrink-0">
-                                <Image 
-                                  src={news.image} 
-                                  alt={news.title} 
-                                  width={96}
-                                  height={96}
-                                  className="object-cover rounded-md"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = 'none';
-                                  }}
-                                />
-                              </div>
-                            )}
-                            <div className="flex-1">
-                              <h3 className="font-semibold mb-2">
-                                <a 
-                                  href={news.url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="hover:text-blue-600"
-                                >
-                                  {news.title}
-                                </a>
-                              </h3>
-                              <p className="text-sm text-gray-600 mb-2">{news.text}</p>
-                              <div className="flex items-center gap-2 text-xs text-gray-500">
-                                <span>{news.site}</span>
-                                <span>•</span>
-                                <span>{new Date(news.publishedDate).toLocaleDateString()}</span>
-                              </div>
+                    {newsData && newsData.length > 0 ? (
+                      newsData.map((news) => (
+                        <div key={`${news.publishedDate}-${news.title}-${news.site}`} className="flex gap-4 p-4 border rounded-lg">
+                          {news.image && (
+                            <div className="flex-shrink-0">
+                              <Image 
+                                src={news.image} 
+                                alt={news.title} 
+                                width={96}
+                                height={96}
+                                className="object-cover rounded-md"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                }}
+                              />
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <h3 className="font-semibold mb-2">
+                              <a 
+                                href={news.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="hover:text-blue-600"
+                              >
+                                {news.title}
+                              </a>
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-2">{news.text}</p>
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                              <span>{news.site}</span>
+                              <span>•</span>
+                              <span>{new Date(news.publishedDate).toLocaleDateString()}</span>
                             </div>
                           </div>
-                        ))
-                      ) : (
-                        <div className="text-center text-gray-500">
-                          No news available
                         </div>
-                      )}
-                    </div>
-                  </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+                      ))
+                    ) : (
+                      <div className="text-center text-gray-500">
+                        No news available
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Financials Tab */}
@@ -758,57 +822,6 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
                   </TableBody>
                 </Table>
               </ScrollArea>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Dividends Tab */}
-        <TabsContent value="dividends">
-          <Card>
-            <CardHeader>
-              <CardTitle>Dividend History</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {dividendLoading ? (
-                <div className="flex items-center justify-center p-4">
-                  Loading dividend history...
-                </div>
-              ) : dividendError ? (
-                <div className="flex items-center justify-center p-4 text-red-600">
-                  Error loading dividend history: {dividendError.message}
-                </div>
-              ) : (
-                <ScrollArea className="h-[600px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Declaration Date</TableHead>
-                        <TableHead>Record Date</TableHead>
-                        <TableHead>Payment Date</TableHead>
-                        <TableHead className="text-right">Dividend</TableHead>
-                        <TableHead className="text-right">Adjusted Dividend</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {dividendHistory && dividendHistory.length > 0 ? (
-                        dividendHistory.map((dividend) => (
-                          <TableRow key={`${dividend.date}-${dividend.dividend}`}>
-                            <TableCell>{new Date(dividend.declarationDate).toLocaleDateString()}</TableCell>
-                            <TableCell>{new Date(dividend.recordDate).toLocaleDateString()}</TableCell>
-                            <TableCell>{new Date(dividend.paymentDate).toLocaleDateString()}</TableCell>
-                            <TableCell className="text-right">${dividend.dividend.toFixed(4)}</TableCell>
-                            <TableCell className="text-right">${dividend.adjDividend.toFixed(4)}</TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center">No dividend history available</TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              )}
             </CardContent>
           </Card>
         </TabsContent>
