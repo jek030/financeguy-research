@@ -115,8 +115,8 @@ const PriceHistoryComponent: React.FC<PriceHistoryComponentProps> = ({ symbol })
                   <TableHead className="text-right">
                     <Button
                       variant="ghost"
-                      onClick={() => handleSort('changePercent')}
-                      className="h-8 flex items-center gap-1"
+                      onClick={() => handleSort('changePercent')} 
+                      className="h-8 flex items-center gap-1 ml-auto"
                     >
                       Day Change %
                       <ArrowUpDown className="h-4 w-4" />
