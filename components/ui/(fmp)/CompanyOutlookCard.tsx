@@ -2,33 +2,29 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { PriceHistory, KeyMetrics } from '@/lib/types';
+import { PriceHistory } from '@/lib/types';
 import {Building2, Users, DollarSign, PieChart, TrendingDown, Activity, ChevronDown, ChevronUp} from 'lucide-react';
 
 //UI Components
-import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/Table";
 import { Badge } from '@/components/ui/Badge';
-import { ScrollArea } from '@/components/ui/ScrollArea';
-import { Separator } from '@/components/ui/Separator';
 import { Financials } from '@/components/ui/(fmp)/Financials';
 import { cn } from '@/lib/utils';
 
 //FMP Hooks
 import { useCompanyOutlook } from '@/hooks/FMP/useCompanyOutlook';
-import { useKeyMetrics } from '@/hooks/FMP/useKeyMetrics';
 import { calculateRanges } from '@/lib/priceCalculations';
 import { safeFormat, safeFormatVol } from '@/lib/formatters';
-import { useInsiderTrading } from '@/hooks/FMP/useInsiderTrading';
-import { useDividendHistory } from '@/hooks/FMP/useDividendHistory';
-import { useNewsHistory } from '@/hooks/FMP/useNewsHistory';
 import { MovingAverages } from '@/components/ui/(fmp)/MovingAverages';
 import { useRSIData } from '@/hooks/FMP/useRSIData';
 import { useQuote } from '@/hooks/FMP/useQuote';
 import { useFloat } from '@/hooks/FMP/useFloat';
+import News from '@/components/ui/(fmp)/News';
+import KeyMetrics from '@/components/ui/(fmp)/KeyMetrics';
+import InsiderActivity from '@/components/ui/(fmp)/InsiderActivity';
+import Executives from '@/components/ui/(fmp)/Executives';
+import DividendHistory from '@/components/ui/(fmp)/DividendHistory';
 
 interface CompanyOutlookProps {
   symbol: string;
@@ -46,31 +42,12 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
   /** Float Data from FMP */
   const { data: floatData, isLoading: floatLoading } = useFloat(symbol);
 
-  /*News History Start and End Dates*/
-  const [newsStartDate, setNewsStartDate] = useState(() => {
-    const date = new Date();
-    date.setDate(date.getDate() - 30);
-    return date.toISOString().split('T')[0];
-  });
-  const [newsEndDate, setNewsEndDate] = useState(() => {
-    return new Date().toISOString().split('T')[0];
-  });
-  const [newsTrigger, setNewsTrigger] = useState(0);
   /*Company Outlook Data from FMP*/
   const { data: companyData, isLoading, error } = useCompanyOutlook(symbol);
-  /*Key Metrics Data from FMP*/
-  const { annualData: keyMetricsAnnual, quarterlyData: keyMetricsQuarterly, ttmData: keyMetricsTtm } = useKeyMetrics(symbol);
   
-  /*Insider Trading Data from FMP*/
-  const { data: insiderTrades, isLoading: insiderLoading, error: insiderError } = useInsiderTrading(symbol);
-  /*Dividend History Data from FMP*/
-  const { data: dividendHistory, isLoading: dividendLoading, error: dividendError } = useDividendHistory(symbol);
-  /*News History Data from FMP*/
-  const { data: newsData, isLoading: newsLoading, error: newsError } = useNewsHistory(symbol, newsStartDate, newsEndDate, newsTrigger);
-  /*Calculate 5 and 20 ADR/STR with Price History Data from Schwab - TODO - replace schwab API call with FMP*/
+  /*Calculate 5 and 20 ADR/STR with Price History Data*/
   const range5Day = calculateRanges(priceHistory, 5);
   const range20Day = calculateRanges(priceHistory, 20);
-  // Prepare quarterly revenue data for chart
 
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
@@ -177,7 +154,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
           </div>
 
           {/* Key Company Info Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-b pb-4">
             {/* Quick Stats */}
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -257,12 +234,12 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
                   <span className="font-medium">${safeFormat(quote.open)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Day's Low</span>
+                  <span className="text-sm text-muted-foreground">Day&apos;s Low</span>
                   <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
                   <span className="font-medium">${safeFormat(quote.dayLow)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Day's High</span>
+                  <span className="text-sm text-muted-foreground">Day&apos;s High</span>
                   <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
                   <span className="font-medium">${safeFormat(quote.dayHigh)}</span>
                 </div>
@@ -288,8 +265,6 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
                 </div>
               </div>
             </div>
-
-
 
             <div className="p-4 rounded-lg bg-secondary/50">
               <div className="space-y-2">
@@ -369,7 +344,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="news" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="news" className="flex items-center gap-2">
             <Building2 className="w-4 h-4" /> News
           </TabsTrigger>
@@ -391,278 +366,23 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
           <TabsTrigger value="executives" className="flex items-center gap-2">
             <Users className="w-4 h-4" /> Executives
           </TabsTrigger>
+          <TabsTrigger value="dividends" className="flex items-center gap-2">
+            <DollarSign className="w-4 h-4" /> Dividends
+          </TabsTrigger>
         </TabsList>
 
-        {/* News Tab */}
         <TabsContent value="news">
-          <Card>
-            <CardHeader>
-              <CardTitle>News</CardTitle>
-              <div className="flex items-end gap-4">
-                <div className="flex-1">
-                  <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
-                    Start Date
-                  </label>
-                  <Input
-                    id="startDate"
-                    type="date"
-                    value={newsStartDate}
-                    onChange={(e) => setNewsStartDate(e.target.value)}
-                    max={newsEndDate}
-                  />
-                </div>
-                <div className="flex-1">
-                  <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
-                    End Date
-                  </label>
-                  <Input
-                    id="endDate"
-                    type="date"
-                    value={newsEndDate}
-                    onChange={(e) => setNewsEndDate(e.target.value)}
-                    min={newsStartDate}
-                    max={new Date().toISOString().split('T')[0]}
-                  />
-                </div>
-                <Button 
-                  onClick={() => setNewsTrigger(prev => prev + 1)}
-                  disabled={newsLoading}
-                >
-                  {newsLoading ? 'Searching...' : 'Search News'}
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {newsLoading ? (
-                <div className="flex items-center justify-center p-4">
-                  Loading news...
-                </div>
-              ) : newsError ? (
-                <div className="flex items-center justify-center p-4 text-red-600">
-                  Error loading news: {newsError.message}
-                </div>
-              ) : (
-                <ScrollArea className="h-[400px]">
-                  <div className="space-y-4">
-                    {newsData && newsData.length > 0 ? (
-                      newsData.map((news) => (
-                        <div key={`${news.publishedDate}-${news.title}-${news.site}`} className="flex gap-4 p-4 border rounded-lg">
-                          {news.image && (
-                            <div className="flex-shrink-0">
-                              <Image 
-                                src={news.image} 
-                                alt={news.title} 
-                                width={96}
-                                height={96}
-                                className="object-cover rounded-md"
-                                onError={(e) => {
-                                  const target = e.target as HTMLImageElement;
-                                  target.style.display = 'none';
-                                }}
-                              />
-                            </div>
-                          )}
-                          <div className="flex-1">
-                            <h3 className="font-semibold mb-2">
-                              <a 
-                                href={news.url} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="hover:text-blue-600"
-                              >
-                                {news.title}
-                              </a>
-                            </h3>
-                            <p className="text-sm text-gray-600 mb-2">{news.text}</p>
-                            <div className="flex items-center gap-2 text-xs text-gray-500">
-                              <span>{news.site}</span>
-                              <span>•</span>
-                              <span>{new Date(news.publishedDate).toLocaleDateString()}</span>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center text-gray-500">
-                        No news available
-                      </div>
-                    )}
-                  </div>
-                </ScrollArea>
-              )}
-            </CardContent>
-          </Card>
+          <News symbol={symbol} />
         </TabsContent>
-
-        {/* Financials Tab */}
         <TabsContent value="financials">
-        <Financials companyData={companyData} />
+          <Financials companyData={companyData} />
         </TabsContent>
-
-        {/* Key Metrics Tab */}
         <TabsContent value="keymetrics">
-          <Card>
-            <CardHeader>
-              <CardTitle>Key Metrics</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="annual" className="space-y-4">
-                <TabsList>
-                  <TabsTrigger value="annual">Annual</TabsTrigger>
-                  <TabsTrigger value="quarterly">Quarterly</TabsTrigger>
-                  <TabsTrigger value="ttm">TTM</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="annual">
-                  <ScrollArea className="h-[600px]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Period</TableHead>
-                          <TableHead className="text-right">Revenue Per Share</TableHead>
-                          <TableHead className="text-right">Dividend Yield</TableHead>
-                          <TableHead className="text-right">ROE</TableHead>
-                          <TableHead className="text-right">Net Income Per Share</TableHead>
-                          <TableHead className="text-right">Operating Cash Flow Per Share</TableHead>
-                          <TableHead className="text-right">Free Cash Flow Per Share</TableHead>
-                          <TableHead className="text-right">Cash Per Share</TableHead>
-                          <TableHead className="text-right">Book Value Per Share</TableHead>
-                          <TableHead className="text-right">Market Cap</TableHead>
-                          <TableHead className="text-right">Enterprise Value</TableHead>
-                          <TableHead className="text-right">PE Ratio</TableHead>                                                  
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {keyMetricsAnnual && keyMetricsAnnual.length > 0 ? (
-                          keyMetricsAnnual.map((metric: KeyMetrics) => (
-                            <TableRow key={`annual-${metric.date}-${metric.period}`}>
-                              <TableCell>{new Date(metric.date).toLocaleDateString()}</TableCell>
-                              <TableCell>{metric.period}</TableCell>
-                              <TableCell className="text-right">${metric.revenuePerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">{(metric.dividendYield * 100)?.toFixed(2)}%</TableCell>                         
-                              <TableCell className="text-right">{(metric.roe * 100)?.toFixed(2)}%</TableCell>
-                              <TableCell className="text-right">${metric.netIncomePerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${metric.operatingCashFlowPerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${metric.freeCashFlowPerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${metric.cashPerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${metric.bookValuePerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${formatLargeNumber(metric.marketCap)}</TableCell>
-                              <TableCell className="text-right">${formatLargeNumber(metric.enterpriseValue)}</TableCell>
-                              <TableCell className="text-right">{metric.peRatio?.toFixed(2)}</TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={54} className="text-center">No annual key metrics data available</TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </TabsContent>
-
-                <TabsContent value="quarterly">
-                  <ScrollArea className="h-[600px]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Period</TableHead>
-                          <TableHead className="text-right">Revenue Per Share</TableHead>
-                          <TableHead className="text-right">Dividend Yield</TableHead>
-                          <TableHead className="text-right">ROE</TableHead>
-                          <TableHead className="text-right">Net Income Per Share</TableHead>
-                          <TableHead className="text-right">Operating Cash Flow Per Share</TableHead>
-                          <TableHead className="text-right">Free Cash Flow Per Share</TableHead>
-                          <TableHead className="text-right">Cash Per Share</TableHead>
-                          <TableHead className="text-right">Book Value Per Share</TableHead>
-                          <TableHead className="text-right">Market Cap</TableHead>
-                          <TableHead className="text-right">Enterprise Value</TableHead>
-                          <TableHead className="text-right">PE Ratio</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {keyMetricsQuarterly && keyMetricsQuarterly.length > 0 ? (
-                          keyMetricsQuarterly.map((metric: KeyMetrics) => (
-                            <TableRow key={`quarterly-${metric.date}-${metric.period}`}>
-                              <TableCell>{new Date(metric.date).toLocaleDateString()}</TableCell>
-                              <TableCell>{metric.period}</TableCell>
-                              <TableCell className="text-right">${metric.revenuePerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">{(metric.dividendYield * 100)?.toFixed(2)}%</TableCell>
-                              <TableCell className="text-right">{(metric.roe * 100)?.toFixed(2)}%</TableCell>
-                              <TableCell className="text-right">${metric.netIncomePerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${metric.operatingCashFlowPerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${metric.freeCashFlowPerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${metric.cashPerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${metric.bookValuePerShare?.toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${formatLargeNumber(metric.marketCap)}</TableCell>
-                              <TableCell className="text-right">${formatLargeNumber(metric.enterpriseValue)}</TableCell>
-                              <TableCell className="text-right">{metric.peRatio?.toFixed(2)}</TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={13} className="text-center">No quarterly key metrics data available</TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </TabsContent>
-
-                <TabsContent value="ttm">
-                  <ScrollArea className="h-[600px]">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-right">Revenue Per Share TTM</TableHead>
-                          <TableHead className="text-right">ROE TTM</TableHead>
-                          <TableHead className="text-right">Net Income Per Share TTM</TableHead>
-                          <TableHead className="text-right">Operating Cash Flow Per Share TTM</TableHead>
-                          <TableHead className="text-right">Free Cash Flow Per Share TTM</TableHead>
-                          <TableHead className="text-right">Cash Per Share TTM</TableHead>
-                          <TableHead className="text-right">Book Value Per Share TTM</TableHead>
-                          <TableHead className="text-right">Market Cap TTM</TableHead>
-                          <TableHead className="text-right">Enterprise Value TTM</TableHead>
-                          <TableHead className="text-right">PE Ratio TTM</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {keyMetricsTtm && keyMetricsTtm.length > 0 ? (
-                          keyMetricsTtm.map((metric: KeyMetrics) => (
-                            <TableRow key={`ttm-${metric.date}-${metric.calendarYear}`}>
-                              <TableCell className="text-right">${(metric.revenuePerShareTTM ?? 0).toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${(metric.roeTTM ?? 0).toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${(metric.netIncomePerShareTTM ?? 0).toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${(metric.operatingCashFlowPerShareTTM ?? 0).toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${(metric.freeCashFlowPerShareTTM ?? 0).toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${(metric.cashPerShareTTM ?? 0).toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${(metric.bookValuePerShareTTM ?? 0).toFixed(2)}</TableCell>
-                              <TableCell className="text-right">${formatLargeNumber(metric.marketCapTTM ?? 0)}</TableCell>
-                              <TableCell className="text-right">${formatLargeNumber(metric.enterpriseValueTTM ?? 0)}</TableCell>
-                              <TableCell className="text-right">{(metric.peRatioTTM ?? 0).toFixed(2)}</TableCell>
-                            </TableRow>
-                          ))
-                        ) : (
-                          <TableRow>
-                            <TableCell colSpan={13} className="text-center">No TTM key metrics data available</TableCell>
-                          </TableRow>
-                        )}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
+          <KeyMetrics symbol={symbol} />
         </TabsContent>
-
-        {/* Moving Averages Tab */}
         <TabsContent value="movingavgs">
           <MovingAverages companyData={companyData} symbol={companyData.profile.symbol} />
         </TabsContent>
-        {/* Statistics Tab */}
         <TabsContent value="statistics">
           <Card>
             <CardHeader>
@@ -687,7 +407,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
                 52 week high: ${safeFormat(quote.yearHigh)} <br />
                 52 week low: ${safeFormat(quote.yearLow)}
               </div>
-                        
+                     
               <div className="py-2">
                 Volume: {safeFormatVol(quote.volume)} <br />      
                 Avg Volume: {safeFormatVol(quote.avgVolume)}
@@ -700,130 +420,16 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
           </Card>
         </TabsContent>
 
-        {/* Insiders Tab */}
         <TabsContent value="insiders">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Insider Transactions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {insiderLoading ? (
-                <div className="flex items-center justify-center p-4">
-                  Loading insider trading data...
-                </div>
-              ) : insiderError ? (
-                <div className="flex items-center justify-center p-4 text-red-600">
-                  Error loading insider trading data: {insiderError.message}
-                </div>
-              ) : (
-                <ScrollArea className="h-[600px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Filing Date</TableHead>
-                        <TableHead>Transaction Date</TableHead>
-                        <TableHead>Insider Name</TableHead>
-                        <TableHead>Transaction Type</TableHead>
-                        <TableHead className="text-right">Price</TableHead>
-                        <TableHead className="text-right">Shares</TableHead>
-                        <TableHead className="text-right">Value</TableHead>
-                        <TableHead className="text-right">Shares Total</TableHead>
-                        <TableHead>Form</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {Array.isArray(insiderTrades) && insiderTrades.length > 0 ? (
-                        insiderTrades.map((trade) => (
-                          <TableRow key={`${trade.filingDate}-${trade.reportingName}-${trade.transactionDate}-${trade.transactionType}-${trade.securitiesTransacted}-${trade.price}-${trade.securitiesOwned}`}>
-                            <TableCell>{new Date(trade.filingDate).toLocaleDateString()}</TableCell>
-                            <TableCell>{new Date(trade.transactionDate).toLocaleDateString()}</TableCell>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">{trade.reportingName}</p>
-                                <p className="text-sm text-gray-500">{trade.typeOfOwner}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                trade.acquistionOrDisposition === 'A' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {trade.transactionType} ({trade.acquistionOrDisposition === 'A' ? 'Buy' : 'Sell'})
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-right">{trade.price ? `$${trade.price.toFixed(2)}` : 'N/A'}</TableCell>
-                            <TableCell className="text-right">{formatLargeNumber(trade.securitiesTransacted)}</TableCell>
-                            <TableCell className="text-right">${formatLargeNumber(trade.securitiesTransacted * (trade.price || 0))}</TableCell>
-                            <TableCell className="text-right">${formatLargeNumber(trade.securitiesOwned)}</TableCell>
-                            <TableCell>
-                              <a 
-                                href={trade.link} 
-                                target="_blank" 
-                                rel="noopener noreferrer" 
-                                className="text-blue-600 hover:text-blue-800"
-                              >
-                                {trade.formType}
-                              </a>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={9} className="text-center">No insider trades available</TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
-              )}
-            </CardContent>
-          </Card>
+          <InsiderActivity symbol={symbol} />
         </TabsContent>
 
-        {/* Executives Tab */}
         <TabsContent value="executives">
-          <Card>
-            <CardHeader>
-              <CardTitle>Key Executives</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[600px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead className="text-right">Pay</TableHead>
-                      <TableHead>Gender</TableHead>
-                      <TableHead className="text-right">Year Born</TableHead>
-                      <TableHead className="text-right">Title Since</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {Array.isArray(companyData.keyExecutives) && companyData.keyExecutives.length > 0 ? (
-                      companyData.keyExecutives.map((executive, index) => (
-                        <TableRow key={`${executive.name}-${index}`}>
-                          <TableCell className="font-medium">{executive.name}</TableCell>
-                          <TableCell>{executive.title}</TableCell>
-                          <TableCell className="text-right">
-                            {executive.pay ? ` $${formatLargeNumber(executive.pay)}` : 'N/A'}
-                          </TableCell>
-                          <TableCell>{executive.gender || 'N/A'}</TableCell>
-                          <TableCell className="text-right">{executive.yearBorn || 'N/A'}</TableCell>
-                          <TableCell className="text-right">{executive.titleSince || 'N/A'}</TableCell>
-                        </TableRow>
-                      ))
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center">No executive data available</TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+          <Executives companyData={companyData} />
+        </TabsContent>
+
+        <TabsContent value="dividends">
+          <DividendHistory symbol={symbol} />
         </TabsContent>
       </Tabs>
     </div>
