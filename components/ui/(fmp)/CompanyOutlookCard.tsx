@@ -25,6 +25,7 @@ import KeyMetrics from '@/components/ui/(fmp)/KeyMetrics';
 import InsiderActivity from '@/components/ui/(fmp)/InsiderActivity';
 import Executives from '@/components/ui/(fmp)/Executives';
 import DividendHistory from '@/components/ui/(fmp)/DividendHistory';
+import IntradayChart from '@/components/ui/(fmp)/Chart';
 
 interface CompanyOutlookProps {
   symbol: string;
@@ -342,6 +343,10 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
         </CardContent>
       </Card>
 
+
+      <IntradayChart symbol={symbol} />
+         
+
       {/* Main Content Tabs */}
       <Tabs defaultValue="news" className="space-y-4">
         <TabsList className="grid w-full grid-cols-8">
@@ -433,6 +438,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
         </TabsContent>
       </Tabs>
     </div>
+
   );
 };
 
