@@ -27,6 +27,7 @@ import InsiderActivity from '@/components/ui/(fmp)/InsiderActivity';
 import Executives from '@/components/ui/(fmp)/Executives';
 import DividendHistory from '@/components/ui/(fmp)/DividendHistory';
 import IntradayChart from '@/components/ui/(fmp)/Chart';
+import PriceHistoryComponent from '@/components/ui/(fmp)/PriceHistory';
 
 interface CompanyOutlookProps {
   symbol: string;
@@ -442,7 +443,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="news" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-8">
+        <TabsList className="grid w-full grid-cols-9">
           <TabsTrigger value="news" className="flex items-center gap-2">
             <Building2 className="w-4 h-4" /> News
           </TabsTrigger>
@@ -466,6 +467,9 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
           </TabsTrigger>
           <TabsTrigger value="dividends" className="flex items-center gap-2">
             <DollarSign className="w-4 h-4" /> Dividends
+          </TabsTrigger>
+          <TabsTrigger value="pricehistory" className="flex items-center gap-2">
+            <Activity className="w-4 h-4" /> Price History
           </TabsTrigger>
         </TabsList>
 
@@ -528,6 +532,10 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
 
         <TabsContent value="dividends">
           <DividendHistory symbol={symbol} />
+        </TabsContent>
+
+        <TabsContent value="pricehistory">
+          <PriceHistoryComponent symbol={symbol} />
         </TabsContent>
       </Tabs>
     </div>
