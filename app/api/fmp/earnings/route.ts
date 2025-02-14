@@ -3,12 +3,12 @@ import { FMP_API_KEY, FMP_BASE_URL } from '../config';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
-  const from = searchParams.get('from');
-  const to = searchParams.get('to');
+  const symbol = searchParams.get('symbol');
+  const period = searchParams.get('period');
 
-  if (!from || !to) {
+  if (!symbol || !period) {
     return NextResponse.json(
-      { error: 'From and to dates are required' },
+      { error: 'Symbol and period are required' },
       { status: 400 }
     );
   }
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(
-      `${FMP_BASE_URL}/v3/earning_calendar?from=${from}&to=${to}&limit=1000&apikey=${FMP_API_KEY}`,
+      `${FMP_BASE_URL}/v3/income-statement/${symbol}?period=${period}&apikey=${FMP_API_KEY}`,
       {
         headers: {
           'Content-Type': 'application/json',
@@ -37,9 +37,9 @@ export async function GET(request: NextRequest) {
     const data = await response.json();
     return NextResponse.json(data);
   } catch (error) {
-    console.error('Error fetching earnings data:', error);
+    console.error('Error fetching income statement data:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch earnings data' },
+      { error: 'Failed to fetch income statement data' },
       { status: 500 }
     );
   }

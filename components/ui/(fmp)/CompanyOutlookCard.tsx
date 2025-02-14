@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { PriceHistory } from '@/lib/types';
-import {Building2, Users, DollarSign, PieChart, TrendingDown, Activity, ChevronDown, ChevronUp} from 'lucide-react';
+import {Building2, Users, DollarSign, PieChart, TrendingDown, Activity, ChevronDown, ChevronUp, Calculator} from 'lucide-react';
 
 //UI Components
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/Card';
@@ -28,6 +28,7 @@ import Executives from '@/components/ui/(fmp)/Executives';
 import DividendHistory from '@/components/ui/(fmp)/DividendHistory';
 import IntradayChart from '@/components/ui/(fmp)/Chart';
 import PriceHistoryComponent from '@/components/ui/(fmp)/PriceHistory';
+import Earnings from '@/components/ui/(fmp)/Earnings';
 
 interface CompanyOutlookProps {
   symbol: string;
@@ -359,7 +360,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
                   </div>
                 </div>
               </div>
-            </div>
+          </div>
 
             <div className="p-4 rounded-lg bg-secondary/50">
               <div className="space-y-2">
@@ -439,11 +440,14 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
 
 
       <IntradayChart symbol={symbol} />
-         
+      
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="news" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-9">
+      <Tabs defaultValue="earnings" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-10">
+          <TabsTrigger value="earnings" className="flex items-center gap-2">
+            <Calculator className="w-4 h-4" /> Earnings
+          </TabsTrigger>
           <TabsTrigger value="news" className="flex items-center gap-2">
             <Building2 className="w-4 h-4" /> News
           </TabsTrigger>
@@ -473,6 +477,9 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="earnings">
+          <Earnings symbol={symbol} />
+        </TabsContent>
         <TabsContent value="news">
           <News symbol={symbol} />
         </TabsContent>
@@ -509,7 +516,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
                 52 week high: ${safeFormat(quote.yearHigh)} <br />
                 52 week low: ${safeFormat(quote.yearLow)}
               </div>
-                     
+                        
               <div className="py-2">
                 Volume: {safeFormatVol(quote.volume)} <br />      
                 Avg Volume: {safeFormatVol(quote.avgVolume)}
@@ -521,19 +528,15 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
             </CardFooter>
           </Card>
         </TabsContent>
-
         <TabsContent value="insiders">
           <InsiderActivity symbol={symbol} />
         </TabsContent>
-
         <TabsContent value="executives">
           <Executives companyData={companyData} />
         </TabsContent>
-
         <TabsContent value="dividends">
           <DividendHistory symbol={symbol} />
         </TabsContent>
-
         <TabsContent value="pricehistory">
           <PriceHistoryComponent symbol={symbol} />
         </TabsContent>
