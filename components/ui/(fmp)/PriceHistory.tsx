@@ -5,29 +5,31 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea } from '@/components/ui/ScrollArea';
 import { DatePicker } from '@/components/ui/date-picker';
 import { addYears, format } from 'date-fns';
-import { useDailyPrices } from '@/hooks/FMP/useDailyPrices';
 import { ArrowUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 interface PriceHistoryComponentProps {
   symbol: string;
+  priceHistory?: {
+    date: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    adjClose: number;
+    volume: number;
+  }[];
 }
 
 type SortDirection = 'asc' | 'desc';
 type SortField = 'date' | 'changePercent';
 
-const PriceHistoryComponent: React.FC<PriceHistoryComponentProps> = ({ symbol }) => {
+const PriceHistoryComponent: React.FC<PriceHistoryComponentProps> = ({ priceHistory = [] }) => {
   const today = new Date();
   const [fromDate, setFromDate] = useState<Date>(addYears(today, -2));
   const [toDate, setToDate] = useState<Date>(today);
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-
-  const { data: priceHistory, isLoading, error } = useDailyPrices({
-    symbol,
-    from: fromDate.toISOString().split('T')[0],
-    to: toDate.toISOString().split('T')[0],
-  });
 
   // Helper function to format dates correctly
   const formatDate = (dateString: string) => {
@@ -82,13 +84,13 @@ const PriceHistoryComponent: React.FC<PriceHistoryComponentProps> = ({ symbol })
         </div>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
+        {!priceHistory ? (
           <div className="flex items-center justify-center p-4">
             Loading price history...
           </div>
-        ) : error ? (
+        ) : priceHistory.length === 0 ? (
           <div className="flex items-center justify-center p-4 text-red-600">
-            Error loading price history: {error.message}
+            No price history available
           </div>
         ) : (
           <div className="relative border rounded-md">

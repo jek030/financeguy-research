@@ -2,11 +2,11 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { PriceHistory } from '@/lib/types';
 import {Building2, Users, DollarSign, PieChart, TrendingDown, Activity, ChevronDown, ChevronUp, Calculator} from 'lucide-react';
+import { addYears } from 'date-fns';
 
 //UI Components
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Badge } from '@/components/ui/Badge';
 import { Financials } from '@/components/ui/(fmp)/Financials';
@@ -16,7 +16,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 //FMP Hooks
 import { useCompanyOutlook } from '@/hooks/FMP/useCompanyOutlook';
 import { calculateRanges } from '@/lib/priceCalculations';
-import { safeFormat, safeFormatVol } from '@/lib/formatters';
+import { safeFormat } from '@/lib/formatters';
 import { MovingAverages } from '@/components/ui/(fmp)/MovingAverages';
 import { useRSIData } from '@/hooks/FMP/useRSIData';
 import { useQuote } from '@/hooks/FMP/useQuote';
@@ -29,13 +29,17 @@ import DividendHistory from '@/components/ui/(fmp)/DividendHistory';
 import IntradayChart from '@/components/ui/(fmp)/Chart';
 import PriceHistoryComponent from '@/components/ui/(fmp)/PriceHistory';
 import Earnings from '@/components/ui/(fmp)/Earnings';
+import { useDailyPrices } from '@/hooks/FMP/useDailyPrices';
 
 interface CompanyOutlookProps {
   symbol: string;
-  priceHistory?: PriceHistory[];
 }
 
-export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, priceHistory = [] }) => {
+export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) => {
+  const today = new Date();
+  const [fromDate] = useState<Date>(addYears(today, -2));
+  const [toDate] = useState<Date>(today);
+
   /** Quote Data from FMP */
   const { data: quote, isLoading: quoteLoading } = useQuote(symbol);
   
@@ -46,14 +50,28 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
   /** Float Data from FMP */
   const { data: floatData, isLoading: floatLoading } = useFloat(symbol);
 
+  /** Price History Data from FMP */
+  const { data: priceHistory } = useDailyPrices({
+    symbol,
+    from: fromDate.toISOString().split('T')[0],
+    to: toDate.toISOString().split('T')[0],
+  });
+
   /*Company Outlook Data from FMP*/
   const { data: companyData, isLoading, error } = useCompanyOutlook(symbol);
   
-  /*Calculate 5 and 20 ADR/STR with Price History Data*/
-  const range5Day = calculateRanges(priceHistory, 5);
-  const range20Day = calculateRanges(priceHistory, 20);
-
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+
+  // Calculate 5 and 20 day ranges
+  const range5Day = React.useMemo(() => {
+    if (!priceHistory || priceHistory.length < 5) return null;
+    return calculateRanges(priceHistory, 5);
+  }, [priceHistory]);
+
+  const range20Day = React.useMemo(() => {
+    if (!priceHistory || priceHistory.length < 20) return null;
+    return calculateRanges(priceHistory, 20);
+  }, [priceHistory]);
 
   if (isLoading || quoteLoading) {
     return (
@@ -360,7 +378,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
                   </div>
                 </div>
               </div>
-          </div>
+            </div>
 
             <div className="p-4 rounded-lg bg-secondary/50">
               <div className="space-y-2">
@@ -375,21 +393,48 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
                   <span className="font-medium">{formatLargeNumber(quote.avgVolume)}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">RSI (14)</span>
+                  <span className="text-sm text-muted-foreground">RSI (14)</span>
                   <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
                   <span className={cn("font-medium", {
                     "text-positive": rsi && rsi >= 70,
                     "text-negative": rsi && rsi <= 30
                   })}>
-
                     {rsiLoading ? "Loading..." : (rsi ? `${safeFormat(rsi)}` : 'N/A')}
                   </span>
                 </div>
-              <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">P/E Ratio</span>
                   <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
                   <span className="font-medium">{quote.pe ? safeFormat(quote.pe) : 'N/A'}</span>
-              </div>
+                </div>
+                {range5Day && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">5D ADR/ATR</span>
+                    <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                    <div className="text-right">
+                      <span className={cn("font-medium", {
+                        "text-positive": range5Day.averageDailyRange > 5,
+                        "text-negative": range5Day.averageDailyRange <= 5
+                      })}>
+                        {range5Day.averageDailyRange}% / ${safeFormat(range5Day.averageTrueRange)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+                {range20Day && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">20D ADR/ATR</span>
+                    <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                    <div className="text-right">
+                      <span className={cn("font-medium", {
+                        "text-positive": range20Day.averageDailyRange > 5,
+                        "text-negative": range20Day.averageDailyRange <= 5
+                      })}>
+                        {range20Day.averageDailyRange}% / ${safeFormat(range20Day.averageTrueRange)}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -460,9 +505,6 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
           <TabsTrigger value="movingavgs" className="flex items-center gap-2">
             <TrendingDown className="w-4 h-4" /> Moving Avgs
           </TabsTrigger>
-          <TabsTrigger value="statistics" className="flex items-center gap-2">
-            <Activity className="w-4 h-4" /> Statistics
-          </TabsTrigger>
           <TabsTrigger value="insiders" className="flex items-center gap-2">
             <Users className="w-4 h-4" /> Insider Activity
           </TabsTrigger>
@@ -492,42 +534,6 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
         <TabsContent value="movingavgs">
           <MovingAverages companyData={companyData} symbol={companyData.profile.symbol} />
         </TabsContent>
-        <TabsContent value="statistics">
-          <Card>
-            <CardHeader>
-              <CardTitle>Statistics</CardTitle>       
-            </CardHeader>
-            <CardContent>
-              <div className="py-2 border-b border-dotted border-gray-300">
-                5 Day ADR: <span style={{ color: range5Day.averageDailyRange > 5 ? 'green' : 'red' }}>
-                  {range5Day.averageDailyRange}%
-                </span> <br />
-                5 Day ATR: ${safeFormat(range5Day.averageTrueRange)}
-              </div>
-                        
-              <div className="py-2 border-b border-dotted border-gray-300">
-                20 Day ADR: <span style={{ color: range20Day.averageDailyRange > 5 ? 'green' : 'red' }}>
-                  {range20Day.averageDailyRange}%
-                </span> <br />
-                20 Day ATR: ${safeFormat(range20Day.averageTrueRange)}
-              </div>
-                        
-              <div className="py-2 border-b border-dotted border-gray-300">
-                52 week high: ${safeFormat(quote.yearHigh)} <br />
-                52 week low: ${safeFormat(quote.yearLow)}
-              </div>
-                        
-              <div className="py-2">
-                Volume: {safeFormatVol(quote.volume)} <br />      
-                Avg Volume: {safeFormatVol(quote.avgVolume)}
-              </div>
-            </CardContent>
-            <CardFooter className="text-sm text-gray-500"> 
-              ADR = Average Daily Range<br />
-              ATR = Average True Range           
-            </CardFooter>
-          </Card>
-        </TabsContent>
         <TabsContent value="insiders">
           <InsiderActivity symbol={symbol} />
         </TabsContent>
@@ -538,7 +544,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol, pric
           <DividendHistory symbol={symbol} />
         </TabsContent>
         <TabsContent value="pricehistory">
-          <PriceHistoryComponent symbol={symbol} />
+          <PriceHistoryComponent symbol={symbol} priceHistory={priceHistory} />
         </TabsContent>
       </Tabs>
     </div>
