@@ -44,11 +44,11 @@ const marketLinks = [
     href: '/crypto',
     icon: CurrencyDollarIcon,
   },
-  {
+  /*{
     name: 'CANSLIM',
     href: '/canslim',
     icon: BookOpenIcon,
-  },
+  },*/
   {
     name: 'Resources',
     href: '/resources',
