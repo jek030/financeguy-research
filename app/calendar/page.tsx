@@ -1,11 +1,8 @@
 "use client";
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
 import { useEarningsConfirmed } from '@/hooks/FMP/useEarningsConfirmed';
 import { useDowJonesConstituents } from '@/hooks/FMP/useDowJonesConstituents';
 import { useSP500Constituents } from '@/hooks/FMP/useSP500Constituents';
@@ -22,6 +19,13 @@ interface CalendarEvent {
   time?: string;
   symbol?: string;
   exchange?: string;
+  eps?: number | null;
+  epsEstimated?: number | null;
+  revenue?: number | null;
+  revenueEstimated?: number | null;
+  fiscalDateEnding?: string;
+  epsBeatPercentage?: number | null;
+  revenueBeatPercentage?: number | null;
 }
 
 interface EventsState {
@@ -32,17 +36,27 @@ const CalendarPage: React.FC = () => {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [events, setEvents] = useState<EventsState>({});
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [newEvent, setNewEvent] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('default');
   const [eventCategories] = useState<Record<string, EventCategory>>({
-    default: { name: 'Default', color: 'bg-primary/10 text-primary' },
     earnings: { name: 'Earnings', color: 'bg-info/10 text-primary' },
   });
-  const [editingEvent, setEditingEvent] = useState<{ index: number; text: string } | null>(null);
   
   const { data: earnings = [] } = useEarningsConfirmed(currentDate);
   const { data: dowConstituents = new Set(), isLoading: dowLoading } = useDowJonesConstituents();
   const { data: spConstituents = new Set(), isLoading: spLoading } = useSP500Constituents();
+
+  // Add a new function to format the time string
+  const formatTime = (time: string | undefined): string => {
+    if (!time) return 'TBD';
+    
+    switch (time.toLowerCase()) {
+      case 'amc':
+        return 'After close';
+      case 'bmo':
+        return 'Before open';
+      default:
+        return time;
+    }
+  };
 
   // Add useEffect to handle earnings data
   useEffect(() => {
@@ -54,13 +68,34 @@ const CalendarPage: React.FC = () => {
           // Only process if the symbol is in either index
           if (dowConstituents.has(earning.symbol) || spConstituents.has(earning.symbol)) {
             const dateKey = earning.date;
+            const earningTime = formatTime(earning.time);
+            
+            // Calculate beat percentages
+            let epsBeatPercentage = null;
+            let revenueBeatPercentage = null;
+            
+            if (earning.eps !== null && earning.epsEstimated !== null && earning.epsEstimated !== 0) {
+              epsBeatPercentage = ((earning.eps - earning.epsEstimated) / Math.abs(earning.epsEstimated)) * 100;
+            }
+            
+            if (earning.revenue !== null && earning.revenueEstimated !== null && earning.revenueEstimated !== 0) {
+              revenueBeatPercentage = ((earning.revenue - earning.revenueEstimated) / Math.abs(earning.revenueEstimated)) * 100;
+            }
+            
             const earningEvent: CalendarEvent = {
-              title: `${earning.symbol} Earnings - ${earning.time}`,
+              title: `${earning.symbol} Earnings - ${earningTime} (EPS: ${earning.eps ?? 'N/A'})`,
               category: 'earnings',
               url: earning.url,
               time: earning.time,
               symbol: earning.symbol,
-              exchange: earning.exchange
+              exchange: earning.exchange,
+              eps: earning.eps,
+              epsEstimated: earning.epsEstimated,
+              revenue: earning.revenue,
+              revenueEstimated: earning.revenueEstimated,
+              fiscalDateEnding: earning.fiscalDateEnding,
+              epsBeatPercentage,
+              revenueBeatPercentage
             };
 
             if (!newEvents[dateKey]) {
@@ -89,7 +124,13 @@ const CalendarPage: React.FC = () => {
   };
   
   const startOfMonth = (date: Date): number => {
-    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+    const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+    // If it's Sunday (0), adjust to 5 (after Friday)
+    // If it's Saturday (6), adjust to 5 (after Friday)
+    // For Mon-Fri (1-5), subtract 1 to make Monday the first column (0)
+    if (firstDayOfMonth === 0) return 5; // Sunday after Friday
+    if (firstDayOfMonth === 6) return 5; // Saturday after Friday
+    return firstDayOfMonth - 1; // Mon-Fri shifted to 0-4
   };
   
   const monthNames: string[] = [
@@ -105,50 +146,75 @@ const CalendarPage: React.FC = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
   };
 
-
-
-  const handleAddEvent = (): void => {
-    if (newEvent.trim() && selectedDate) {
-      const dateKey = selectedDate;
-      const newEventObj: CalendarEvent = {
-        title: newEvent.trim(),
-        category: selectedCategory
-      };
-      
-      setEvents(prev => ({
-        ...prev,
-        [dateKey]: [...(prev[dateKey] || []), newEventObj]
-      }));
-      setNewEvent('');
-      setSelectedCategory('default');
-    }
-  };
-
   const renderEventBadge = (event: CalendarEvent): React.ReactElement => {
-    const categoryStyle = eventCategories[event.category]?.color || eventCategories.default.color;
+    const categoryStyle = eventCategories[event.category]?.color || 'bg-primary/10 text-primary';
+    
+    // Create a specific class based on earnings time
+    let timingClass = '';
+    if (event.time?.toLowerCase() === 'bmo') {
+      timingClass = 'border-l-green-400';
+    } else if (event.time?.toLowerCase() === 'amc') {
+      timingClass = 'border-l-blue-400';
+    }
+    
     return (
-      <div className={`text-xs truncate p-1 mb-1 rounded ${categoryStyle}`}>
+      <div className={`text-xs truncate p-1 mb-1 rounded ${categoryStyle} border-l-2 ${timingClass}`}>
         {event.url ? (
           <a href={event.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-            {event.title}
+            {event.symbol}
           </a>
         ) : (
-          event.title
+          event.symbol
         )}
       </div>
     );
   };
 
   const CategoryLegend: React.FC = () => (
-    <div className="flex flex-wrap gap-2 mt-4">
+    <div className="flex flex-wrap gap-3 items-center">
       {Object.entries(eventCategories).map(([key, category]) => (
-        <div key={key} className="flex items-center space-x-1">
-          <div className={`w-3 h-3 rounded ${category.color.split(' ')[0]}`} />
+        <div key={key} className="flex items-center gap-1.5">
+          <div className={`w-3 h-3 rounded-sm ${category.color.split(' ')[0]}`} />
           <span className="text-xs">{category.name}</span>
         </div>
       ))}
+      <div className="flex items-center gap-1.5">
+        <div className="w-3 h-3 border-l-2 border-l-green-400 rounded-sm" />
+        <span className="text-xs">Before Open</span>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className="w-3 h-3 border-l-2 border-l-blue-400 rounded-sm" />
+        <span className="text-xs">After Close</span>
+      </div>
     </div>
   );
+
+  const formatCurrency = (amount: number | null): string => {
+    if (amount === null) return 'N/A';
+    
+    // Handle large numbers more readably
+    if (Math.abs(amount) >= 1_000_000_000) {
+      return `$${(amount / 1_000_000_000).toFixed(2)}B`;
+    } else if (Math.abs(amount) >= 1_000_000) {
+      return `$${(amount / 1_000_000).toFixed(2)}M`;
+    } else if (Math.abs(amount) >= 1_000) {
+      return `$${(amount / 1_000).toFixed(2)}K`;
+    }
+    
+    return `$${amount.toFixed(2)}`;
+  };
+
+  const formatPercentage = (percentage: number | null): string => {
+    if (percentage === null) return 'N/A';
+    return `${percentage > 0 ? '+' : ''}${percentage.toFixed(2)}%`;
+  };
+
+  // Helper function to check if a date is a weekend
+  const isWeekend = (year: number, month: number, day: number): boolean => {
+    const date = new Date(year, month, day);
+    const dayOfWeek = date.getDay();
+    return dayOfWeek === 0 || dayOfWeek === 6; // 0 is Sunday, 6 is Saturday
+  };
 
   const renderCalendar = (): React.ReactElement[] => {
     const days: React.ReactElement[] = [];
@@ -157,121 +223,143 @@ const CalendarPage: React.FC = () => {
     
     // Add empty cells for days before the start of the month
     for (let i = 0; i < startDay; i++) {
-      days.push(<div key={`empty-${i}`} className="h-24 p-2" />);
+      days.push(<div key={`empty-${i}`} className="h-36 border border-border/40" />);
     }
     
     // Add cells for each day of the month
     for (let day = 1; day <= totalDays; day++) {
+      // Skip weekends
+      if (isWeekend(currentDate.getFullYear(), currentDate.getMonth(), day)) {
+        continue;
+      }
+      
       const dateKey = `${currentDate.getFullYear()}-${(currentDate.getMonth() + 1).toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
       const dayEvents = events[dateKey] || [];
+      // Sort events by symbol alphabetically
+      const sortedEvents = [...dayEvents].sort((a, b) => 
+        (a.symbol || '').localeCompare(b.symbol || '')
+      );
       const isToday = new Date().toDateString() === new Date(currentDate.getFullYear(), currentDate.getMonth(), day).toDateString();
       
       days.push(
         <Dialog key={day}>
           <DialogTrigger asChild>
             <div
-              className={`h-24 p-2 border border-border/50 ${
-                isToday ? 'bg-accent/10 font-bold' : ''
-              } hover:bg-muted/50 cursor-pointer transition-colors relative`}
+              className={`h-36 p-2 border border-border/40 ${
+                isToday ? 'bg-accent/10 ring-1 ring-primary' : ''
+              } hover:bg-muted/30 cursor-pointer transition-colors relative`}
               onClick={() => setSelectedDate(dateKey)}
             >
-              <div className="flex justify-between items-start">
-                <span>{day}</span>
-                {dayEvents.length > 0 && (
-                  <span className="bg-muted text-muted-foreground text-xs px-1 rounded-full">
-                    {dayEvents.length}
+              <div className="flex justify-between items-start mb-1.5">
+                <span className={`font-semibold text-lg ${isToday ? 'text-primary' : ''}`}>{day}</span>
+                {sortedEvents.length > 0 && (
+                  <span className="bg-muted text-muted-foreground text-xs px-1.5 py-0.5 rounded-full">
+                    {sortedEvents.length}
                   </span>
                 )}
               </div>
-              <div className="mt-1 overflow-y-auto max-h-[calc(100%-1.5rem)]">
-                {dayEvents.map((event, idx) => (
+              <div className="overflow-y-auto max-h-[calc(100%-2rem)]">
+                {sortedEvents.map((event, idx) => (
                   <div key={idx}>{renderEventBadge(event)}</div>
                 ))}
               </div>
             </div>
           </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                Events for {monthNames[currentDate.getMonth()]} {day}
+          <DialogContent className="max-h-[85vh] overflow-y-auto">
+            <DialogHeader className="pb-4 border-b">
+              <DialogTitle className="flex items-center gap-2">
+                <Calendar className="w-5 h-5" />
+                <span>
+                  Earnings for {monthNames[currentDate.getMonth()]} {day}, {currentDate.getFullYear()}
+                </span>
               </DialogTitle>
             </DialogHeader>
-            <div className="space-y-2">
-              <div className="space-y-2">
-                <Input
-                  placeholder="Add new event"
-                  value={newEvent}
-                  onChange={(e) => setNewEvent(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddEvent()}
-                />
-                <Select value={selectedCategory} onValueChange={(value) => setSelectedCategory(value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(eventCategories).map(([key, category]) => (
-                      <SelectItem key={key} value={key}>
-                        <div className="flex items-center space-x-2">
-                          <div className={`w-3 h-3 rounded ${category.color.split(' ')[0]}`} />
-                          <span>{category.name}</span>
+            {sortedEvents.length > 0 ? (
+              <div className="space-y-4 mt-4">
+                {sortedEvents.map((event, idx) => {
+                  // Determine color based on EPS beat
+                  let epsColor = '';
+                  if (event.epsBeatPercentage && event.epsBeatPercentage > 0) {
+                    epsColor = 'text-green-500';
+                  } else if (event.epsBeatPercentage && event.epsBeatPercentage < 0) {
+                    epsColor = 'text-red-500';
+                  }
+                  
+                  // Determine color based on revenue beat
+                  let revenueColor = '';
+                  if (event.revenueBeatPercentage && event.revenueBeatPercentage > 0) {
+                    revenueColor = 'text-green-500';
+                  } else if (event.revenueBeatPercentage && event.revenueBeatPercentage < 0) {
+                    revenueColor = 'text-red-500';
+                  }
+                  
+                  // Determine card border color based on time
+                  let timeBorderColor = 'border-primary';
+                  if (event.time?.toLowerCase() === 'bmo') {
+                    timeBorderColor = 'border-green-400';
+                  } else if (event.time?.toLowerCase() === 'amc') {
+                    timeBorderColor = 'border-blue-400';
+                  }
+                  
+                  return (
+                    <Card key={idx} className={`overflow-hidden border-l-4 ${timeBorderColor} shadow-sm hover:shadow transition-shadow`}>
+                      <CardHeader className="py-3 bg-muted/20">
+                        <CardTitle className="text-base flex justify-between items-center">
+                          <span className="font-bold">{event.symbol}</span>
+                          <span className="text-sm font-normal">{formatTime(event.time)}</span>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="py-4">
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                          <div className="flex flex-col space-y-0.5">
+                            <span className="text-muted-foreground text-xs">EPS</span>
+                            <div className="font-medium">{event.eps !== null ? event.eps : 'N/A'}</div>
+                          </div>
+                          
+                          <div className="flex flex-col space-y-0.5">
+                            <span className="text-muted-foreground text-xs">EPS Estimated</span>
+                            <div className="font-medium">{event.epsEstimated !== null ? event.epsEstimated : 'N/A'}</div>
+                          </div>
+                          
+                          <div className="flex flex-col space-y-0.5">
+                            <span className="text-muted-foreground text-xs">EPS Beat</span>
+                            <div className={`font-medium ${epsColor}`}>
+                              {formatPercentage(event.epsBeatPercentage ?? null)}
+                            </div>
+                          </div>
+                          
+                          <div className="flex flex-col space-y-0.5">
+                            <span className="text-muted-foreground text-xs">Fiscal Period Ending</span>
+                            <div className="font-medium">{event.fiscalDateEnding || 'N/A'}</div>
+                          </div>
+                          
+                          <div className="flex flex-col space-y-0.5">
+                            <span className="text-muted-foreground text-xs">Revenue</span>
+                            <div className="font-medium">{formatCurrency(event.revenue ?? null)}</div>
+                          </div>
+                          
+                          <div className="flex flex-col space-y-0.5">
+                            <span className="text-muted-foreground text-xs">Revenue Estimated</span>
+                            <div className="font-medium">{formatCurrency(event.revenueEstimated ?? null)}</div>
+                          </div>
+                          
+                          <div className="flex flex-col space-y-0.5">
+                            <span className="text-muted-foreground text-xs">Revenue Beat</span>
+                            <div className={`font-medium ${revenueColor}`}>
+                              {formatPercentage(event.revenueBeatPercentage ?? null)}
+                            </div>
+                          </div>
                         </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button onClick={handleAddEvent} className="w-full">
-                  <Plus className="w-4 h-4 mr-1" />
-                  Add Event
-                </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {dayEvents.map((event, idx) => (
-                  <div key={idx} className={`flex justify-between items-center p-2 rounded ${eventCategories[event.category]?.color || eventCategories.default.color}`}>
-                    {editingEvent?.index === idx ? (
-                      <Input
-                        value={editingEvent.text}
-                        onChange={(e) => setEditingEvent({ ...editingEvent, text: e.target.value })}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            setEvents(prev => ({
-                              ...prev,
-                              [dateKey]: prev[dateKey].map((ev, i) => 
-                                i === idx ? { ...ev, title: editingEvent.text } : ev
-                              )
-                            }));
-                            setEditingEvent(null);
-                          }
-                        }}
-                        autoFocus
-                      />
-                    ) : (
-                      <span>{event.title}</span>
-                    )}
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditingEvent({ index: idx, text: event.title })}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setEvents(prev => ({
-                            ...prev,
-                            [dateKey]: prev[dateKey].filter((_, i) => i !== idx)
-                          }));
-                        }}
-                      >
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+            ) : (
+              <div className="py-8 text-center text-muted-foreground">
+                No events for this day
               </div>
-            </div>
+            )}
           </DialogContent>
         </Dialog>
       );
@@ -283,11 +371,10 @@ const CalendarPage: React.FC = () => {
 
   return (
     <div className="flex flex-col">
-
       <main className="w-full">
-        <div className="flex flex-col gap-8 sm:items-start">
+        <div className="flex flex-col gap-4 sm:items-start">
           <Card className="w-full">
-            <CardHeader>
+            <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <button
                   onClick={previousMonth}
@@ -296,9 +383,13 @@ const CalendarPage: React.FC = () => {
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <div className="text-center">
-                  <CardTitle className="mb-2">
+                  <CardTitle className="mb-1 flex items-center justify-center gap-2">
+                    <Calendar className="w-5 h-5" />
                     {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
                   </CardTitle>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Tap any day to view detailed earnings reports and performance metrics
+                  </p>
                   <CategoryLegend />
                 </div>
                 <button
@@ -309,10 +400,10 @@ const CalendarPage: React.FC = () => {
                 </button>
               </div>
             </CardHeader>
-            <CardContent className="px-2">
-              <div className="grid grid-cols-7 gap-px">
-                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                  <div key={day} className="h-12 p-2 font-semibold text-center">
+            <CardContent className="px-2 pt-0">
+              <div className="grid grid-cols-5 gap-px">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => (
+                  <div key={day} className="h-8 p-2 font-semibold text-center border-b border-border/40">
                     {day}
                   </div>
                 ))}
