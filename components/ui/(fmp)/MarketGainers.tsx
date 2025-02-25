@@ -2,7 +2,6 @@ import { useMarketGainers } from '@/hooks/FMP/useMarketGainers';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/Table";
 import {Card, CardContent, CardHeader, CardTitle, CardDescription} from "@/components/ui/Card";
 import { useState } from 'react';
-import { ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useRouter } from 'next/navigation';
 import { cn } from "@/lib/utils";
@@ -116,7 +115,6 @@ export default function MarketGainers() {
                     className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
                   >
                     Symbol
-                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
                   </Button>
                 </TableHead>
                 <TableHead className="min-w-[180px] sm:p-4 py-2 px-1">
@@ -126,7 +124,6 @@ export default function MarketGainers() {
                     className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
                   >
                     Name
-                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
                   </Button>
                 </TableHead>
                 <TableHead className="w-[70px] sm:p-4 py-2 px-1">
@@ -136,7 +133,6 @@ export default function MarketGainers() {
                     className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
                   >
                     Price
-                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
                   </Button>
                 </TableHead>
                 <TableHead className="w-[70px] sm:p-4 py-2 px-1">
@@ -146,7 +142,6 @@ export default function MarketGainers() {
                     className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
                   >
                     Chg
-                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
                   </Button>
                 </TableHead>
                 <TableHead className="w-[70px] sm:p-4 py-2 px-1">
@@ -156,7 +151,6 @@ export default function MarketGainers() {
                     className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
                   >
                     Chg %
-                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
                   </Button>
                 </TableHead>
               </TableRow>

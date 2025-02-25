@@ -4,7 +4,6 @@ import { useEffect, useState, use } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { ArrowUpDown } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import {
   Select,
@@ -164,7 +163,6 @@ export default function IndustryPage({ params }: { params: Promise<{ sector: str
                     className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
                   >
                     Symbol
-                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
                   </Button>
                 </TableHead>
                 <TableHead className="min-w-[120px] sm:min-w-[200px] sm:p-4 py-2 px-1">
@@ -174,7 +172,6 @@ export default function IndustryPage({ params }: { params: Promise<{ sector: str
                     className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
                   >
                     Name
-                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
                   </Button>
                 </TableHead>
                 <TableHead className="sm:w-[120px] w-[70px] sm:p-4 py-2 px-1">
@@ -184,7 +181,6 @@ export default function IndustryPage({ params }: { params: Promise<{ sector: str
                     className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
                   >
                     Price
-                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
                   </Button>
                 </TableHead>
                 <TableHead className="sm:w-[120px] w-[70px] sm:p-4 py-2 px-1">
@@ -194,7 +190,6 @@ export default function IndustryPage({ params }: { params: Promise<{ sector: str
                     className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
                   >
                     Mkt Cap
-                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
                   </Button>
                 </TableHead>
                 <TableHead className="sm:w-[100px] w-[70px] hidden sm:table-cell">
@@ -204,7 +199,6 @@ export default function IndustryPage({ params }: { params: Promise<{ sector: str
                     className="hover:bg-transparent pl-0 pr-1 font-semibold"
                   >
                     Exchange
-                    <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground" />
                   </Button>
                 </TableHead>
                 <TableHead className="sm:w-[100px] w-[70px] hidden sm:table-cell">
@@ -214,7 +208,6 @@ export default function IndustryPage({ params }: { params: Promise<{ sector: str
                     className="hover:bg-transparent pl-0 pr-1 font-semibold"
                   >
                     Country
-                    <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground" />
                   </Button>
                 </TableHead>
               </TableRow>
