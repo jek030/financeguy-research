@@ -4,7 +4,6 @@ import {
   CalendarIcon,
   EyeIcon,
   CurrencyDollarIcon,
-  BookOpenIcon,
   BookmarkIcon,
   MapIcon,
 } from '@heroicons/react/24/outline';
