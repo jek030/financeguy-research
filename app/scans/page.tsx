@@ -10,7 +10,7 @@ export default function SectorsPage() {
   return (
     <div className="flex flex-col">
 
-      <div className="flex justify-center px-4">
+      <div className="flex justify-center">
         <Tabs defaultValue="sectors" className="w-full max-w-4xl">
           <div className="flex justify-center mb-4">
             <TabsList className="grid w-full max-w-[500px] grid-cols-3">

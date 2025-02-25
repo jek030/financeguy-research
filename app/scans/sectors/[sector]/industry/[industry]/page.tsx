@@ -117,7 +117,7 @@ export default function IndustryPage({ params }: { params: Promise<{ sector: str
   if (data.length === 0) {
     return (
       <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 sm:px-6 px-3">
           <div className="text-center text-muted-foreground">No stocks found for this industry.</div>
         </CardContent>
       </Card>
@@ -125,137 +125,133 @@ export default function IndustryPage({ params }: { params: Promise<{ sector: str
   }
 
   return (
-    <div className="flex flex-col space-y-4">
-      <div className="container px-0 sm:px-4 py-2 sm:py-4 mx-auto">
-        <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
-          <CardHeader className="pb-2 space-y-2 sm:px-6 px-3 pt-4 sm:pt-6">
-            <CardTitle className="text-xl font-semibold">{industry}</CardTitle>
-            <CardDescription>
-              Stocks in the {industry} industry within the {sector} sector
-            </CardDescription>
-            <div className="flex justify-end pt-1">
-              <div className="w-[140px]">
-                <Select
-                  value={selectedCountry}
-                  onValueChange={setSelectedCountry}
+    <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
+      <CardHeader className="pb-2 space-y-2 sm:px-6 px-3 pt-4 sm:pt-6">
+        <CardTitle className="text-xl font-semibold">{industry}</CardTitle>
+        <CardDescription>
+          Stocks in the {industry} industry within the {sector} sector
+        </CardDescription>
+        <div className="flex justify-end pt-1">
+          <div className="w-[140px]">
+            <Select
+              value={selectedCountry}
+              onValueChange={setSelectedCountry}
+            >
+              <SelectTrigger className="h-8 text-sm">
+                <SelectValue placeholder="Filter by country" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="All">All Countries</SelectItem>
+                {countries.map((country) => (
+                  <SelectItem key={country} value={country}>
+                    {country}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0 sm:px-6 px-2">
+        <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
+          <Table className="w-full text-sm sm:text-base">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="sm:w-[100px] w-[70px] sm:p-4 py-2 px-1">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('symbol')}
+                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
+                  >
+                    Symbol
+                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
+                  </Button>
+                </TableHead>
+                <TableHead className="min-w-[120px] sm:min-w-[200px] sm:p-4 py-2 px-1">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('companyName')}
+                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
+                  >
+                    Name
+                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
+                  </Button>
+                </TableHead>
+                <TableHead className="sm:w-[120px] w-[70px] sm:p-4 py-2 px-1">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('price')}
+                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
+                  >
+                    Price
+                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
+                  </Button>
+                </TableHead>
+                <TableHead className="sm:w-[120px] w-[70px] sm:p-4 py-2 px-1">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('marketCap')}
+                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
+                  >
+                    Mkt Cap
+                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
+                  </Button>
+                </TableHead>
+                <TableHead className="sm:w-[100px] w-[70px] hidden sm:table-cell">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('exchangeShortName')}
+                    className="hover:bg-transparent pl-0 pr-1 font-semibold"
+                  >
+                    Exchange
+                    <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground" />
+                  </Button>
+                </TableHead>
+                <TableHead className="sm:w-[100px] w-[70px] hidden sm:table-cell">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('country')}
+                    className="hover:bg-transparent pl-0 pr-1 font-semibold"
+                  >
+                    Country
+                    <ArrowUpDown className="ml-1 h-3 w-3 text-muted-foreground" />
+                  </Button>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedData.map((item, index) => (
+                <TableRow 
+                  key={index}
+                  className="hover:bg-muted/50 transition-colors"
                 >
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue placeholder="Filter by country" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="All">All Countries</SelectItem>
-                    {countries.map((country) => (
-                      <SelectItem key={country} value={country}>
-                        {country}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0 sm:px-6 px-2">
-            <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
-              <Table className="w-full text-sm sm:text-base">
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="sm:w-[100px] w-[70px] sm:p-4 py-2 px-1">
-                      <Button
-                        variant="ghost"
-                        onClick={() => requestSort('symbol')}
-                        className="hover:bg-transparent pl-0 font-semibold sm:text-base text-sm"
-                      >
-                        Symbol
-                        <ArrowUpDown className="ml-2 h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="min-w-[120px] sm:min-w-[200px] sm:p-4 py-2 px-1">
-                      <Button
-                        variant="ghost"
-                        onClick={() => requestSort('companyName')}
-                        className="hover:bg-transparent pl-0 font-semibold sm:text-base text-sm"
-                      >
-                        Name
-                        <ArrowUpDown className="ml-2 h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="sm:w-[120px] w-[70px] sm:p-4 py-2 px-1">
-                      <Button
-                        variant="ghost"
-                        onClick={() => requestSort('price')}
-                        className="hover:bg-transparent pl-0 font-semibold sm:text-base text-sm"
-                      >
-                        Price
-                        <ArrowUpDown className="ml-2 h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="sm:w-[120px] w-[70px] sm:p-4 py-2 px-1">
-                      <Button
-                        variant="ghost"
-                        onClick={() => requestSort('marketCap')}
-                        className="hover:bg-transparent pl-0 font-semibold sm:text-base text-sm"
-                      >
-                        Mkt Cap
-                        <ArrowUpDown className="ml-2 h-3 w-3 sm:h-3.5 sm:w-3.5 text-muted-foreground" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="sm:w-[100px] w-[70px] hidden sm:table-cell">
-                      <Button
-                        variant="ghost"
-                        onClick={() => requestSort('exchangeShortName')}
-                        className="hover:bg-transparent pl-0 font-semibold"
-                      >
-                        Exchange
-                        <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="sm:w-[100px] w-[70px] hidden sm:table-cell">
-                      <Button
-                        variant="ghost"
-                        onClick={() => requestSort('country')}
-                        className="hover:bg-transparent pl-0 font-semibold"
-                      >
-                        Country
-                        <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                      </Button>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedData.map((item, index) => (
-                    <TableRow 
-                      key={index}
-                      className="hover:bg-muted/50 transition-colors"
-                    >
-                      <TableCell 
-                        className="font-medium cursor-pointer hover:text-primary sm:p-4 py-2 px-1 text-sm sm:text-base"
-                        onClick={() => handleSymbolClick(item.symbol)}
-                      >
-                        {item.symbol}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground truncate max-w-[120px] sm:max-w-[200px] md:max-w-none sm:p-4 py-2 px-1 text-xs sm:text-sm">
-                        {item.companyName}
-                      </TableCell>
-                      <TableCell className="font-medium sm:p-4 py-2 px-1 text-sm sm:text-base">
-                        ${item.price.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="font-medium sm:p-4 py-2 px-1 text-sm sm:text-base">
-                        {formatMarketCap(item.marketCap)}
-                      </TableCell>
-                      <TableCell className="font-medium hidden sm:table-cell">
-                        {item.exchangeShortName}
-                      </TableCell>
-                      <TableCell className="font-medium hidden sm:table-cell">
-                        {item.country}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+                  <TableCell 
+                    className="font-medium cursor-pointer hover:text-primary sm:p-4 py-2 px-1 text-sm sm:text-base"
+                    onClick={() => handleSymbolClick(item.symbol)}
+                  >
+                    {item.symbol}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground truncate max-w-[120px] sm:max-w-[200px] md:max-w-none sm:p-4 py-2 px-1 text-xs sm:text-sm">
+                    {item.companyName}
+                  </TableCell>
+                  <TableCell className="font-medium sm:p-4 py-2 px-1 text-sm sm:text-base">
+                    ${item.price.toFixed(2)}
+                  </TableCell>
+                  <TableCell className="font-medium sm:p-4 py-2 px-1 text-sm sm:text-base">
+                    {formatMarketCap(item.marketCap)}
+                  </TableCell>
+                  <TableCell className="font-medium hidden sm:table-cell sm:p-4 py-2 px-1">
+                    {item.exchangeShortName}
+                  </TableCell>
+                  <TableCell className="font-medium hidden sm:table-cell sm:p-4 py-2 px-1">
+                    {item.country}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
   );
 } 
