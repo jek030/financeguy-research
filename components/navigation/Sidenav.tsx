@@ -3,29 +3,13 @@ import Link from 'next/link';
 import NavLinks from '@/components/navigation/NavLinks';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { electrolize } from '@/lib/fonts';
-import { Button } from '@/components/ui/Button';
-import { ChevronRightIcon } from '@heroicons/react/24/outline';
+import { useMobileMenu } from '@/lib/context/MobileMenuContext';
 
 export default function SideNav() {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const { isExpanded, setIsExpanded, isMobile } = useMobileMenu();
   const [isHovered, setIsHovered] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
-  // Handle window resize
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth < 768) {
-        setIsExpanded(false);
-      }
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   const showLabels = isMobile ? isExpanded : isHovered;
 
@@ -49,21 +33,6 @@ export default function SideNav() {
         onMouseEnter={() => !isMobile && setIsHovered(true)}
         onMouseLeave={() => !isMobile && setIsHovered(false)}
       >
-        {/* Toggle button for mobile */}
-        {isMobile && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute -right-12 top-4 h-8 w-8 rounded-full"
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            <ChevronRightIcon className={cn(
-              "h-4 w-4 transition-transform",
-              isExpanded && "rotate-180"
-            )} />
-          </Button>
-        )}
-
         <Link
           className={cn(
             "mb-4 flex h-16 md:h-20 items-center rounded-md bg-muted px-4 font-medium hover:bg-accent transition-colors",
@@ -94,14 +63,14 @@ export default function SideNav() {
         <div className="flex flex-col flex-1">
           <NavLinks collapsed={!showLabels} />
           <div className="flex-1" />
-          <form className="mt-auto">
+          {/*<form className="mt-auto">
             <button className={cn(
               "w-full flex items-center rounded-md bg-muted p-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
               showLabels ? "justify-start gap-2" : "justify-center"
             )}>
               <div>Sign Out</div>
             </button>
-          </form>
+          </form>*/}
         </div>
       </div>
     </>

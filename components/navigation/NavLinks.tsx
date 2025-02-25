@@ -9,11 +9,13 @@ import {
   MapIcon,
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { electrolize } from '@/lib/fonts';
+import { useMobileMenu } from '@/lib/context/MobileMenuContext';
 
 const mainLinks = [
   { 
@@ -63,9 +65,23 @@ interface NavLinksProps {
 
 export default function NavLinks({ collapsed = false }: NavLinksProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const { isMobile, setIsExpanded } = useMobileMenu();
 
   const NavButton = ({ link }: { link: typeof mainLinks[0] }) => {
     const LinkIcon = link.icon;
+    
+    const handleClick = (e: React.MouseEvent) => {
+      if (isMobile) {
+        e.preventDefault();
+        setIsExpanded(false);
+        // Small delay to allow animation to start before navigation
+        setTimeout(() => {
+          router.push(link.href);
+        }, 100);
+      }
+    };
+    
     return (
       <Button
         key={link.name}
@@ -77,7 +93,7 @@ export default function NavLinks({ collapsed = false }: NavLinksProps) {
           electrolize.className
         )}
       >
-        <Link href={link.href}>
+        <Link href={link.href} onClick={isMobile ? handleClick : undefined}>
           <LinkIcon className="h-4 w-4" />
           {!collapsed && <span className="ml-2">{link.name}</span>}
         </Link>
