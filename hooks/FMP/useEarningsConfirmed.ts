@@ -1,14 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 
 interface EarningsConfirmed {
-  symbol: string;
-  exchange: string;
-  time: string;
-  when: string;
   date: string;
-  publicationDate: string;
-  title: string;
-  url: string;
+  symbol: string;
+  eps: number | null;
+  epsEstimated: number | null;
+  time: string;
+  revenue: number | null;
+  revenueEstimated: number | null;
+  updatedFromDate: string;
+  fiscalDateEnding: string;
+  exchange?: string;
+  when?: string;
+  publicationDate?: string;
+  title?: string;
+  url?: string;
 }
 
 async function fetchEarningsConfirmed(date: Date): Promise<EarningsConfirmed[]> {
@@ -20,7 +26,7 @@ async function fetchEarningsConfirmed(date: Date): Promise<EarningsConfirmed[]> 
   const lastDayFormatted = `${year}-${month.toString().padStart(2, '0')}-${lastDay.getDate().toString().padStart(2, '0')}`;
 
   const response = await fetch(
-    `/api/fmp/earnings?from=${firstDay}&to=${lastDayFormatted}`
+    `/api/fmp/calendar?from=${firstDay}&to=${lastDayFormatted}`
   );
 
   if (!response.ok) {
