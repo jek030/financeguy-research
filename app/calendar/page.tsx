@@ -35,7 +35,6 @@ interface EventsState {
 const CalendarPage: React.FC = () => {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [events, setEvents] = useState<EventsState>({});
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [eventCategories] = useState<Record<string, EventCategory>>({
     earnings: { name: 'Earnings', color: 'bg-info/10 text-primary' },
   });
@@ -248,7 +247,6 @@ const CalendarPage: React.FC = () => {
               className={`h-36 p-2 border border-border/40 ${
                 isToday ? 'bg-accent/10 ring-1 ring-primary' : ''
               } hover:bg-muted/30 cursor-pointer transition-colors relative`}
-              onClick={() => setSelectedDate(dateKey)}
             >
               <div className="flex justify-between items-start mb-1.5">
                 <span className={`font-semibold text-lg ${isToday ? 'text-primary' : ''}`}>{day}</span>
