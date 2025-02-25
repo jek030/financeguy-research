@@ -76,55 +76,57 @@ export default function SectorPerformance() {
       <CardHeader className="pb-3 space-y-2">
         <CardTitle className="text-xl font-semibold">Market Sectors</CardTitle>
         <CardDescription>
-          Daily performance of major market sectors
+          Daily performance of major market sectors. Click on a sector to view stocks in that sector.
           <br /><br />
-          <span className="text-muted-foreground/75 italic text-sm">https://financialmodelingprep.com/api/v3/sector-performance?apikey=</span>
+          {/*https://financialmodelingprep.com/api/v3/sector-performance*/}
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-0">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="min-w-[200px]">
-                <Button
-                  variant="ghost"
-                  onClick={() => requestSort('sector')}
-                  className="hover:bg-transparent pl-0 font-semibold"
-                >
-                  Sector
-                  <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              </TableHead>
-              <TableHead className="w-[150px]">
-                <Button
-                  variant="ghost"
-                  onClick={() => requestSort('changesPercentage')}
-                  className="hover:bg-transparent pl-0 font-semibold"
-                >
-                  Performance
-                  <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedData.map((item, index) => (
-              <TableRow 
-                key={index}
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => handleSectorClick(item.sector)}
-              >
-                <TableCell className="font-medium">{item.sector}</TableCell>
-                <TableCell className={cn(
-                  "font-medium",
-                  parseFloat(item.changesPercentage) >= 0 ? "text-positive" : "text-negative"
-                )}>
-                  {parseFloat(item.changesPercentage).toFixed(2)}%
-                </TableCell>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="min-w-[160px]">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('sector')}
+                    className="hover:bg-transparent pl-0 font-semibold"
+                  >
+                    Sector
+                    <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                </TableHead>
+                <TableHead className="w-[120px]">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('changesPercentage')}
+                    className="hover:bg-transparent pl-0 font-semibold"
+                  >
+                    Performance
+                    <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                </TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {sortedData.map((item, index) => (
+                <TableRow 
+                  key={index}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => handleSectorClick(item.sector)}
+                >
+                  <TableCell className="font-medium">{item.sector}</TableCell>
+                  <TableCell className={cn(
+                    "font-medium",
+                    parseFloat(item.changesPercentage) >= 0 ? "text-positive" : "text-negative"
+                  )}>
+                    {parseFloat(item.changesPercentage).toFixed(2)}%
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );

@@ -101,88 +101,92 @@ export default function MarketGainers() {
                 className="w-24"
               />
             </div>
-            <span className="block text-muted-foreground/75 italic text-sm">
+            <span className="block text-muted-foreground/75 italic text-sm break-all sm:break-normal overflow-hidden text-ellipsis">
               https://financialmodelingprep.com/api/v3/stock_market/gainers?apikey=
             </span>
           </div>
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-0">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[100px]">
-                <Button
-                  variant="ghost"
-                  onClick={() => requestSort('symbol')}
-                  className="hover:bg-transparent pl-0 font-semibold"
-                >
-                  Symbol
-                  <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              </TableHead>
-              <TableHead className="min-w-[200px]">
-                <Button
-                  variant="ghost"
-                  onClick={() => requestSort('name')}
-                  className="hover:bg-transparent pl-0 font-semibold"
-                >
-                  Name
-                  <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              </TableHead>
-              <TableHead className="w-[100px]">
-                <Button
-                  variant="ghost"
-                  onClick={() => requestSort('price')}
-                  className="hover:bg-transparent pl-0 font-semibold"
-                >
-                  Price
-                  <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              </TableHead>
-              <TableHead className="w-[100px]">
-                <Button
-                  variant="ghost"
-                  onClick={() => requestSort('change')}
-                  className="hover:bg-transparent pl-0 font-semibold"
-                >
-                  Change
-                  <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              </TableHead>
-              <TableHead className="w-[100px]">
-                <Button
-                  variant="ghost"
-                  onClick={() => requestSort('changesPercentage')}
-                  className="hover:bg-transparent pl-0 font-semibold"
-                >
-                  Change %
-                  <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedData.map((item, index) => (
-              <TableRow 
-                key={index}
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => handleSymbolClick(item.symbol)}
-              >
-                <TableCell className="font-medium">{item.symbol}</TableCell>
-                <TableCell className="text-muted-foreground">{item.name}</TableCell>
-                <TableCell className="font-medium">${item.price.toFixed(2)}</TableCell>
-                <TableCell className={cn("font-medium", "text-positive")}>
-                  ${item.change.toFixed(2)}
-                </TableCell>
-                <TableCell className={cn("font-medium", "text-positive")}>
-                  {item.changesPercentage.toFixed(2)}%
-                </TableCell>
+        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[80px]">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('symbol')}
+                    className="hover:bg-transparent pl-0 font-semibold"
+                  >
+                    Symbol
+                    <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                </TableHead>
+                <TableHead className="min-w-[180px]">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('name')}
+                    className="hover:bg-transparent pl-0 font-semibold"
+                  >
+                    Name
+                    <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                </TableHead>
+                <TableHead className="w-[70px]">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('price')}
+                    className="hover:bg-transparent pl-0 font-semibold"
+                  >
+                    Price
+                    <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                </TableHead>
+                <TableHead className="w-[70px]">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('change')}
+                    className="hover:bg-transparent pl-0 font-semibold"
+                  >
+                    Chg
+                    <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                </TableHead>
+                <TableHead className="w-[70px]">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('changesPercentage')}
+                    className="hover:bg-transparent pl-0 font-semibold"
+                  >
+                    Chg %
+                    <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                </TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {sortedData.map((item, index) => (
+                <TableRow 
+                  key={index}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => handleSymbolClick(item.symbol)}
+                >
+                  <TableCell className="font-medium">{item.symbol}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm md:text-base truncate max-w-[150px] md:max-w-none">
+                    {item.name}
+                  </TableCell>
+                  <TableCell className="font-medium">${item.price.toFixed(2)}</TableCell>
+                  <TableCell className={cn("font-medium", "text-positive")}>
+                    ${item.change.toFixed(2)}
+                  </TableCell>
+                  <TableCell className={cn("font-medium", "text-positive")}>
+                    {item.changesPercentage.toFixed(2)}%
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );

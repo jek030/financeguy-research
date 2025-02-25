@@ -13,7 +13,7 @@ export default function SectorsPage() {
       <div className="flex justify-center px-4">
         <Tabs defaultValue="sectors" className="w-full max-w-4xl">
           <div className="flex justify-center mb-4">
-            <TabsList className="grid w-[500px] grid-cols-3">
+            <TabsList className="grid w-full max-w-[500px] grid-cols-3">
               <TabsTrigger value="sectors">Sectors</TabsTrigger>
               <TabsTrigger value="active">Most Active</TabsTrigger>
               <TabsTrigger value="gainers">Top Gainers</TabsTrigger>
