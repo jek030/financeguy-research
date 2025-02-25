@@ -36,8 +36,8 @@ export default function MarketMostActive() {
 
   if (isLoading) {
     return (
-      <Card className="border border-border/50 shadow-sm max-w-4xl mx-auto">
-        <CardContent className="pt-6">
+      <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
+        <CardContent className="pt-6 sm:px-6 px-3">
           <div className="text-center text-muted-foreground">Loading most active stocks data...</div>
         </CardContent>
       </Card>
@@ -46,8 +46,8 @@ export default function MarketMostActive() {
 
   if (error) {
     return (
-      <Card className="border border-border/50 shadow-sm max-w-4xl mx-auto">
-        <CardContent className="pt-6">
+      <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
+        <CardContent className="pt-6 sm:px-6 px-3">
           <div className="text-destructive">{error?.message}</div>
         </CardContent>
       </Card>
@@ -82,84 +82,80 @@ export default function MarketMostActive() {
   };
 
   return (
-    <Card className="border border-border/50 shadow-sm max-w-4xl mx-auto bg-card">
-      <CardHeader className="pb-3 space-y-2">
+    <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
+      <CardHeader className="pb-2 space-y-2 sm:px-6 px-3 pt-4 sm:pt-6">
         <CardTitle className="text-xl font-semibold">Most Active Stocks</CardTitle>
         <CardDescription>
-          <div className="space-y-4">
-            <span className="block">
-              Stocks with the highest relative trading volume, indicating significant market activity and investor interest
-            </span>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Minimum Price ($):</span>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={minPrice}
-                onChange={handleMinPriceChange}
-                className="w-24"
-              />
-            </div>
-            <span className="block text-muted-foreground/75 italic text-sm break-all sm:break-normal overflow-hidden text-ellipsis">
-              https://financialmodelingprep.com/api/v3/stock_market/actives?apikey=
-            </span>
-          </div>
+          Stocks with the highest relative trading volume, indicating significant market activity and investor interest
         </CardDescription>
+        <div className="space-y-4 mt-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Minimum Price ($):</span>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={minPrice}
+              onChange={handleMinPriceChange}
+              className="w-24"
+            />
+          </div>
+            {/*https://financialmodelingprep.com/api/v3/stock_market/actives?apikey=*/}
+        </div>
       </CardHeader>
-      <CardContent className="pt-0">
-        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <Table>
+      <CardContent className="pt-0 sm:px-6 px-2">
+        <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
+          <Table className="w-full text-sm sm:text-base">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="w-[80px]">
+                <TableHead className="w-[80px] sm:p-4 py-2 px-1">
                   <Button
                     variant="ghost"
                     onClick={() => requestSort('symbol')}
-                    className="hover:bg-transparent pl-0 font-semibold"
+                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
                   >
                     Symbol
-                    <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
                   </Button>
                 </TableHead>
-                <TableHead className="min-w-[180px]">
+                <TableHead className="min-w-[180px] sm:p-4 py-2 px-1">
                   <Button
                     variant="ghost"
                     onClick={() => requestSort('name')}
-                    className="hover:bg-transparent pl-0 font-semibold"
+                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
                   >
                     Name
-                    <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
                   </Button>
                 </TableHead>
-                <TableHead className="w-[70px]">
+                <TableHead className="w-[70px] sm:p-4 py-2 px-1">
                   <Button
                     variant="ghost"
                     onClick={() => requestSort('price')}
-                    className="hover:bg-transparent pl-0 font-semibold"
+                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
                   >
                     Price
-                    <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
                   </Button>
                 </TableHead>
-                <TableHead className="w-[70px]">
+                <TableHead className="w-[70px] sm:p-4 py-2 px-1">
                   <Button
                     variant="ghost"
                     onClick={() => requestSort('change')}
-                    className="hover:bg-transparent pl-0 font-semibold"
+                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
                   >
                     Chg
-                    <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
                   </Button>
                 </TableHead>
-                <TableHead className="w-[70px]">
+                <TableHead className="w-[70px] sm:p-4 py-2 px-1">
                   <Button
                     variant="ghost"
                     onClick={() => requestSort('changesPercentage')}
-                    className="hover:bg-transparent pl-0 font-semibold"
+                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
                   >
                     Chg %
-                    <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
+                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
                   </Button>
                 </TableHead>
               </TableRow>
@@ -171,19 +167,19 @@ export default function MarketMostActive() {
                   className="cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => handleSymbolClick(item.symbol)}
                 >
-                  <TableCell className="font-medium">{item.symbol}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm md:text-base truncate max-w-[150px] md:max-w-none">
+                  <TableCell className="font-medium sm:p-4 py-2 px-1 text-sm sm:text-base">{item.symbol}</TableCell>
+                  <TableCell className="text-muted-foreground truncate max-w-[150px] md:max-w-none sm:p-4 py-2 px-1 text-xs sm:text-sm">
                     {item.name}
                   </TableCell>
-                  <TableCell className="font-medium">${item.price.toFixed(2)}</TableCell>
+                  <TableCell className="font-medium sm:p-4 py-2 px-1 text-sm sm:text-base">${item.price.toFixed(2)}</TableCell>
                   <TableCell className={cn(
-                    "font-medium",
+                    "font-medium sm:p-4 py-2 px-1 text-sm sm:text-base",
                     item.change >= 0 ? "text-positive" : "text-negative"
                   )}>
                     ${Math.abs(item.change).toFixed(2)}
                   </TableCell>
                   <TableCell className={cn(
-                    "font-medium",
+                    "font-medium sm:p-4 py-2 px-1 text-sm sm:text-base",
                     item.changesPercentage >= 0 ? "text-positive" : "text-negative"
                   )}>
                     {item.changesPercentage.toFixed(2)}%
