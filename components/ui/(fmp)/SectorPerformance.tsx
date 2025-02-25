@@ -23,8 +23,8 @@ export default function SectorPerformance() {
 
   if (isLoading) {
     return (
-      <Card className="border border-border/50 shadow-sm max-w-2xl mx-auto">
-        <CardContent className="pt-6">
+      <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
+        <CardContent className="pt-6 sm:px-6 px-3">
           <div className="text-center text-muted-foreground">Loading sector data...</div>
         </CardContent>
       </Card>
@@ -33,8 +33,8 @@ export default function SectorPerformance() {
 
   if (error) {
     return (
-      <Card className="border border-border/50 shadow-sm max-w-2xl mx-auto">
-        <CardContent className="pt-6">
+      <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
+        <CardContent className="pt-6 sm:px-6 px-3">
           <div className="text-destructive">{error?.message}</div>
         </CardContent>
       </Card>
@@ -72,59 +72,61 @@ export default function SectorPerformance() {
   };
 
   return (
-    <Card className="border border-border/50 shadow-sm max-w-2xl mx-auto bg-card">
-      <CardHeader className="pb-3 space-y-2">
+    <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
+      <CardHeader className="pb-2 space-y-2 sm:px-6 px-3 pt-4 sm:pt-6">
         <CardTitle className="text-xl font-semibold">Market Sectors</CardTitle>
         <CardDescription>
-          Daily performance of major market sectors
+          Daily performance of major market sectors. Click on a sector to view stocks in that sector.
           <br /><br />
-          <span className="text-muted-foreground/75 italic text-sm">https://financialmodelingprep.com/api/v3/sector-performance?apikey=</span>
+          {/*https://financialmodelingprep.com/api/v3/sector-performance*/}
         </CardDescription>
       </CardHeader>
-      <CardContent className="pt-0">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="min-w-[200px]">
-                <Button
-                  variant="ghost"
-                  onClick={() => requestSort('sector')}
-                  className="hover:bg-transparent pl-0 font-semibold"
-                >
-                  Sector
-                  <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              </TableHead>
-              <TableHead className="w-[150px]">
-                <Button
-                  variant="ghost"
-                  onClick={() => requestSort('changesPercentage')}
-                  className="hover:bg-transparent pl-0 font-semibold"
-                >
-                  Performance
-                  <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedData.map((item, index) => (
-              <TableRow 
-                key={index}
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => handleSectorClick(item.sector)}
-              >
-                <TableCell className="font-medium">{item.sector}</TableCell>
-                <TableCell className={cn(
-                  "font-medium",
-                  parseFloat(item.changesPercentage) >= 0 ? "text-positive" : "text-negative"
-                )}>
-                  {parseFloat(item.changesPercentage).toFixed(2)}%
-                </TableCell>
+      <CardContent className="pt-0 sm:px-6 px-2">
+        <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
+          <Table className="w-full text-sm sm:text-base">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="min-w-[160px] sm:p-4 py-2 px-1">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('sector')}
+                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
+                  >
+                    Sector
+                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
+                  </Button>
+                </TableHead>
+                <TableHead className="w-[120px] sm:p-4 py-2 px-1">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('changesPercentage')}
+                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
+                  >
+                    Performance
+                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
+                  </Button>
+                </TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {sortedData.map((item, index) => (
+                <TableRow 
+                  key={index}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => handleSectorClick(item.sector)}
+                >
+                  <TableCell className="font-medium sm:p-4 py-2 px-1 text-sm sm:text-base">{item.sector}</TableCell>
+                  <TableCell className={cn(
+                    "font-medium sm:p-4 py-2 px-1 text-sm sm:text-base",
+                    parseFloat(item.changesPercentage) >= 0 ? "text-positive" : "text-negative"
+                  )}>
+                    {parseFloat(item.changesPercentage).toFixed(2)}%
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );

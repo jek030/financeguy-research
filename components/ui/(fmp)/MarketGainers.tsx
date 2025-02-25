@@ -36,8 +36,8 @@ export default function MarketGainers() {
 
   if (isLoading) {
     return (
-      <Card className="border border-border/50 shadow-sm max-w-4xl mx-auto">
-        <CardContent className="pt-6">
+      <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
+        <CardContent className="pt-6 sm:px-6 px-3">
           <div className="text-center text-muted-foreground">Loading market gainers data...</div>
         </CardContent>
       </Card>
@@ -46,8 +46,8 @@ export default function MarketGainers() {
 
   if (error) {
     return (
-      <Card className="border border-border/50 shadow-sm max-w-4xl mx-auto">
-        <CardContent className="pt-6">
+      <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
+        <CardContent className="pt-6 sm:px-6 px-3">
           <div className="text-destructive">{error?.message}</div>
         </CardContent>
       </Card>
@@ -82,107 +82,108 @@ export default function MarketGainers() {
   };
 
   return (
-    <Card className="border border-border/50 shadow-sm max-w-4xl mx-auto bg-card">
-      <CardHeader className="pb-3 space-y-2">
+    <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
+      <CardHeader className="pb-2 space-y-2 sm:px-6 px-3 pt-4 sm:pt-6">
         <CardTitle className="text-xl font-semibold">Biggest Gainers</CardTitle>
         <CardDescription>
-          <div className="space-y-4">
-            <span className="block">
-              Stocks with the highest daily value gains, indicating strong upward momentum and potential investment opportunities
-            </span>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Minimum Price ($):</span>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                value={minPrice}
-                onChange={handleMinPriceChange}
-                className="w-24"
-              />
-            </div>
-            <span className="block text-muted-foreground/75 italic text-sm">
-              https://financialmodelingprep.com/api/v3/stock_market/gainers?apikey=
-            </span>
-          </div>
+          Stocks with the highest daily value gains, indicating strong upward momentum and potential investment opportunities
         </CardDescription>
+        <div className="space-y-4 mt-2">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Minimum Price ($):</span>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={minPrice}
+              onChange={handleMinPriceChange}
+              className="w-24"
+            />
+          </div>
+            {/*https://financialmodelingprep.com/api/v3/stock_market/gainers?apikey=*/}
+          
+        </div>
       </CardHeader>
-      <CardContent className="pt-0">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[100px]">
-                <Button
-                  variant="ghost"
-                  onClick={() => requestSort('symbol')}
-                  className="hover:bg-transparent pl-0 font-semibold"
-                >
-                  Symbol
-                  <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              </TableHead>
-              <TableHead className="min-w-[200px]">
-                <Button
-                  variant="ghost"
-                  onClick={() => requestSort('name')}
-                  className="hover:bg-transparent pl-0 font-semibold"
-                >
-                  Name
-                  <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              </TableHead>
-              <TableHead className="w-[100px]">
-                <Button
-                  variant="ghost"
-                  onClick={() => requestSort('price')}
-                  className="hover:bg-transparent pl-0 font-semibold"
-                >
-                  Price
-                  <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              </TableHead>
-              <TableHead className="w-[100px]">
-                <Button
-                  variant="ghost"
-                  onClick={() => requestSort('change')}
-                  className="hover:bg-transparent pl-0 font-semibold"
-                >
-                  Change
-                  <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              </TableHead>
-              <TableHead className="w-[100px]">
-                <Button
-                  variant="ghost"
-                  onClick={() => requestSort('changesPercentage')}
-                  className="hover:bg-transparent pl-0 font-semibold"
-                >
-                  Change %
-                  <ArrowUpDown className="ml-2 h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {sortedData.map((item, index) => (
-              <TableRow 
-                key={index}
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => handleSymbolClick(item.symbol)}
-              >
-                <TableCell className="font-medium">{item.symbol}</TableCell>
-                <TableCell className="text-muted-foreground">{item.name}</TableCell>
-                <TableCell className="font-medium">${item.price.toFixed(2)}</TableCell>
-                <TableCell className={cn("font-medium", "text-positive")}>
-                  ${item.change.toFixed(2)}
-                </TableCell>
-                <TableCell className={cn("font-medium", "text-positive")}>
-                  {item.changesPercentage.toFixed(2)}%
-                </TableCell>
+      <CardContent className="pt-0 sm:px-6 px-2">
+        <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
+          <Table className="w-full text-sm sm:text-base">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="w-[80px] sm:p-4 py-2 px-1">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('symbol')}
+                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
+                  >
+                    Symbol
+                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
+                  </Button>
+                </TableHead>
+                <TableHead className="min-w-[180px] sm:p-4 py-2 px-1">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('name')}
+                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
+                  >
+                    Name
+                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
+                  </Button>
+                </TableHead>
+                <TableHead className="w-[70px] sm:p-4 py-2 px-1">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('price')}
+                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
+                  >
+                    Price
+                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
+                  </Button>
+                </TableHead>
+                <TableHead className="w-[70px] sm:p-4 py-2 px-1">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('change')}
+                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
+                  >
+                    Chg
+                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
+                  </Button>
+                </TableHead>
+                <TableHead className="w-[70px] sm:p-4 py-2 px-1">
+                  <Button
+                    variant="ghost"
+                    onClick={() => requestSort('changesPercentage')}
+                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
+                  >
+                    Chg %
+                    <ArrowUpDown className="ml-1 h-2.5 w-2.5 sm:h-3 sm:w-3 text-muted-foreground" />
+                  </Button>
+                </TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {sortedData.map((item, index) => (
+                <TableRow 
+                  key={index}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => handleSymbolClick(item.symbol)}
+                >
+                  <TableCell className="font-medium sm:p-4 py-2 px-1 text-sm sm:text-base">{item.symbol}</TableCell>
+                  <TableCell className="text-muted-foreground truncate max-w-[150px] md:max-w-none sm:p-4 py-2 px-1 text-xs sm:text-sm">
+                    {item.name}
+                  </TableCell>
+                  <TableCell className="font-medium sm:p-4 py-2 px-1 text-sm sm:text-base">${item.price.toFixed(2)}</TableCell>
+                  <TableCell className={cn("font-medium text-positive sm:p-4 py-2 px-1 text-sm sm:text-base")}>
+                    ${item.change.toFixed(2)}
+                  </TableCell>
+                  <TableCell className={cn("font-medium text-positive sm:p-4 py-2 px-1 text-sm sm:text-base")}>
+                    {item.changesPercentage.toFixed(2)}%
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       </CardContent>
     </Card>
   );
