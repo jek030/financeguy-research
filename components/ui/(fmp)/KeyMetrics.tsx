@@ -32,144 +32,156 @@ export const KeyMetrics: React.FC<KeyMetricsProps> = ({ symbol }) => {
           </TabsList>
 
           <TabsContent value="annual">
-            <ScrollArea className="h-[600px]">
+            <div className="relative border rounded-md">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Period</TableHead>
-                    <TableHead className="text-right">Revenue Per Share</TableHead>
-                    <TableHead className="text-right">Dividend Yield</TableHead>
-                    <TableHead className="text-right">ROE</TableHead>
-                    <TableHead className="text-right">Net Income Per Share</TableHead>
-                    <TableHead className="text-right">Operating Cash Flow Per Share</TableHead>
-                    <TableHead className="text-right">Free Cash Flow Per Share</TableHead>
-                    <TableHead className="text-right">Cash Per Share</TableHead>
-                    <TableHead className="text-right">Book Value Per Share</TableHead>
-                    <TableHead className="text-right">Market Cap</TableHead>
-                    <TableHead className="text-right">Enterprise Value</TableHead>
-                    <TableHead className="text-right">PE Ratio</TableHead>                                                  
+                    <TableHead className="w-[100px]">Date</TableHead>
+                    <TableHead className="w-[90px]">Period</TableHead>
+                    <TableHead className="w-[100px] text-right">Revenue/Share</TableHead>
+                    <TableHead className="w-[90px] text-right">Div Yield</TableHead>
+                    <TableHead className="w-[70px] text-right">ROE</TableHead>
+                    <TableHead className="w-[100px] text-right">Net Inc/Share</TableHead>
+                    <TableHead className="w-[100px] text-right">Op CF/Share</TableHead>
+                    <TableHead className="w-[100px] text-right">FCF/Share</TableHead>
+                    <TableHead className="w-[90px] text-right">Cash/Share</TableHead>
+                    <TableHead className="w-[100px] text-right">Book Value/Share</TableHead>
+                    <TableHead className="w-[100px] text-right">Market Cap</TableHead>
+                    <TableHead className="w-[100px] text-right">Enterprise Value</TableHead>
+                    <TableHead className="w-[80px] text-right">PE Ratio</TableHead>                                                  
                   </TableRow>
                 </TableHeader>
-                <TableBody>
-                  {keyMetricsAnnual && keyMetricsAnnual.length > 0 ? (
-                    keyMetricsAnnual.map((metric: KeyMetricsType) => (
-                      <TableRow key={`annual-${metric.date}-${metric.period}`}>
-                        <TableCell>{new Date(metric.date).toLocaleDateString()}</TableCell>
-                        <TableCell>{metric.period}</TableCell>
-                        <TableCell className="text-right">${metric.revenuePerShare?.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">{(metric.dividendYield * 100)?.toFixed(2)}%</TableCell>                         
-                        <TableCell className="text-right">{(metric.roe * 100)?.toFixed(2)}%</TableCell>
-                        <TableCell className="text-right">${metric.netIncomePerShare?.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${metric.operatingCashFlowPerShare?.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${metric.freeCashFlowPerShare?.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${metric.cashPerShare?.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${metric.bookValuePerShare?.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${formatLargeNumber(metric.marketCap)}</TableCell>
-                        <TableCell className="text-right">${formatLargeNumber(metric.enterpriseValue)}</TableCell>
-                        <TableCell className="text-right">{metric.peRatio?.toFixed(2)}</TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={13} className="text-center">No annual key metrics data available</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
               </Table>
-            </ScrollArea>
+              <ScrollArea className="h-[600px]">
+                <Table>
+                  <TableBody>
+                    {keyMetricsAnnual && keyMetricsAnnual.length > 0 ? (
+                      keyMetricsAnnual.map((metric: KeyMetricsType) => (
+                        <TableRow key={`annual-${metric.date}-${metric.period}`}>
+                          <TableCell className="w-[100px]">{new Date(metric.date).toLocaleDateString()}</TableCell>
+                          <TableCell className="w-[90px]">{metric.period}</TableCell>
+                          <TableCell className="w-[100px] text-right">${metric.revenuePerShare?.toFixed(2)}</TableCell>
+                          <TableCell className="w-[90px] text-right">{(metric.dividendYield * 100)?.toFixed(2)}%</TableCell>                         
+                          <TableCell className="w-[70px] text-right">{(metric.roe * 100)?.toFixed(2)}%</TableCell>
+                          <TableCell className="w-[100px] text-right">${metric.netIncomePerShare?.toFixed(2)}</TableCell>
+                          <TableCell className="w-[100px] text-right">${metric.operatingCashFlowPerShare?.toFixed(2)}</TableCell>
+                          <TableCell className="w-[100px] text-right">${metric.freeCashFlowPerShare?.toFixed(2)}</TableCell>
+                          <TableCell className="w-[90px] text-right">${metric.cashPerShare?.toFixed(2)}</TableCell>
+                          <TableCell className="w-[100px] text-right">${metric.bookValuePerShare?.toFixed(2)}</TableCell>
+                          <TableCell className="w-[100px] text-right">${formatLargeNumber(metric.marketCap)}</TableCell>
+                          <TableCell className="w-[100px] text-right">${formatLargeNumber(metric.enterpriseValue)}</TableCell>
+                          <TableCell className="w-[80px] text-right">{metric.peRatio?.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={13} className="text-center">No annual key metrics data available</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </div>
           </TabsContent>
 
           <TabsContent value="quarterly">
-            <ScrollArea className="h-[600px]">
+            <div className="relative border rounded-md">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Period</TableHead>
-                    <TableHead className="text-right">Revenue Per Share</TableHead>
-                    <TableHead className="text-right">Dividend Yield</TableHead>
-                    <TableHead className="text-right">ROE</TableHead>
-                    <TableHead className="text-right">Net Income Per Share</TableHead>
-                    <TableHead className="text-right">Operating Cash Flow Per Share</TableHead>
-                    <TableHead className="text-right">Free Cash Flow Per Share</TableHead>
-                    <TableHead className="text-right">Cash Per Share</TableHead>
-                    <TableHead className="text-right">Book Value Per Share</TableHead>
-                    <TableHead className="text-right">Market Cap</TableHead>
-                    <TableHead className="text-right">Enterprise Value</TableHead>
-                    <TableHead className="text-right">PE Ratio</TableHead>
+                    <TableHead className="w-[100px]">Date</TableHead>
+                    <TableHead className="w-[90px]">Period</TableHead>
+                    <TableHead className="w-[100px] text-right">Revenue/Share</TableHead>
+                    <TableHead className="w-[90px] text-right">Div Yield</TableHead>
+                    <TableHead className="w-[70px] text-right">ROE</TableHead>
+                    <TableHead className="w-[100px] text-right">Net Inc/Share</TableHead>
+                    <TableHead className="w-[100px] text-right">Op CF/Share</TableHead>
+                    <TableHead className="w-[100px] text-right">FCF/Share</TableHead>
+                    <TableHead className="w-[90px] text-right">Cash/Share</TableHead>
+                    <TableHead className="w-[100px] text-right">Book Value/Share</TableHead>
+                    <TableHead className="w-[100px] text-right">Market Cap</TableHead>
+                    <TableHead className="w-[100px] text-right">Enterprise Value</TableHead>
+                    <TableHead className="w-[80px] text-right">PE Ratio</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
-                  {keyMetricsQuarterly && keyMetricsQuarterly.length > 0 ? (
-                    keyMetricsQuarterly.map((metric: KeyMetricsType) => (
-                      <TableRow key={`quarterly-${metric.date}-${metric.period}`}>
-                        <TableCell>{new Date(metric.date).toLocaleDateString()}</TableCell>
-                        <TableCell>{metric.period}</TableCell>
-                        <TableCell className="text-right">${metric.revenuePerShare?.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">{(metric.dividendYield * 100)?.toFixed(2)}%</TableCell>
-                        <TableCell className="text-right">{(metric.roe * 100)?.toFixed(2)}%</TableCell>
-                        <TableCell className="text-right">${metric.netIncomePerShare?.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${metric.operatingCashFlowPerShare?.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${metric.freeCashFlowPerShare?.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${metric.cashPerShare?.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${metric.bookValuePerShare?.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${formatLargeNumber(metric.marketCap)}</TableCell>
-                        <TableCell className="text-right">${formatLargeNumber(metric.enterpriseValue)}</TableCell>
-                        <TableCell className="text-right">{metric.peRatio?.toFixed(2)}</TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={13} className="text-center">No quarterly key metrics data available</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
               </Table>
-            </ScrollArea>
+              <ScrollArea className="h-[600px]">
+                <Table>
+                  <TableBody>
+                    {keyMetricsQuarterly && keyMetricsQuarterly.length > 0 ? (
+                      keyMetricsQuarterly.map((metric: KeyMetricsType) => (
+                        <TableRow key={`quarterly-${metric.date}-${metric.period}`}>
+                          <TableCell className="w-[100px]">{new Date(metric.date).toLocaleDateString()}</TableCell>
+                          <TableCell className="w-[90px]">{metric.period}</TableCell>
+                          <TableCell className="w-[100px] text-right">${metric.revenuePerShare?.toFixed(2)}</TableCell>
+                          <TableCell className="w-[90px] text-right">{(metric.dividendYield * 100)?.toFixed(2)}%</TableCell>
+                          <TableCell className="w-[70px] text-right">{(metric.roe * 100)?.toFixed(2)}%</TableCell>
+                          <TableCell className="w-[100px] text-right">${metric.netIncomePerShare?.toFixed(2)}</TableCell>
+                          <TableCell className="w-[100px] text-right">${metric.operatingCashFlowPerShare?.toFixed(2)}</TableCell>
+                          <TableCell className="w-[100px] text-right">${metric.freeCashFlowPerShare?.toFixed(2)}</TableCell>
+                          <TableCell className="w-[90px] text-right">${metric.cashPerShare?.toFixed(2)}</TableCell>
+                          <TableCell className="w-[100px] text-right">${metric.bookValuePerShare?.toFixed(2)}</TableCell>
+                          <TableCell className="w-[100px] text-right">${formatLargeNumber(metric.marketCap)}</TableCell>
+                          <TableCell className="w-[100px] text-right">${formatLargeNumber(metric.enterpriseValue)}</TableCell>
+                          <TableCell className="w-[80px] text-right">{metric.peRatio?.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={13} className="text-center">No quarterly key metrics data available</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </div>
           </TabsContent>
 
           <TabsContent value="ttm">
-            <ScrollArea className="h-[600px]">
+            <div className="relative border rounded-md">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-right">Revenue Per Share TTM</TableHead>
-                    <TableHead className="text-right">ROE TTM</TableHead>
-                    <TableHead className="text-right">Net Income Per Share TTM</TableHead>
-                    <TableHead className="text-right">Operating Cash Flow Per Share TTM</TableHead>
-                    <TableHead className="text-right">Free Cash Flow Per Share TTM</TableHead>
-                    <TableHead className="text-right">Cash Per Share TTM</TableHead>
-                    <TableHead className="text-right">Book Value Per Share TTM</TableHead>
-                    <TableHead className="text-right">Market Cap TTM</TableHead>
-                    <TableHead className="text-right">Enterprise Value TTM</TableHead>
-                    <TableHead className="text-right">PE Ratio TTM</TableHead>
+                    <TableHead className="w-[100px] text-right">Revenue TTM</TableHead>
+                    <TableHead className="w-[70px] text-right">ROE TTM</TableHead>
+                    <TableHead className="w-[100px] text-right">Net Inc TTM</TableHead>
+                    <TableHead className="w-[100px] text-right">Op CF TTM</TableHead>
+                    <TableHead className="w-[100px] text-right">FCF TTM</TableHead>
+                    <TableHead className="w-[90px] text-right">Cash TTM</TableHead>
+                    <TableHead className="w-[100px] text-right">Book Value TTM</TableHead>
+                    <TableHead className="w-[100px] text-right">Market Cap</TableHead>
+                    <TableHead className="w-[100px] text-right">Enterprise Value</TableHead>
+                    <TableHead className="w-[80px] text-right">PE Ratio</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
-                  {keyMetricsTtm && keyMetricsTtm.length > 0 ? (
-                    keyMetricsTtm.map((metric: KeyMetricsType) => (
-                      <TableRow key={`ttm-${metric.date}-${metric.calendarYear}`}>
-                        <TableCell className="text-right">${(metric.revenuePerShareTTM ?? 0).toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${(metric.roeTTM ?? 0).toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${(metric.netIncomePerShareTTM ?? 0).toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${(metric.operatingCashFlowPerShareTTM ?? 0).toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${(metric.freeCashFlowPerShareTTM ?? 0).toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${(metric.cashPerShareTTM ?? 0).toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${(metric.bookValuePerShareTTM ?? 0).toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${formatLargeNumber(metric.marketCapTTM ?? 0)}</TableCell>
-                        <TableCell className="text-right">${formatLargeNumber(metric.enterpriseValueTTM ?? 0)}</TableCell>
-                        <TableCell className="text-right">{(metric.peRatioTTM ?? 0).toFixed(2)}</TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={10} className="text-center">No TTM key metrics data available</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
               </Table>
-            </ScrollArea>
+              <ScrollArea className="h-[600px]">
+                <Table>
+                  <TableBody>
+                    {keyMetricsTtm && keyMetricsTtm.length > 0 ? (
+                      keyMetricsTtm.map((metric: KeyMetricsType) => (
+                        <TableRow key={`ttm-${metric.date}-${metric.calendarYear}`}>
+                          <TableCell className="w-[100px] text-right">${(metric.revenuePerShareTTM ?? 0).toFixed(2)}</TableCell>
+                          <TableCell className="w-[70px] text-right">${(metric.roeTTM ?? 0).toFixed(2)}</TableCell>
+                          <TableCell className="w-[100px] text-right">${(metric.netIncomePerShareTTM ?? 0).toFixed(2)}</TableCell>
+                          <TableCell className="w-[100px] text-right">${(metric.operatingCashFlowPerShareTTM ?? 0).toFixed(2)}</TableCell>
+                          <TableCell className="w-[100px] text-right">${(metric.freeCashFlowPerShareTTM ?? 0).toFixed(2)}</TableCell>
+                          <TableCell className="w-[90px] text-right">${(metric.cashPerShareTTM ?? 0).toFixed(2)}</TableCell>
+                          <TableCell className="w-[100px] text-right">${(metric.bookValuePerShareTTM ?? 0).toFixed(2)}</TableCell>
+                          <TableCell className="w-[100px] text-right">${formatLargeNumber(metric.marketCapTTM ?? 0)}</TableCell>
+                          <TableCell className="w-[100px] text-right">${formatLargeNumber(metric.enterpriseValueTTM ?? 0)}</TableCell>
+                          <TableCell className="w-[80px] text-right">{(metric.peRatioTTM ?? 0).toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={10} className="text-center">No TTM key metrics data available</TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>

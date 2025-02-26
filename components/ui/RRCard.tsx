@@ -77,7 +77,7 @@ const RRCard: React.FC<RRCalculationCardProps> = ({ price }) => {
   };
 
   return (
-    <Card className="w-full">
+    <Card className="w-full h-full">
       <CardHeader>
         <CardTitle>Risk Calculator</CardTitle>
         <div className="w-full h-px bg-border" />

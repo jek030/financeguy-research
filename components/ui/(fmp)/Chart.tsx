@@ -430,8 +430,8 @@ export default function Chart({ symbol }: ChartProps) {
   }, [intradayData, dailyData, isDaily, symbol, isLoading, data]);
 
   return (
-    <Card>
-      <CardContent className="pt-6">
+    <Card className="w-full bg-card border">
+      <CardContent className="pt-6">  
         <div className="flex flex-col gap-4 mb-4">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div className="w-full sm:w-auto">
