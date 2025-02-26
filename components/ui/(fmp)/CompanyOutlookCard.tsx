@@ -2,11 +2,11 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import {Building2, Users, DollarSign, PieChart, TrendingDown, Activity, ChevronDown, ChevronUp, Calculator} from 'lucide-react';
+import {Building2, Users, DollarSign, PieChart, Activity, ChevronDown, ChevronUp, Calculator} from 'lucide-react';
 import { addYears } from 'date-fns';
 
 //UI Components
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Badge } from '@/components/ui/Badge';
 import { Financials } from '@/components/ui/(fmp)/Financials';
