@@ -180,24 +180,24 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
       {/* Company Header Card */}
       <Card className="w-full bg-card border shadow-lg">
         <CardHeader className="pb-4">
-          <div className="flex flex-col lg:flex-row justify-between gap-6">
-            <div className="flex gap-4">
+          <div className="flex flex-col lg:flex-row justify-between gap-4">
+            <div className="flex gap-3">
               {companyData.profile.image && (
                 <Image
                   src={companyData.profile.image}
                   alt={companyData.profile.companyName || 'Company logo'}
-                  width={64}
-                  height={64}
+                  width={56}
+                  height={56}
                   className="rounded-lg object-cover"
                 />
               )}
               <div>
-                <div className="flex items-center gap-3 flex-wrap">
-                  <h2 className="text-2xl font-bold tracking-tight">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
                     {companyData.profile.companyName}
                   </h2>
                   {quote?.change && (
-                    <div className="flex gap-2">
+                    <div className="flex gap-1.5 mt-1 sm:mt-0">
                       <Badge variant={quote.change >= 0 ? "positive" : "destructive"}>
                         {quote.change >= 0 ? '+' : ''}{safeFormat(quote.change)}
                       </Badge>
@@ -214,8 +214,8 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
               </div>
             </div>
 
-            <div className="lg:text-right">
-              <div className="text-3xl font-bold">
+            <div className="lg:text-right mt-2 lg:mt-0">
+              <div className="text-2xl sm:text-3xl font-bold">
                 ${typeof quote.price === 'number' ? safeFormat(quote.price) : 'N/A'}
               </div>
               <div className="text-sm text-muted-foreground mt-1">
@@ -257,7 +257,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
           {/* Key Company Info Grid - Only show if any company data exists */}
           {(companyData.profile.sector || companyData.profile.industry || companyData.profile.ceo || 
             companyData.profile.fullTimeEmployees || companyData.profile.address || companyData.profile.website) && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-b pb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 border-b pb-4">
               {/* Quick Stats */}
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -313,7 +313,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                       href={companyData.profile.website}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800"
+                      className="text-blue-600 hover:text-blue-800 text-sm break-all"
                     >
                       {companyData.profile.website}
                     </a>
@@ -334,7 +334,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
           )}
 
           {/* Trading Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <div className="p-4 rounded-lg bg-secondary/50">
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
@@ -468,8 +468,8 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row justify-between text-sm text-muted-foreground mt-4 pt-4 border-t">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row justify-between text-sm text-muted-foreground mt-4 pt-4 border-t">
+            <div className="flex items-center gap-2 mb-2 sm:mb-0">
               <span className="font-medium">Next Earnings:</span>
               {quote.earningsAnnouncement ? 
                 new Date(quote.earningsAnnouncement).toLocaleDateString() : 'N/A'}
@@ -489,35 +489,46 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="earnings" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-10">
-          <TabsTrigger value="earnings" className="flex items-center gap-2">
-            <Calculator className="w-4 h-4" /> Earnings
-          </TabsTrigger>
-          <TabsTrigger value="news" className="flex items-center gap-2">
-            <Building2 className="w-4 h-4" /> News
-          </TabsTrigger>
-          <TabsTrigger value="financials" className="flex items-center gap-2">
-            <DollarSign className="w-4 h-4" /> Financials
-          </TabsTrigger>
-          <TabsTrigger value="keymetrics" className="flex items-center gap-2">
-            <PieChart className="w-4 h-4" /> Key Metrics
-          </TabsTrigger>
-          <TabsTrigger value="movingavgs" className="flex items-center gap-2">
-            <TrendingDown className="w-4 h-4" /> Moving Avgs
-          </TabsTrigger>
-          <TabsTrigger value="insiders" className="flex items-center gap-2">
-            <Users className="w-4 h-4" /> Insider Activity
-          </TabsTrigger>
-          <TabsTrigger value="executives" className="flex items-center gap-2">
-            <Users className="w-4 h-4" /> Executives
-          </TabsTrigger>
-          <TabsTrigger value="dividends" className="flex items-center gap-2">
-            <DollarSign className="w-4 h-4" /> Dividends
-          </TabsTrigger>
-          <TabsTrigger value="pricehistory" className="flex items-center gap-2">
-            <Activity className="w-4 h-4" /> Price History
-          </TabsTrigger>
-        </TabsList>
+        <div className="relative">
+          <TabsList className="flex w-full overflow-x-auto scrollbar-hide pb-1 md:grid md:grid-cols-3 lg:grid-cols-5">
+            <TabsTrigger value="earnings" className="flex items-center gap-1.5 whitespace-nowrap">
+              <Calculator className="w-4 h-4" /> 
+              <span className="hidden md:inline">Earnings</span>
+            </TabsTrigger>
+            <TabsTrigger value="news" className="flex items-center gap-1.5 whitespace-nowrap">
+              <Building2 className="w-4 h-4" /> 
+              <span className="hidden md:inline">News</span>
+            </TabsTrigger>
+            <TabsTrigger value="financials" className="flex items-center gap-1.5 whitespace-nowrap">
+              <DollarSign className="w-4 h-4" /> 
+              <span className="hidden md:inline">Financials</span>
+            </TabsTrigger>
+            <TabsTrigger value="keymetrics" className="flex items-center gap-1.5 whitespace-nowrap">
+              <PieChart className="w-4 h-4" /> 
+              <span className="hidden md:inline">Key Metrics</span>
+            </TabsTrigger>
+            <TabsTrigger value="movingavgs" className="flex items-center gap-1.5 whitespace-nowrap">
+              <TrendingDown className="w-4 h-4" /> 
+              <span className="hidden md:inline">Moving Avgs</span>
+            </TabsTrigger>
+            <TabsTrigger value="insiders" className="flex items-center gap-1.5 whitespace-nowrap">
+              <Users className="w-4 h-4" /> 
+              <span className="hidden md:inline">Insider Activity</span>
+            </TabsTrigger>
+            <TabsTrigger value="executives" className="flex items-center gap-1.5 whitespace-nowrap">
+              <Users className="w-4 h-4" /> 
+              <span className="hidden md:inline">Executives</span>
+            </TabsTrigger>
+            <TabsTrigger value="dividends" className="flex items-center gap-1.5 whitespace-nowrap">
+              <DollarSign className="w-4 h-4" /> 
+              <span className="hidden md:inline">Dividends</span>
+            </TabsTrigger>
+            <TabsTrigger value="pricehistory" className="flex items-center gap-1.5 whitespace-nowrap">
+              <Activity className="w-4 h-4" /> 
+              <span className="hidden md:inline">Price History</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="earnings">
           <Earnings symbol={symbol} />

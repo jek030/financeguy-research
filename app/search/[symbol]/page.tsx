@@ -10,10 +10,10 @@ export default function Page({ params }: { params: Promise<{ symbol: string }> }
   const [currentPrice] = useState<number>(0);
 
   return (
-    <div className="flex flex-col w-full gap-2">
-      <div className="flex flex-col gap-2">
+    <div className="flex flex-col w-full max-w-full overflow-hidden">
+      <div className="flex flex-col gap-4">
         <CompanyOutlookCard symbol={symbol} />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 w-full">
+        <div className="grid grid-cols-1 gap-4 w-full">
           <RRCard price={currentPrice} />
         </div>
       </div>
