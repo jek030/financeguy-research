@@ -54,6 +54,9 @@ const SearchForm: React.FC<SearchFormProps> = ({ className = "" }) => {
                     placeholder="Search for a symbol" 
                     className="flex-1 h-8 bg-background border-border rounded-l-md rounded-r-none focus-visible:ring-0 focus-visible:border-border text-sm"
                     autoComplete="off"
+                    spellCheck="false"
+                    autoCorrect="off"
+                    autoCapitalize="off"
                     {...field} 
                   />
                 </FormControl>
