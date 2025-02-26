@@ -76,7 +76,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
   if (isLoading || quoteLoading) {
     return (
       <div className="space-y-6">
-        <Card className="w-full bg-card border shadow-lg">
+        <Card className="w-full bg-card border">
           <CardHeader className="pb-4">
             <div className="flex flex-col lg:flex-row justify-between gap-6">
               <div className="flex gap-4">
@@ -150,7 +150,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
     console.log('CompanyOutlookCard: No data available');
     return (
       <div className="space-y-6">
-        <Card className="w-full bg-card border shadow-lg">
+        <Card className="w-full bg-card border">
           <CardHeader>
             <CardTitle>Invalid Symbol</CardTitle>
           </CardHeader>
@@ -178,7 +178,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
   return (
     <div className="space-y-6">
       {/* Company Header Card */}
-      <Card className="w-full bg-card border shadow-lg">
+      <Card className="w-full bg-card border">
         <CardHeader className="pb-4">
           <div className="flex flex-col lg:flex-row justify-between gap-4">
             <div className="flex gap-3">
@@ -483,14 +483,14 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
         </CardContent>
       </Card>
 
-
+      <MovingAverages companyData={companyData} symbol={companyData.profile.symbol} />
       <IntradayChart symbol={symbol} />
       
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="earnings" className="space-y-4">
         <div className="relative">
-          <TabsList className="flex w-full overflow-x-auto scrollbar-hide pb-1 md:grid md:grid-cols-3 lg:grid-cols-5">
+          <TabsList className="flex w-full overflow-x-auto scrollbar-hide pb-1 md:grid md:grid-cols-8 lg:grid-cols-8">
             <TabsTrigger value="earnings" className="flex items-center gap-1.5 whitespace-nowrap">
               <Calculator className="w-4 h-4" /> 
               <span className="hidden md:inline">Earnings</span>
@@ -506,10 +506,6 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
             <TabsTrigger value="keymetrics" className="flex items-center gap-1.5 whitespace-nowrap">
               <PieChart className="w-4 h-4" /> 
               <span className="hidden md:inline">Key Metrics</span>
-            </TabsTrigger>
-            <TabsTrigger value="movingavgs" className="flex items-center gap-1.5 whitespace-nowrap">
-              <TrendingDown className="w-4 h-4" /> 
-              <span className="hidden md:inline">Moving Avgs</span>
             </TabsTrigger>
             <TabsTrigger value="insiders" className="flex items-center gap-1.5 whitespace-nowrap">
               <Users className="w-4 h-4" /> 
@@ -541,9 +537,6 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
         </TabsContent>
         <TabsContent value="keymetrics">
           <KeyMetrics symbol={symbol} />
-        </TabsContent>
-        <TabsContent value="movingavgs">
-          <MovingAverages companyData={companyData} symbol={companyData.profile.symbol} />
         </TabsContent>
         <TabsContent value="insiders">
           <InsiderActivity symbol={symbol} />
