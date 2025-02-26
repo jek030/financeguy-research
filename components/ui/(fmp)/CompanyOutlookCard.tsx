@@ -6,12 +6,13 @@ import {Building2, Users, DollarSign, PieChart, TrendingDown, Activity, ChevronD
 import { addYears } from 'date-fns';
 
 //UI Components
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Badge } from '@/components/ui/Badge';
 import { Financials } from '@/components/ui/(fmp)/Financials';
 import { cn } from '@/lib/utils';
 import { Skeleton } from "@/components/ui/Skeleton";
+import RRCard from '@/components/ui/RRCard';
 
 //FMP Hooks
 import { useCompanyOutlook } from '@/hooks/FMP/useCompanyOutlook';
@@ -483,7 +484,11 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
         </CardContent>
       </Card>
 
-      <MovingAverages companyData={companyData} symbol={companyData.profile.symbol} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> 
+        <MovingAverages companyData={companyData} symbol={companyData.profile.symbol} />
+        <RRCard price={quote.price || 0} />
+      </div>
+
       <IntradayChart symbol={symbol} />
       
 
