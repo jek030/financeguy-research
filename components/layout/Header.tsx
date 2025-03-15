@@ -6,6 +6,8 @@ import { electrolize } from '@/lib/fonts';
 import { Bars3Icon, XMarkIcon } from '@heroicons/react/24/outline';
 import { Button } from '@/components/ui/Button';
 import { useMobileMenu } from '@/lib/context/MobileMenuContext';
+import { useAuth } from '@/lib/context/auth-context';
+import Link from 'next/link';
 
 interface PageHeaderProps {
   title?: string;
@@ -25,6 +27,7 @@ export default function Header({
   loading = false,
 }: PageHeaderProps) {
   const { isExpanded, setIsExpanded, isMobile } = useMobileMenu();
+  const { user, signOut } = useAuth();
 
   if (loading) {
     return (
@@ -42,7 +45,7 @@ export default function Header({
   return (
     <header className={cn('w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60', className)}>
       <div className="px-4 py-3">
-        <div className="flex flex-col sm:flex-row items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
           <div className="flex items-center w-full sm:w-auto">
             {isMobile && (
               <Button
@@ -60,10 +63,23 @@ export default function Header({
             )}
             <h1 className={cn("text-base whitespace-nowrap", electrolize.className)}>{title}</h1>
           </div>
-          <div className="flex-1 w-full sm:max-w-2xl">
+          <div className="flex-1 w-full sm:max-w-2xl mx-4">
             <SearchForm />
           </div>
-          {actions && <div className="flex gap-2">{actions}</div>}
+          <div className="flex items-center ml-auto gap-2">
+            {user ? (
+              <Button variant="outline" size="sm" onClick={signOut}>
+                Sign Out
+              </Button>
+            ) : (
+              <Link href="/login">
+                <Button variant="outline" size="sm">
+                  Sign In
+                </Button>
+              </Link>
+            )}
+            {actions && <div className="flex gap-2">{actions}</div>}
+          </div>
         </div>
         {(description || children) && (
           <p className="mt-1 text-xs text-muted-foreground">

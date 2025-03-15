@@ -6,6 +6,7 @@ import Footer from "@/components/layout/Footer";
 import Header from "@/components/layout/Header";
 import { Providers } from "./providers";
 import { Analytics } from "@vercel/analytics/react"
+
 export const metadata: Metadata = {
   title: "Finance Guy",
   description: "Finance Guy Research Tool",
