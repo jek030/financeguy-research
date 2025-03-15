@@ -11,6 +11,12 @@ import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { useRouter } from 'next/navigation';
 import { config } from '@/lib/config';
 
+// Define a type for errors from Supabase or other sources
+interface ErrorWithMessage {
+  message?: string;
+  [key: string]: unknown;
+}
+
 export function AuthForm() {
   // Read signup enabled flag directly from environment variable as fallback
   const signupEnabledEnv = process.env.NEXT_PUBLIC_SIGNUP_ENABLED === 'true';
@@ -99,10 +105,11 @@ export function AuthForm() {
         type: 'success', 
         text: 'Check your email for the confirmation link'
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred during sign up';
       setMessage({ 
         type: 'error', 
-        text: error.message || 'An error occurred during sign up'
+        text: errorMessage
       });
     } finally {
       setLoading(false);
@@ -125,10 +132,11 @@ export function AuthForm() {
       if (data.session) {
         setSignInSuccess(true);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'An error occurred during sign in';
       setMessage({ 
         type: 'error', 
-        text: error.message || 'An error occurred during sign in'
+        text: errorMessage
       });
     } finally {
       setLoading(false);

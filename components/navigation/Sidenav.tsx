@@ -6,10 +6,13 @@ import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { electrolize } from '@/lib/fonts';
 import { useMobileMenu } from '@/lib/context/MobileMenuContext';
+import { useAuth } from '@/lib/context/auth-context';
+import { LogIn, LogOut } from 'lucide-react';
 
 export default function SideNav() {
   const { isExpanded, setIsExpanded, isMobile } = useMobileMenu();
   const [isHovered, setIsHovered] = useState(false);
+  const { user, signOut } = useAuth();
 
   const showLabels = isMobile ? isExpanded : isHovered;
 
@@ -63,14 +66,32 @@ export default function SideNav() {
         <div className="flex flex-col flex-1">
           <NavLinks collapsed={!showLabels} />
           <div className="flex-1" />
-          {/*<form className="mt-auto">
-            <button className={cn(
-              "w-full flex items-center rounded-md bg-muted p-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-              showLabels ? "justify-start gap-2" : "justify-center"
-            )}>
-              <div>Sign Out</div>
+          
+          {/* Authentication Button */}
+          {user ? (
+            <button 
+              onClick={signOut}
+              className={cn(
+                "w-full flex items-center rounded-md bg-muted p-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                showLabels ? "justify-start gap-2" : "justify-center"
+              )}
+            >
+              <LogOut className="h-4 w-4" />
+              {showLabels && <span>Sign Out</span>}
             </button>
-          </form>*/}
+          ) : (
+            <Link href="/login">
+              <button 
+                className={cn(
+                  "w-full flex items-center rounded-md bg-muted p-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
+                  showLabels ? "justify-start gap-2" : "justify-center"
+                )}
+              >
+                <LogIn className="h-4 w-4" />
+                {showLabels && <span>Sign In</span>}
+              </button>
+            </Link>
+          )}
         </div>
       </div>
     </>

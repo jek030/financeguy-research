@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 export default function LoginPage() {
-  const { user, signOut, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
   const router = useRouter();
 
   // Use useEffect to handle redirects instead of during render
@@ -35,7 +35,6 @@ export default function LoginPage() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-200px)]">
       <main className="w-full max-w-md p-4">
-        <h1 className="text-2xl font-bold text-center mb-4">Sign In to Finance Guy</h1>
         <AuthForm />
       </main>
     </div>
