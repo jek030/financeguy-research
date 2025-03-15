@@ -13,8 +13,6 @@ type ToasterToast = ToastProps & {
   action?: ToastActionElement
 }
 
-// Define action types as string literals instead of a variable
-type ActionTypeKey = "ADD_TOAST" | "UPDATE_TOAST" | "DISMISS_TOAST" | "REMOVE_TOAST"
 
 let count = 0
 

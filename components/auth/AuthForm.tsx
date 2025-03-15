@@ -11,11 +11,6 @@ import { Alert, AlertDescription } from '@/components/ui/Alert';
 import { useRouter } from 'next/navigation';
 import { config } from '@/lib/config';
 
-// Define a type for errors from Supabase or other sources
-interface ErrorWithMessage {
-  message?: string;
-  [key: string]: unknown;
-}
 
 export function AuthForm() {
   // Read signup enabled flag directly from environment variable as fallback
