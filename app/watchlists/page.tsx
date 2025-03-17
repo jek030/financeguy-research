@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Plus, X } from 'lucide-react';
+import { Plus} from 'lucide-react';
 import { Combobox } from '@/components/ui/Combobox';
 import {
   DndContext,
@@ -164,7 +164,7 @@ export default function WatchlistPage() {
                   <h2 className="text-lg font-semibold">Watchlists</h2>
                   <div className="flex items-center gap-2">                 
                     <Button onClick={addWatchlist} size="sm" variant="outline">
-                      <Plus className="h-4 w-4 mr-1" /> Add
+                      <Plus className="h-4 w-4 mr-1" /> Add a watchlist
                     </Button>
                   </div>
                 </CardHeader>
