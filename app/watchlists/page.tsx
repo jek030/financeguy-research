@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Plus } from 'lucide-react';
@@ -53,6 +53,12 @@ export default function WatchlistPage() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
+
+  useEffect(() => {
+    if (watchlists.length > 0 && !selectedWatchlist) {
+      setSelectedWatchlist(watchlists[0].id);
+    }
+  }, [watchlists, selectedWatchlist, setSelectedWatchlist]);
 
   const handleKeyPress = (e: React.KeyboardEvent, action: () => void) => {
     if (e.key === 'Enter') {
@@ -135,14 +141,6 @@ export default function WatchlistPage() {
 
   return (
     <div className="flex flex-col">
-      <div className="bg-background py-4 border-b">
-        <div className="container mx-auto px-4">
-          <h1 className="text-3xl font-bold tracking-tight">Watchlists</h1>
-          <p className="text-muted-foreground mt-1">
-            Create and manage your stock watchlists with real-time data
-          </p>
-        </div>
-      </div>
 
       <DndContext
         sensors={sensors}

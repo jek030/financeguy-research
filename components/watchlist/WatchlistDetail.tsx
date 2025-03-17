@@ -19,6 +19,29 @@ import { X } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
+// Add a function to format market cap
+function formatMarketCap(marketCap: number): string {
+  if (marketCap >= 1e12) {
+    return `${(marketCap / 1e12).toFixed(2)}tln`;
+  } else if (marketCap >= 1e9) {
+    return `${(marketCap / 1e9).toFixed(2)}bln`;
+  } else if (marketCap >= 1e6) {
+    return `${(marketCap / 1e6).toFixed(2)}mln`;
+  }
+  return formatNumber(marketCap);
+}
+
+// Add a function to format date
+function formatEarningsDate(dateString: string): string {
+  if (!dateString) return '-';
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', { 
+    month: '2-digit', 
+    day: '2-digit', 
+    year: 'numeric' 
+  });
+}
+
 interface QuoteRowProps {
   symbol: string;
   watchlistId: string;
@@ -34,7 +57,7 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
         <div className="flex items-center gap-2">
           <Link 
             href={`/search/${symbol}`}
-            className="font-medium hover:underline text-foreground"
+            className="font-medium hover:underline text-blue-600 dark:text-blue-400"
           >
             {symbol}
           </Link>
@@ -52,14 +75,20 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
         {quote ? (
           <span className={cn(
             "font-medium",
-            quote.change >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-red-500 dark:text-red-400"
+            quote.change >= 0 ? "text-positive" : "text-destructive"
           )}>
-            ${formatNumber(quote.change)}
+            {quote.change >= 0 ? '+' : '-'}{formatNumber(Math.abs(quote.change))}
           </span>
         ) : "-"}
       </TableCell>
       <TableCell className="font-medium">
         {quote ? formatNumber(quote.volume) : "-"}
+      </TableCell>
+      <TableCell className="font-medium">
+        {quote ? formatMarketCap(quote.marketCap) : "-"}
+      </TableCell>
+      <TableCell className="font-medium">
+        {quote ? formatEarningsDate(quote.earningsAnnouncement) : "-"}
       </TableCell>
       <TableCell>
         <Button
@@ -158,8 +187,10 @@ export function WatchlistDetail({
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="font-semibold">Symbol</TableHead>
                   <TableHead className="font-semibold">Price</TableHead>
-                  <TableHead className="font-semibold">Change</TableHead>
+                  <TableHead className="font-semibold">Change ($)</TableHead>
                   <TableHead className="font-semibold">Volume</TableHead>
+                  <TableHead className="font-semibold">Market Cap</TableHead>
+                  <TableHead className="font-semibold">Next Earnings Date</TableHead>
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -167,7 +198,7 @@ export function WatchlistDetail({
                 {watchlist.tickers.length === 0 ? (
                   <TableRow>
                     <TableCell 
-                      colSpan={5} 
+                      colSpan={7} 
                       className="h-24 text-center text-muted-foreground"
                     >
                       No tickers added yet.
