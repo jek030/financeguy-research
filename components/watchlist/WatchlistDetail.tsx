@@ -53,41 +53,41 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
 
   return (
     <TableRow key={`${symbol}-${watchlistId}`} className="group">
-      <TableCell>
-        <div className="flex items-center gap-2">
+      <TableCell className="py-2 sm:py-4">
+        <div className="flex items-center gap-1 sm:gap-2">
           <Link 
             href={`/search/${symbol}`}
-            className="font-medium hover:underline text-blue-600 dark:text-blue-400"
+            className="font-medium hover:underline text-blue-600 dark:text-blue-400 text-sm sm:text-base"
           >
             {symbol}
           </Link>
           {quote && (
-            <Badge variant={quote.changesPercentage >= 0 ? "positive" : "destructive"}>
+            <Badge variant={quote.changesPercentage >= 0 ? "positive" : "destructive"} className="text-xs sm:text-sm">
               {formatPercentage(quote.changesPercentage)}
             </Badge>
           )}
         </div>
       </TableCell>
-      <TableCell className="font-medium">
+      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
         {quote ? `$${formatNumber(quote.price)}` : "-"}
       </TableCell>
-      <TableCell>
+      <TableCell className="whitespace-nowrap">
         {quote ? (
           <span className={cn(
-            "font-medium",
+            "font-medium text-xs sm:text-sm",
             quote.change >= 0 ? "text-positive" : "text-destructive"
           )}>
             {quote.change >= 0 ? '+' : '-'}{formatNumber(Math.abs(quote.change))}
           </span>
         ) : "-"}
       </TableCell>
-      <TableCell className="font-medium">
+      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
         {quote ? formatNumber(quote.volume) : "-"}
       </TableCell>
-      <TableCell className="font-medium">
+      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
         {quote ? formatMarketCap(quote.marketCap) : "-"}
       </TableCell>
-      <TableCell className="font-medium">
+      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
         {quote ? formatEarningsDate(quote.earningsAnnouncement) : "-"}
       </TableCell>
       <TableCell>
@@ -95,9 +95,9 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
           variant="ghost"
           size="icon"
           onClick={() => onRemoveTicker(watchlistId, symbol)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity"
+          className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 sm:h-8 sm:w-8"
         >
-          <X className="h-4 w-4" />
+          <X className="h-3 w-3 sm:h-4 sm:w-4" />
         </Button>
       </TableCell>
     </TableRow>
@@ -133,14 +133,14 @@ export function WatchlistDetail({
 }: WatchlistDetailProps) {
   return (
     <Card className="border-border">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 sm:pb-4">
         {watchlist.isEditing ? (
           <div className="flex items-center gap-2 w-full">
             <Input
               value={editNameInput}
               onChange={(e) => onEditNameChange(e.target.value)}
               onKeyDown={(e) => onKeyPress(e, onSaveWatchlistName)}
-              className="text-xl font-semibold h-auto py-1"
+              className="text-base sm:text-xl font-semibold h-auto py-1"
               autoFocus
             />
             <Button 
@@ -149,33 +149,36 @@ export function WatchlistDetail({
               onClick={onSaveWatchlistName}
               className="shrink-0"
             >
-              <Check className="h-4 w-4" />
+              <Check className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-semibold text-foreground">{watchlist.name}</h2>
+            <h2 className="text-base sm:text-xl font-semibold text-foreground">{watchlist.name}</h2>
             <Button 
               variant="ghost" 
               size="icon"
               onClick={onToggleEditMode}
               className="opacity-0 group-hover:opacity-100 transition-opacity"
             >
-              <Pencil className="h-4 w-4" />
+              <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
           </div>
         )}
       </CardHeader>
       <CardContent>
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-4 sm:mb-6">
           <Input
             placeholder="Enter ticker"
             value={newTickerInput}
             onChange={(e) => onNewTickerChange(e.target.value)}
             onKeyDown={(e) => onKeyPress(e, onAddTicker)}
-            className="font-medium"
+            className="font-medium text-sm sm:text-base h-8 sm:h-10"
           />
-          <Button onClick={onAddTicker} className="shrink-0">
+          <Button 
+            onClick={onAddTicker} 
+            className="shrink-0 text-sm h-8 sm:h-10 px-3 sm:px-4"
+          >
             Add Ticker
           </Button>
         </div>
@@ -183,17 +186,17 @@ export function WatchlistDetail({
           items={watchlist.tickers.map(t => `${t.symbol}-${watchlist.id}`)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="rounded-md border border-border">
+          <div className="rounded-md border border-border overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="font-semibold">Symbol</TableHead>
-                  <TableHead className="font-semibold">Price</TableHead>
-                  <TableHead className="font-semibold">Change ($)</TableHead>
-                  <TableHead className="font-semibold">Volume</TableHead>
-                  <TableHead className="font-semibold">Market Cap</TableHead>
-                  <TableHead className="font-semibold">Next Earnings Date</TableHead>
-                  <TableHead className="w-[50px]"></TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap">Symbol</TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap">Price</TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap">Change ($)</TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap">Volume</TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap">Market Cap</TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap">Next Earnings</TableHead>
+                  <TableHead className="w-[40px] sm:w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -201,7 +204,7 @@ export function WatchlistDetail({
                   <TableRow>
                     <TableCell 
                       colSpan={7} 
-                      className="h-24 text-center text-muted-foreground"
+                      className="h-20 sm:h-24 text-center text-sm text-muted-foreground"
                     >
                       No tickers added yet.
                     </TableCell>
@@ -220,14 +223,14 @@ export function WatchlistDetail({
             </Table>
           </div>
         </SortableContext>
-        <div className="mt-6 flex justify-end">
+        <div className="mt-4 sm:mt-6 flex justify-end">
           <Button 
             variant="ghost" 
             size="sm"
             onClick={() => onRemoveWatchlist(watchlist.id)}
-            className="text-muted-foreground hover:text-destructive"
+            className="text-sm text-muted-foreground hover:text-destructive h-8 sm:h-9"
           >
-            <X className="h-4 w-4 mr-2" />
+            <X className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
             Delete watchlist
           </Button>
         </div>

@@ -156,19 +156,19 @@ export default function WatchlistPage() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="container mx-auto px-4 py-6">
-          <div className="grid grid-cols-12 gap-6">
+        <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-6">
+          <div className="grid grid-cols-12 gap-3 sm:gap-6">
             <div className="col-span-12 md:col-span-4 lg:col-span-3">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <h2 className="text-lg font-semibold">Watchlists</h2>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 sm:pb-4">
+                  <h2 className="text-base sm:text-lg font-semibold">Watchlists</h2>
                   <div className="flex items-center gap-2">                 
-                    <Button onClick={addWatchlist} size="sm" variant="outline">
-                      <Plus className="h-4 w-4 mr-1" /> Add a watchlist
+                    <Button onClick={addWatchlist} size="sm" variant="outline" className="text-sm">
+                      <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> Add
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-2">
                   <Combobox
                     options={watchlistOptions}
                     value={selectedWatchlist || undefined}
