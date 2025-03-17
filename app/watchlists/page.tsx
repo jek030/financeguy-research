@@ -156,19 +156,19 @@ export default function WatchlistPage() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-6">
-          <div className="grid grid-cols-12 gap-3 sm:gap-6">
+        <div className="container mx-auto px-1 sm:px-4 py-2 sm:py-4">
+          <div className="grid grid-cols-12 gap-2 sm:gap-6">
             <div className="col-span-12 md:col-span-4 lg:col-span-3">
               <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 sm:pb-4">
-                  <h2 className="text-base sm:text-lg font-semibold">Watchlists</h2>
-                  <div className="flex items-center gap-2">                 
-                    <Button onClick={addWatchlist} size="sm" variant="outline" className="text-sm">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 sm:pb-4">
+                  <h2 className="text-sm sm:text-lg font-semibold">Watchlists</h2>
+                  <div className="flex items-center gap-1 sm:gap-2">                 
+                    <Button onClick={addWatchlist} size="sm" variant="outline" className="text-xs sm:text-sm h-7 sm:h-8">
                       <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> Add
                     </Button>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-2">
+                <CardContent className="pt-1 sm:pt-2">
                   <Combobox
                     options={watchlistOptions}
                     value={selectedWatchlist || undefined}
@@ -208,7 +208,7 @@ export default function WatchlistPage() {
 
         <DragOverlay>
           {activeId && draggedTicker ? (
-            <div className="bg-card p-2 rounded shadow-lg border">
+            <div className="bg-card p-1.5 sm:p-2 rounded shadow-lg border text-sm">
               {draggedTicker.symbol}
             </div>
           ) : null}

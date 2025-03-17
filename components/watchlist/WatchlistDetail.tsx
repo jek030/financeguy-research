@@ -53,25 +53,25 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
 
   return (
     <TableRow key={`${symbol}-${watchlistId}`} className="group">
-      <TableCell className="py-2 sm:py-4">
-        <div className="flex items-center gap-1 sm:gap-2">
+      <TableCell className="py-1.5 sm:py-2">
+        <div className="flex items-center gap-1">
           <Link 
             href={`/search/${symbol}`}
-            className="font-medium hover:underline text-blue-600 dark:text-blue-400 text-sm sm:text-base"
+            className="font-medium hover:underline text-blue-600 dark:text-blue-400 text-xs sm:text-sm"
           >
             {symbol}
           </Link>
           {quote && (
-            <Badge variant={quote.changesPercentage >= 0 ? "positive" : "destructive"} className="text-xs sm:text-sm">
+            <Badge variant={quote.changesPercentage >= 0 ? "positive" : "destructive"} className="text-[10px] sm:text-xs">
               {formatPercentage(quote.changesPercentage)}
             </Badge>
           )}
         </div>
       </TableCell>
-      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
+      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
         {quote ? `$${formatNumber(quote.price)}` : "-"}
       </TableCell>
-      <TableCell className="whitespace-nowrap">
+      <TableCell className="whitespace-nowrap py-1.5 sm:py-2">
         {quote ? (
           <span className={cn(
             "font-medium text-xs sm:text-sm",
@@ -81,23 +81,23 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
           </span>
         ) : "-"}
       </TableCell>
-      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
+      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
         {quote ? formatNumber(quote.volume) : "-"}
       </TableCell>
-      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
+      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
         {quote ? formatMarketCap(quote.marketCap) : "-"}
       </TableCell>
-      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap">
+      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
         {quote ? formatEarningsDate(quote.earningsAnnouncement) : "-"}
       </TableCell>
-      <TableCell>
+      <TableCell className="py-1.5 sm:py-2">
         <Button
           variant="ghost"
           size="icon"
           onClick={() => onRemoveTicker(watchlistId, symbol)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 sm:h-8 sm:w-8"
+          className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 sm:h-7 sm:w-7"
         >
-          <X className="h-3 w-3 sm:h-4 sm:w-4" />
+          <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
         </Button>
       </TableCell>
     </TableRow>
@@ -133,33 +133,33 @@ export function WatchlistDetail({
 }: WatchlistDetailProps) {
   return (
     <Card className="border-border">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 sm:pb-4">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-3">
         {watchlist.isEditing ? (
-          <div className="flex items-center gap-2 w-full">
+          <div className="flex items-center gap-1 sm:gap-2 w-full">
             <Input
               value={editNameInput}
               onChange={(e) => onEditNameChange(e.target.value)}
               onKeyDown={(e) => onKeyPress(e, onSaveWatchlistName)}
-              className="text-base sm:text-xl font-semibold h-auto py-1"
+              className="text-sm sm:text-xl font-semibold h-7 sm:h-8 py-0.5"
               autoFocus
             />
             <Button 
               variant="ghost" 
               size="icon"
               onClick={onSaveWatchlistName}
-              className="shrink-0"
+              className="shrink-0 h-7 w-7 sm:h-8 sm:w-8"
             >
               <Check className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
-            <h2 className="text-base sm:text-xl font-semibold text-foreground">{watchlist.name}</h2>
+          <div className="flex items-center gap-1 sm:gap-2">
+            <h2 className="text-sm sm:text-xl font-semibold text-foreground">{watchlist.name}</h2>
             <Button 
               variant="ghost" 
               size="icon"
               onClick={onToggleEditMode}
-              className="opacity-0 group-hover:opacity-100 transition-opacity"
+              className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 sm:h-8 sm:w-8"
             >
               <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
@@ -167,17 +167,17 @@ export function WatchlistDetail({
         )}
       </CardHeader>
       <CardContent>
-        <div className="flex gap-2 mb-4 sm:mb-6">
+        <div className="flex gap-1 sm:gap-2 mb-3 sm:mb-4">
           <Input
             placeholder="Enter ticker"
             value={newTickerInput}
             onChange={(e) => onNewTickerChange(e.target.value)}
             onKeyDown={(e) => onKeyPress(e, onAddTicker)}
-            className="font-medium text-sm sm:text-base h-8 sm:h-10"
+            className="font-medium text-xs sm:text-sm h-7 sm:h-8"
           />
           <Button 
             onClick={onAddTicker} 
-            className="shrink-0 text-sm h-8 sm:h-10 px-3 sm:px-4"
+            className="shrink-0 text-xs sm:text-sm h-7 sm:h-8 px-2 sm:px-3"
           >
             Add Ticker
           </Button>
@@ -190,13 +190,13 @@ export function WatchlistDetail({
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap">Symbol</TableHead>
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap">Price</TableHead>
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap">Change ($)</TableHead>
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap">Volume</TableHead>
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap">Market Cap</TableHead>
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap">Next Earnings</TableHead>
-                  <TableHead className="w-[40px] sm:w-[50px]"></TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Symbol</TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Price</TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Change ($)</TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Volume</TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Market Cap</TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Next Earnings</TableHead>
+                  <TableHead className="w-[35px] sm:w-[45px] py-2 sm:py-3"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -204,7 +204,7 @@ export function WatchlistDetail({
                   <TableRow>
                     <TableCell 
                       colSpan={7} 
-                      className="h-20 sm:h-24 text-center text-sm text-muted-foreground"
+                      className="h-16 sm:h-20 text-center text-xs sm:text-sm text-muted-foreground"
                     >
                       No tickers added yet.
                     </TableCell>
@@ -223,14 +223,14 @@ export function WatchlistDetail({
             </Table>
           </div>
         </SortableContext>
-        <div className="mt-4 sm:mt-6 flex justify-end">
+        <div className="mt-3 sm:mt-4 flex justify-end">
           <Button 
             variant="ghost" 
             size="sm"
             onClick={() => onRemoveWatchlist(watchlist.id)}
-            className="text-sm text-muted-foreground hover:text-destructive h-8 sm:h-9"
+            className="text-xs sm:text-sm text-muted-foreground hover:text-destructive h-7 sm:h-8"
           >
-            <X className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <X className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
             Delete watchlist
           </Button>
         </div>
