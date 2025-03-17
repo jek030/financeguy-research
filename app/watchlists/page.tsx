@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
+import { Combobox } from '@/components/ui/Combobox';
 import {
   DndContext,
   DragOverlay,
@@ -17,11 +18,8 @@ import {
 } from '@dnd-kit/core';
 import {
   arrayMove,
-  SortableContext,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { SortableWatchlistItem } from '@/components/watchlist/SortableWatchlistItem';
 import { WatchlistDetail } from '@/components/watchlist/WatchlistDetail';
 import { useWatchlist } from '@/hooks/useWatchlist';
 import { Ticker } from '@/lib/types';
@@ -139,9 +137,19 @@ export default function WatchlistPage() {
     setDraggedTicker(null);
   };
 
+  // Convert watchlists to options format for Combobox
+  const watchlistOptions = watchlists.map(watchlist => ({
+    label: watchlist.name,
+    value: watchlist.id
+  }));
+
+  const handleWatchlistSelect = (value: string) => {
+    console.log('Selecting watchlist:', value); // Debug log
+    setSelectedWatchlist(value);
+  };
+
   return (
     <div className="flex flex-col">
-
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -153,28 +161,21 @@ export default function WatchlistPage() {
             <div className="col-span-12 md:col-span-4 lg:col-span-3">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
-                  <h2 className="text-lg font-semibold">Your Watchlists</h2>
-                  <Button onClick={addWatchlist} size="sm" variant="outline">
-                    <Plus className="h-4 w-4 mr-1" /> Add
-                  </Button>
+                  <h2 className="text-lg font-semibold">Watchlists</h2>
+                  <div className="flex items-center gap-2">                 
+                    <Button onClick={addWatchlist} size="sm" variant="outline">
+                      <Plus className="h-4 w-4 mr-1" /> Add
+                    </Button>
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <SortableContext
-                    items={watchlists.map(w => w.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="space-y-2">
-                      {watchlists.map((watchlist) => (
-                        <SortableWatchlistItem 
-                          key={watchlist.id} 
-                          watchlist={watchlist}
-                          selectedWatchlist={selectedWatchlist}
-                          onSelect={setSelectedWatchlist}
-                          onRemove={removeWatchlist}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
+                  <Combobox
+                    options={watchlistOptions}
+                    value={selectedWatchlist || undefined}
+                    onSelect={handleWatchlistSelect}
+                    placeholder="Select a watchlist"
+                    emptyText="No watchlists found."
+                  />
                 </CardContent>
               </Card>
             </div>
@@ -198,6 +199,7 @@ export default function WatchlistPage() {
                   onAddTicker={() => addTickerToWatchlist(selectedWatchlist, newTickerInputs[selectedWatchlist])}
                   onKeyPress={handleKeyPress}
                   onRemoveTicker={removeTicker}
+                  onRemoveWatchlist={removeWatchlist}
                 />
               )}
             </div>

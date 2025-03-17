@@ -115,6 +115,7 @@ interface WatchlistDetailProps {
   onAddTicker: () => void;
   onKeyPress: (e: React.KeyboardEvent, action: () => void) => void;
   onRemoveTicker: (watchlistId: string, ticker: string) => void;
+  onRemoveWatchlist: (watchlistId: string) => void;
 }
 
 export function WatchlistDetail({
@@ -128,6 +129,7 @@ export function WatchlistDetail({
   onAddTicker,
   onKeyPress,
   onRemoveTicker,
+  onRemoveWatchlist,
 }: WatchlistDetailProps) {
   return (
     <Card className="border-border">
@@ -218,6 +220,17 @@ export function WatchlistDetail({
             </Table>
           </div>
         </SortableContext>
+        <div className="mt-6 flex justify-end">
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => onRemoveWatchlist(watchlist.id)}
+            className="text-muted-foreground hover:text-destructive"
+          >
+            <X className="h-4 w-4 mr-2" />
+            Delete watchlist
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
