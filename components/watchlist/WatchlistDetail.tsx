@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { Check, Pencil } from 'lucide-react';
+import { Check, Pencil, Download } from 'lucide-react';
 import { WatchlistCard } from './types';
 import {
   Table,
@@ -14,10 +14,11 @@ import {
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useQuote } from '@/hooks/FMP/useQuote';
 import { formatNumber, formatPercentage } from '@/lib/utils';
-import { Badge } from '@/components/ui/Badge';
 import { X } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { useQueries } from '@tanstack/react-query';
+import type { Ticker } from '@/lib/types';
 
 // Add a function to format market cap
 function formatMarketCap(marketCap: number): string {
@@ -61,11 +62,6 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
           >
             {symbol}
           </Link>
-          {quote && (
-            <Badge variant={quote.changesPercentage >= 0 ? "positive" : "destructive"} className="text-[10px] sm:text-xs">
-              {formatPercentage(quote.changesPercentage)}
-            </Badge>
-          )}
         </div>
       </TableCell>
       <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
@@ -78,6 +74,16 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
             quote.change >= 0 ? "text-positive" : "text-destructive"
           )}>
             {quote.change >= 0 ? '+' : '-'}{formatNumber(Math.abs(quote.change))}
+          </span>
+        ) : "-"}
+      </TableCell>
+      <TableCell className="whitespace-nowrap py-1.5 sm:py-2">
+        {quote ? (
+          <span className={cn(
+            "font-medium text-xs sm:text-sm",
+            quote.changesPercentage >= 0 ? "text-positive" : "text-destructive"
+          )}>
+            {quote.changesPercentage >= 0 ? '+' : ''}{formatPercentage(quote.changesPercentage)}
           </span>
         ) : "-"}
       </TableCell>
@@ -101,6 +107,87 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
         </Button>
       </TableCell>
     </TableRow>
+  );
+}
+
+interface ExportButtonProps {
+  watchlist: WatchlistCard;
+}
+
+async function fetchQuote(symbol: string): Promise<Ticker[]> {
+  if (!symbol) {
+    throw new Error('Symbol is required');
+  }
+
+  const response = await fetch(`/api/fmp/quote?symbol=${symbol}`);
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch quote data');
+  }
+
+  return response.json();
+}
+
+function ExportButton({ watchlist }: ExportButtonProps) {
+  // Use the same query keys as the main useQuote hook to share cache
+  const quoteResults = useQueries({
+    queries: watchlist.tickers.map(ticker => ({
+      queryKey: ['quote', ticker.symbol],
+      queryFn: () => fetchQuote(ticker.symbol),
+      select: (data: Ticker[]) => data[0],
+      enabled: Boolean(ticker.symbol),
+      // Use staleTime: Infinity to prevent automatic refetching
+      staleTime: Infinity, 
+      // Disable refetchInterval to avoid refreshing during export
+      refetchInterval: 0, 
+    }))
+  });
+
+  const handleExport = () => {
+    // Create CSV header
+    const headers = ['Symbol', 'Price', 'Change ($)', 'Change (%)', 'Volume', 'Market Cap', 'Next Earnings'];
+    const csvRows = [headers.map(header => `"${header}"`)];
+
+    // Use the data that's already loaded
+    watchlist.tickers.forEach((ticker, index) => {
+      const quote = quoteResults[index].data;
+      const row = [
+        `"${ticker.symbol}"`,
+        quote ? `"$${formatNumber(quote.price)}"` : '""',
+        quote ? `"${quote.change >= 0 ? '+' : '-'}${formatNumber(Math.abs(quote.change))}"` : '""',
+        quote ? `"${quote.changesPercentage >= 0 ? '+' : ''}${formatPercentage(quote.changesPercentage)}"` : '""',
+        quote ? `"${formatNumber(quote.volume)}"` : '""',
+        quote ? `"${formatMarketCap(quote.marketCap)}"` : '""',
+        quote ? `"${formatEarningsDate(quote.earningsAnnouncement)}"` : '""'
+      ];
+      csvRows.push(row);
+    });
+
+    // Convert to CSV string
+    const csvContent = csvRows.map(row => row.join(',')).join('\n');
+    
+    // Create and trigger download
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${watchlist.name.toLowerCase().replace(/\s+/g, '-')}-watchlist.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <Button 
+      variant="ghost" 
+      size="icon"
+      onClick={handleExport}
+      className="h-7 w-7 sm:h-8 sm:w-8"
+      title="Export watchlist"
+    >
+      <Download className="h-3 w-3 sm:h-4 sm:w-4" />
+    </Button>
   );
 }
 
@@ -155,14 +242,17 @@ export function WatchlistDetail({
         ) : (
           <div className="flex items-center gap-1 sm:gap-2">
             <h2 className="text-sm sm:text-xl font-semibold text-foreground">{watchlist.name}</h2>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={onToggleEditMode}
-              className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 sm:h-8 sm:w-8"
-            >
-              <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
-            </Button>
+            <div className="flex items-center gap-1">
+              <ExportButton watchlist={watchlist} />
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={onToggleEditMode}
+                className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 sm:h-8 sm:w-8"
+              >
+                <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
+              </Button>
+            </div>
           </div>
         )}
       </CardHeader>
@@ -193,6 +283,7 @@ export function WatchlistDetail({
                   <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Symbol</TableHead>
                   <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Price</TableHead>
                   <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Change ($)</TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Change (%)</TableHead>
                   <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Volume</TableHead>
                   <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Market Cap</TableHead>
                   <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Next Earnings</TableHead>
