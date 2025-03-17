@@ -259,7 +259,7 @@ export function WatchlistDetail({
       <CardContent>
         <div className="flex gap-1 sm:gap-2 mb-3 sm:mb-4">
           <Input
-            placeholder="Enter ticker"
+            placeholder="Enter tickers (e.g. AAPL, MSFT, TSLA)"
             value={newTickerInput}
             onChange={(e) => onNewTickerChange(e.target.value)}
             onKeyDown={(e) => onKeyPress(e, onAddTicker)}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { WatchlistCard } from '@/components/watchlist/types';
 import { useQuote } from './FMP/useQuote';
+import { Ticker } from '@/lib/types';
 
 const STORAGE_KEY = 'watchlists';
 
@@ -41,27 +42,46 @@ export function useWatchlist() {
     setSelectedWatchlist(newWatchlist.id);
   };
 
-  const addTickerToWatchlist = async (watchlistId: string, symbol: string) => {
-    if (!symbol) return;
+  const addTickerToWatchlist = async (watchlistId: string, symbolInput: string) => {
+    if (!symbolInput) return;
+
+    // Split the input by commas and trim whitespace
+    const symbols = symbolInput.split(',').map(s => s.trim()).filter(s => s);
+    if (symbols.length === 0) return;
 
     const watchlist = watchlists.find(w => w.id === watchlistId);
-    if (watchlist?.tickers.some(t => t.symbol === symbol)) return;
+    if (!watchlist) return;
 
-    const response = await fetch(`/api/fmp/quote?symbol=${symbol}`);
-    if (!response.ok) return;
+    // Process each symbol
+    const addedTickers: Ticker[] = [];
+    for (const symbol of symbols) {
+      // Skip if already in watchlist
+      if (watchlist.tickers.some(t => t.symbol.toLowerCase() === symbol.toLowerCase())) continue;
 
-    const data = await response.json();
-    const quote = data[0];
-    if (!quote) return;
+      try {
+        const response = await fetch(`/api/fmp/quote?symbol=${symbol}`);
+        if (!response.ok) continue;
 
-    setWatchlists(watchlists.map(watchlist => {
-      if (watchlist.id === watchlistId) {
+        const data = await response.json();
+        const quote = data[0];
+        if (!quote) continue;
+
+        addedTickers.push(quote);
+      } catch (error) {
+        console.error(`Error adding ticker ${symbol}:`, error);
+      }
+    }
+
+    if (addedTickers.length === 0) return;
+
+    setWatchlists(watchlists.map(w => {
+      if (w.id === watchlistId) {
         return {
-          ...watchlist,
-          tickers: [...watchlist.tickers, quote],
+          ...w,
+          tickers: [...w.tickers, ...addedTickers],
         };
       }
-      return watchlist;
+      return w;
     }));
 
     setNewTickerInputs({ ...newTickerInputs, [watchlistId]: '' });
