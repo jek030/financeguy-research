@@ -3,7 +3,7 @@ import Link from 'next/link';
 import NavLinks from '@/components/navigation/NavLinks';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { electrolize } from '@/lib/fonts';
 import { useMobileMenu } from '@/lib/context/MobileMenuContext';
 import { useAuth } from '@/lib/context/auth-context';
@@ -13,6 +13,17 @@ export default function SideNav() {
   const { isExpanded, setIsExpanded, isMobile } = useMobileMenu();
   const [isHovered, setIsHovered] = useState(false);
   const { user, signOut } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  // Only run on client
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Don't render anything until client-side
+  if (!mounted) {
+    return <div className="w-0 h-0" aria-hidden="true" />;
+  }
 
   const showLabels = isMobile ? isExpanded : isHovered;
 

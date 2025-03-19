@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Plus} from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 import { Combobox } from '@/components/ui/Combobox';
 import {
   DndContext,
@@ -23,13 +23,18 @@ import {
 import { WatchlistDetail } from '@/components/watchlist/WatchlistDetail';
 import { useWatchlist } from '@/hooks/useWatchlist';
 import { Ticker } from '@/lib/types';
+import { useAuth } from '@/lib/context/auth-context';
+import Link from 'next/link';
 
 export default function WatchlistPage() {
+  const { user, isLoading: isAuthLoading } = useAuth();
   const {
     watchlists,
     selectedWatchlist,
     newTickerInputs,
     editNameInputs,
+    isLoading: isWatchlistLoading,
+    error,
     setSelectedWatchlist,
     setNewTickerInputs,
     setEditNameInputs,
@@ -51,12 +56,6 @@ export default function WatchlistPage() {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-
-  useEffect(() => {
-    if (watchlists.length > 0 && !selectedWatchlist) {
-      setSelectedWatchlist(watchlists[0].id);
-    }
-  }, [watchlists, selectedWatchlist, setSelectedWatchlist]);
 
   const handleKeyPress = (e: React.KeyboardEvent, action: () => void) => {
     if (e.key === 'Enter') {
@@ -144,9 +143,52 @@ export default function WatchlistPage() {
   }));
 
   const handleWatchlistSelect = (value: string) => {
-    console.log('Selecting watchlist:', value); // Debug log
     setSelectedWatchlist(value);
   };
+
+  // Authentication loading state
+  if (isAuthLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <span className="ml-2 text-lg">Loading...</span>
+      </div>
+    );
+  }
+
+  // User not logged in
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <h1 className="text-2xl font-bold">You need to be logged in to view watchlists</h1>
+        <p className="text-lg text-muted-foreground">Sign in to create and manage your watchlists</p>
+        <Button asChild>
+          <Link href="/login">Sign in</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  // Watchlist loading state
+  if (isWatchlistLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <span className="ml-2 text-lg">Loading watchlists...</span>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <h1 className="text-2xl font-bold text-destructive">Error loading watchlists</h1>
+        <p className="text-lg text-muted-foreground">{error}</p>
+        <Button onClick={() => window.location.reload()}>Try again</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col">

@@ -18,10 +18,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={GeistSans.variable}>
-      <body className="min-h-screen">
+    <html lang="en" className={GeistSans.variable} suppressHydrationWarning>
+      <head />
+      <body suppressHydrationWarning className="min-h-screen">
         <Providers>
-          <div className="flex h-screen overflow-hidden bg-background">
+          <div className="flex h-screen overflow-hidden bg-background" suppressHydrationWarning>
             <SideNav />
             <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
               <Header />
