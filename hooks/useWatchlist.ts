@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { WatchlistCard } from '@/components/watchlist/types';
 import { Ticker } from '@/lib/types';
-import { supabase, SupabaseWatchlist } from '@/lib/supabase';
+import { supabase, SupabaseWatchlist, SupabaseTicker } from '@/lib/supabase';
 import { useAuth } from '@/lib/context/auth-context';
 
 export function useWatchlist() {
@@ -17,7 +17,7 @@ export function useWatchlist() {
   const mapSupabaseToWatchlist = (data: SupabaseWatchlist): WatchlistCard => ({
     id: data.id,
     name: data.watchlist_name,
-    tickers: [], // For now, we won't store tickers in Supabase
+    tickers: [], // Will be populated with tickers later
     isEditing: false,
   });
 
@@ -34,17 +34,49 @@ export function useWatchlist() {
       setError(null);
 
       try {
-        const { data, error } = await supabase
+        // Fetch watchlists
+        const { data: watchlistData, error: watchlistError } = await supabase
           .from('watchlists')
           .select('*')
           .eq('user_id', user.id);
 
-        if (error) {
-          throw error;
+        if (watchlistError) {
+          throw watchlistError;
         }
 
-        if (data) {
-          const mappedWatchlists = data.map(mapSupabaseToWatchlist);
+        if (watchlistData) {
+          const mappedWatchlists = watchlistData.map(mapSupabaseToWatchlist);
+          
+          // Fetch all tickers for all watchlists
+          for (const watchlist of mappedWatchlists) {
+            const { data: tickerData, error: tickerError } = await supabase
+              .from('watchlist_tickers')
+              .select('*')
+              .eq('watchlist_id', watchlist.id);
+              
+            if (tickerError) {
+              console.error('Error fetching tickers:', tickerError);
+              continue;
+            }
+            
+            if (tickerData && tickerData.length > 0) {
+              // Fetch quote data for each ticker
+              for (const ticker of tickerData) {
+                try {
+                  const response = await fetch(`/api/fmp/quote?symbol=${ticker.symbol}`);
+                  if (response.ok) {
+                    const quoteData = await response.json();
+                    if (quoteData[0]) {
+                      watchlist.tickers.push(quoteData[0]);
+                    }
+                  }
+                } catch (error) {
+                  console.error(`Error fetching quote for ${ticker.symbol}:`, error);
+                }
+              }
+            }
+          }
+          
           setWatchlists(mappedWatchlists);
           
           // Initialize inputs
@@ -108,7 +140,7 @@ export function useWatchlist() {
   };
 
   const addTickerToWatchlist = async (watchlistId: string, symbolInput: string) => {
-    if (!symbolInput) return;
+    if (!symbolInput || !user) return;
 
     // Split the input by commas and trim whitespace
     const symbols = symbolInput.split(',').map(s => s.trim()).filter(s => s);
@@ -132,6 +164,18 @@ export function useWatchlist() {
         if (!quote) continue;
 
         addedTickers.push(quote);
+        
+        // Add to Supabase
+        const { error } = await supabase
+          .from('watchlist_tickers')
+          .insert({
+            watchlist_id: watchlistId,
+            symbol: quote.symbol,
+          });
+          
+        if (error) {
+          console.error(`Error adding ticker ${symbol} to database:`, error);
+        }
       } catch (error) {
         console.error(`Error adding ticker ${symbol}:`, error);
       }
@@ -156,7 +200,15 @@ export function useWatchlist() {
     if (!user) return;
 
     try {
-      // Delete from Supabase
+      // Delete tickers first (foreign key constraint)
+      const { error: tickerError } = await supabase
+        .from('watchlist_tickers')
+        .delete()
+        .eq('watchlist_id', watchlistId);
+        
+      if (tickerError) throw tickerError;
+      
+      // Then delete the watchlist
       const { error } = await supabase
         .from('watchlists')
         .delete()
@@ -226,20 +278,40 @@ export function useWatchlist() {
     }
   };
 
-  const removeTicker = (watchlistId: string, symbol: string) => {
-    setWatchlists(watchlists.map(watchlist => {
-      if (watchlist.id === watchlistId) {
-        return {
-          ...watchlist,
-          tickers: watchlist.tickers.filter(t => t.symbol !== symbol)
-        };
-      }
-      return watchlist;
-    }));
+  const removeTicker = async (watchlistId: string, symbol: string) => {
+    if (!user) return;
+    
+    try {
+      // Remove from Supabase
+      const { error } = await supabase
+        .from('watchlist_tickers')
+        .delete()
+        .eq('watchlist_id', watchlistId)
+        .eq('symbol', symbol);
+        
+      if (error) throw error;
+      
+      // Update local state
+      setWatchlists(watchlists.map(watchlist => {
+        if (watchlist.id === watchlistId) {
+          return {
+            ...watchlist,
+            tickers: watchlist.tickers.filter(t => t.symbol !== symbol)
+          };
+        }
+        return watchlist;
+      }));
+    } catch (err) {
+      console.error('Error removing ticker:', err);
+      setError('Failed to remove ticker');
+    }
   };
 
-  const updateWatchlists = (newWatchlists: WatchlistCard[]) => {
+  const updateWatchlists = async (newWatchlists: WatchlistCard[]) => {
     setWatchlists(newWatchlists);
+    
+    // We could potentially update the order of tickers in the database here,
+    // but since we're only storing symbol and not order, we'll skip for now
   };
 
   return {

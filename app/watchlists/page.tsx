@@ -25,6 +25,7 @@ import { useWatchlist } from '@/hooks/useWatchlist';
 import { Ticker } from '@/lib/types';
 import { useAuth } from '@/lib/context/auth-context';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
 export default function WatchlistPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -110,24 +111,49 @@ export default function WatchlistPage() {
           });
           updateWatchlists(updatedWatchlists);
         } else {
-          const updatedWatchlists = watchlists.map(watchlist => {
-            if (watchlist.id === sourceWatchlistId) {
-              return {
-                ...watchlist,
-                tickers: watchlist.tickers.filter(t => t.symbol !== ticker.symbol)
-              };
-            }
-            if (watchlist.id === targetWatchlistId) {
-              if (!watchlist.tickers.some(t => t.symbol === ticker.symbol)) {
-                return {
-                  ...watchlist,
-                  tickers: [...watchlist.tickers, ticker]
-                };
-              }
-            }
-            return watchlist;
-          });
-          updateWatchlists(updatedWatchlists);
+          // Moving ticker between watchlists - need to update database
+          
+          // First remove from source watchlist
+          const removePromise = supabase
+            .from('watchlist_tickers')
+            .delete()
+            .eq('watchlist_id', sourceWatchlistId)
+            .eq('symbol', ticker.symbol);
+          
+          // Then add to target watchlist
+          const addPromise = supabase
+            .from('watchlist_tickers')
+            .insert({
+              watchlist_id: targetWatchlistId,
+              symbol: ticker.symbol,
+            });
+          
+          // Execute database operations
+          Promise.all([removePromise, addPromise])
+            .then(() => {
+              // Then update local state
+              const updatedWatchlists = watchlists.map(watchlist => {
+                if (watchlist.id === sourceWatchlistId) {
+                  return {
+                    ...watchlist,
+                    tickers: watchlist.tickers.filter(t => t.symbol !== ticker.symbol)
+                  };
+                }
+                if (watchlist.id === targetWatchlistId) {
+                  if (!watchlist.tickers.some(t => t.symbol === ticker.symbol)) {
+                    return {
+                      ...watchlist,
+                      tickers: [...watchlist.tickers, ticker]
+                    };
+                  }
+                }
+                return watchlist;
+              });
+              updateWatchlists(updatedWatchlists);
+            })
+            .catch(error => {
+              console.error('Error moving ticker between watchlists:', error);
+            });
         }
       }
     }

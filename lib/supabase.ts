@@ -16,4 +16,11 @@ export type SupabaseWatchlist = {
   updated_at: string;
   user_id: string;
   watchlist_name: string;
+};
+
+export type SupabaseTicker = {
+  id: string;
+  watchlist_id: string;
+  symbol: string;
+  created_at: string;
 }; 
