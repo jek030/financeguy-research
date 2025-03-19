@@ -200,7 +200,10 @@ export function useWatchlist() {
       // Update in Supabase
       const { error } = await supabase
         .from('watchlists')
-        .update({ watchlist_name: newName })
+        .update({ 
+          watchlist_name: newName,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', watchlistId)
         .eq('user_id', user.id);
       

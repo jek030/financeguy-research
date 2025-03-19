@@ -240,7 +240,7 @@ export function WatchlistDetail({
             </Button>
           </div>
         ) : (
-          <div className="flex items-center gap-1 sm:gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 group">
             <h2 className="text-sm sm:text-xl font-semibold text-foreground">{watchlist.name}</h2>
             <div className="flex items-center gap-1">
               <ExportButton watchlist={watchlist} />
@@ -248,7 +248,7 @@ export function WatchlistDetail({
                 variant="ghost" 
                 size="icon"
                 onClick={onToggleEditMode}
-                className="opacity-0 group-hover:opacity-100 transition-opacity h-7 w-7 sm:h-8 sm:w-8"
+                className="h-7 w-7 sm:h-8 sm:w-8"
               >
                 <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
