@@ -96,10 +96,24 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
         {quote ? formatMarketCap(quote.marketCap) : "-"}
       </TableCell>
       <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
-        {profile ? profile.sector || "-" : "-"}
+        {profile && profile.sector ? (
+          <Link 
+            href={`/scans/sectors/${encodeURIComponent(profile.sector)}`}
+            className="hover:underline text-blue-600 dark:text-blue-400"
+          >
+            {profile.sector}
+          </Link>
+        ) : "-"}
       </TableCell>
       <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
-        {profile ? profile.industry || "-" : "-"}
+        {profile && profile.sector && profile.industry ? (
+          <Link 
+            href={`/scans/sectors/${encodeURIComponent(profile.sector)}/industry/${encodeURIComponent(profile.industry)}`}
+            className="hover:underline text-blue-600 dark:text-blue-400"
+          >
+            {profile.industry}
+          </Link>
+        ) : "-"}
       </TableCell>
       <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
         {quote ? formatEarningsDate(quote.earningsAnnouncement) : "-"}
@@ -192,8 +206,8 @@ function ExportButton({ watchlist }: ExportButtonProps) {
         quote ? `"${quote.changesPercentage >= 0 ? '+' : ''}${formatPercentage(quote.changesPercentage)}"` : '""',
         quote ? `"${formatNumber(quote.volume)}"` : '""',
         quote ? `"${formatMarketCap(quote.marketCap)}"` : '""',
-        profile ? `"${profile.sector || ''}"` : '""',
-        profile ? `"${profile.industry || ''}"` : '""',
+        profile && profile.sector ? `"${profile.sector}"` : '""',
+        profile && profile.industry ? `"${profile.industry}"` : '""',
         quote ? `"${formatEarningsDate(quote.earningsAnnouncement)}"` : '""'
       ];
       csvRows.push(row);
