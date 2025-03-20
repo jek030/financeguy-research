@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/Table";
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useQuote } from '@/hooks/FMP/useQuote';
+import { useProfile } from '@/hooks/FMP/useProfile';
 import { formatNumber, formatPercentage } from '@/lib/utils';
 import { X } from 'lucide-react';
 import Link from 'next/link';
@@ -51,6 +52,7 @@ interface QuoteRowProps {
 
 function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
   const { data: quote } = useQuote(symbol);
+  const { data: profile } = useProfile(symbol);
 
   return (
     <TableRow key={`${symbol}-${watchlistId}`} className="group">
@@ -94,6 +96,12 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
         {quote ? formatMarketCap(quote.marketCap) : "-"}
       </TableCell>
       <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
+        {profile ? profile.sector || "-" : "-"}
+      </TableCell>
+      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
+        {profile ? profile.industry || "-" : "-"}
+      </TableCell>
+      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
         {quote ? formatEarningsDate(quote.earningsAnnouncement) : "-"}
       </TableCell>
       <TableCell className="py-1.5 sm:py-2">
@@ -128,6 +136,20 @@ async function fetchQuote(symbol: string): Promise<Ticker[]> {
   return response.json();
 }
 
+async function fetchProfile(symbol: string): Promise<any> {
+  if (!symbol) {
+    throw new Error('Symbol is required');
+  }
+
+  const response = await fetch(`/api/fmp/profile?symbol=${symbol}`);
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch profile data');
+  }
+
+  return response.json();
+}
+
 function ExportButton({ watchlist }: ExportButtonProps) {
   // Use the same query keys as the main useQuote hook to share cache
   const quoteResults = useQueries({
@@ -143,14 +165,26 @@ function ExportButton({ watchlist }: ExportButtonProps) {
     }))
   });
 
+  const profileResults = useQueries({
+    queries: watchlist.tickers.map(ticker => ({
+      queryKey: ['profile', ticker.symbol],
+      queryFn: () => fetchProfile(ticker.symbol),
+      select: (data: any) => data[0],
+      enabled: Boolean(ticker.symbol),
+      staleTime: Infinity,
+      refetchInterval: 0,
+    }))
+  });
+
   const handleExport = () => {
     // Create CSV header
-    const headers = ['Symbol', 'Price', 'Change ($)', 'Change (%)', 'Volume', 'Market Cap', 'Next Earnings'];
+    const headers = ['Symbol', 'Price', 'Change ($)', 'Change (%)', 'Volume', 'Market Cap', 'Sector', 'Industry', 'Next Earnings'];
     const csvRows = [headers.map(header => `"${header}"`)];
 
     // Use the data that's already loaded
     watchlist.tickers.forEach((ticker, index) => {
       const quote = quoteResults[index].data;
+      const profile = profileResults[index].data;
       const row = [
         `"${ticker.symbol}"`,
         quote ? `"$${formatNumber(quote.price)}"` : '""',
@@ -158,6 +192,8 @@ function ExportButton({ watchlist }: ExportButtonProps) {
         quote ? `"${quote.changesPercentage >= 0 ? '+' : ''}${formatPercentage(quote.changesPercentage)}"` : '""',
         quote ? `"${formatNumber(quote.volume)}"` : '""',
         quote ? `"${formatMarketCap(quote.marketCap)}"` : '""',
+        profile ? `"${profile.sector || ''}"` : '""',
+        profile ? `"${profile.industry || ''}"` : '""',
         quote ? `"${formatEarningsDate(quote.earningsAnnouncement)}"` : '""'
       ];
       csvRows.push(row);
@@ -286,6 +322,8 @@ export function WatchlistDetail({
                   <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Change (%)</TableHead>
                   <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Volume</TableHead>
                   <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Market Cap</TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Sector</TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Industry</TableHead>
                   <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Next Earnings</TableHead>
                   <TableHead className="w-[35px] sm:w-[45px] py-2 sm:py-3"></TableHead>
                 </TableRow>
@@ -294,7 +332,7 @@ export function WatchlistDetail({
                 {watchlist.tickers.length === 0 ? (
                   <TableRow>
                     <TableCell 
-                      colSpan={7} 
+                      colSpan={9} 
                       className="h-16 sm:h-20 text-center text-xs sm:text-sm text-muted-foreground"
                     >
                       No tickers added yet.
