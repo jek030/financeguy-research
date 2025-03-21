@@ -112,7 +112,7 @@ export default function SectorPerformance() {
                   className="cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => handleSectorClick(item.sector)}
                 >
-                  <TableCell className="font-medium sm:p-4 py-2 px-1 text-sm sm:text-base">{item.sector}</TableCell>
+                  <TableCell className="font-medium sm:p-4 py-2 px-1 text-sm sm:text-base text-blue-500 hover:underline">{item.sector}</TableCell>
                   <TableCell className={cn(
                     "font-medium sm:p-4 py-2 px-1 text-sm sm:text-base",
                     parseFloat(item.changesPercentage) >= 0 ? "text-positive" : "text-negative"

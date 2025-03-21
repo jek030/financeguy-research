@@ -162,7 +162,7 @@ export default function MarketGainers() {
                   className="cursor-pointer hover:bg-muted/50 transition-colors"
                   onClick={() => handleSymbolClick(item.symbol)}
                 >
-                  <TableCell className="font-medium sm:p-4 py-2 px-1 text-sm sm:text-base">{item.symbol}</TableCell>
+                  <TableCell className="font-medium sm:p-4 py-2 px-1 text-sm sm:text-base text-blue-500 hover:underline">{item.symbol}</TableCell>
                   <TableCell className="text-muted-foreground truncate max-w-[150px] md:max-w-none sm:p-4 py-2 px-1 text-xs sm:text-sm">
                     {item.name}
                   </TableCell>

@@ -322,7 +322,7 @@ export default function IndustryPage({ params }: { params: Promise<{ sector: str
                   className="hover:bg-muted/50 transition-colors"
                 >
                   <TableCell 
-                    className="font-medium cursor-pointer hover:text-primary sm:p-4 py-2 px-1 text-sm sm:text-base"
+                    className="font-medium cursor-pointer text-blue-600 dark:text-blue-400 hover:underline sm:p-4 py-2 px-1 text-sm sm:text-base"
                     onClick={() => handleSymbolClick(item.symbol)}
                   >
                     {item.symbol}
