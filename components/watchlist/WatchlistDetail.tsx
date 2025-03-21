@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { Check, Pencil, Download } from 'lucide-react';
+import { Check, Pencil, Download, Plus } from 'lucide-react';
 import { WatchlistCard } from './types';
 import {
   Table,
@@ -89,13 +89,13 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
           </span>
         ) : "-"}
       </TableCell>
-      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
+      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2 hidden sm:table-cell">
         {!isQuoteLoading && quote ? formatNumber(quote.volume) : "-"}
       </TableCell>
-      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
+      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2 hidden sm:table-cell">
         {!isQuoteLoading && quote ? formatMarketCap(quote.marketCap) : "-"}
       </TableCell>
-      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
+      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2 hidden md:table-cell">
         {!isProfileLoading && profile && profile.sector ? (
           <Link 
             href={`/scans/sectors/${encodeURIComponent(profile.sector)}`}
@@ -105,7 +105,7 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
           </Link>
         ) : "-"}
       </TableCell>
-      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
+      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2 hidden md:table-cell">
         {!isProfileLoading && profile && profile.sector && profile.industry ? (
           <Link 
             href={`/scans/sectors/${encodeURIComponent(profile.sector)}/industry/${encodeURIComponent(profile.industry)}`}
@@ -115,7 +115,7 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
           </Link>
         ) : "-"}
       </TableCell>
-      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
+      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2 hidden lg:table-cell">
         {!isQuoteLoading && quote ? formatEarningsDate(quote.earningsAnnouncement) : "-"}
       </TableCell>
       <TableCell className="py-1.5 sm:py-2">
@@ -269,8 +269,8 @@ export function WatchlistDetail({
   onRemoveWatchlist,
 }: WatchlistDetailProps) {
   return (
-    <Card className="border-border">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-3">
+    <Card className="border-border shadow-sm">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-3 sm:px-6 px-3">
         {watchlist.isEditing ? (
           <div className="flex items-center gap-1 sm:gap-2 w-full">
             <Input
@@ -290,15 +290,17 @@ export function WatchlistDetail({
             </Button>
           </div>
         ) : (
-          <div className="flex items-center gap-1 sm:gap-2 group">
-            <h2 className="text-sm sm:text-xl font-semibold text-foreground">{watchlist.name}</h2>
-            <div className="flex items-center gap-1">
+          <div className="flex items-center justify-between w-full">
+            <div className="min-w-0 mr-2">
+              <h2 className="text-base sm:text-xl font-semibold text-foreground truncate">{watchlist.name}</h2>
+            </div>
+            <div className="flex items-center gap-1 flex-shrink-0">
               <ExportButton watchlist={watchlist} />
               <Button 
                 variant="ghost" 
                 size="icon"
                 onClick={onToggleEditMode}
-                className="h-7 w-7 sm:h-8 sm:w-8"
+                className="h-7 w-7 sm:h-8 sm:w-8 flex-shrink-0"
               >
                 <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
@@ -306,7 +308,7 @@ export function WatchlistDetail({
           </div>
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="sm:px-6 px-3">
         <div className="flex gap-1 sm:gap-2 mb-3 sm:mb-4">
           <Input
             placeholder="Enter tickers (e.g. AAPL, MSFT, TSLA)"
@@ -316,10 +318,13 @@ export function WatchlistDetail({
             className="font-medium text-xs sm:text-sm h-7 sm:h-8"
           />
           <Button 
-            onClick={onAddTicker} 
-            className="shrink-0 text-xs sm:text-sm h-7 sm:h-8 px-2 sm:px-3"
+            onClick={onAddTicker}
+            title="Add ticker"
+            className="h-7 sm:h-8 whitespace-nowrap flex-shrink-0 min-w-0 px-2 sm:px-3"
           >
-            Add Ticker
+            <Plus className="h-3 w-3 sm:h-4 sm:w-4 md:mr-1" />
+            <span className="hidden md:inline">Add Ticker</span>
+            <span className="inline md:hidden ml-0.5">Add</span>
           </Button>
         </div>
         <SortableContext
@@ -334,11 +339,11 @@ export function WatchlistDetail({
                   <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Price</TableHead>
                   <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Change ($)</TableHead>
                   <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Change (%)</TableHead>
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Volume</TableHead>
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Market Cap</TableHead>
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Sector</TableHead>
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Industry</TableHead>
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Next Earnings</TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3 hidden sm:table-cell">Volume</TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3 hidden sm:table-cell">Market Cap</TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3 hidden md:table-cell">Sector</TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3 hidden md:table-cell">Industry</TableHead>
+                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3 hidden lg:table-cell">Next Earnings</TableHead>
                   <TableHead className="w-[35px] sm:w-[45px] py-2 sm:py-3"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -346,7 +351,7 @@ export function WatchlistDetail({
                 {watchlist.tickers.length === 0 ? (
                   <TableRow>
                     <TableCell 
-                      colSpan={9} 
+                      colSpan={10} 
                       className="h-16 sm:h-20 text-center text-xs sm:text-sm text-muted-foreground"
                     >
                       No tickers added yet.

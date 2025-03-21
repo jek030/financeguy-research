@@ -225,18 +225,11 @@ export default function WatchlistPage() {
         onDragEnd={handleDragEnd}
       >
         <div className="container mx-auto px-1 sm:px-4 py-2 sm:py-4">
-          <div className="grid grid-cols-12 gap-2 sm:gap-6">
-            <div className="col-span-12 md:col-span-4 lg:col-span-3">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 sm:pb-4">
-                  <h2 className="text-sm sm:text-lg font-semibold">Watchlists</h2>
-                  <div className="flex items-center gap-1 sm:gap-2">                 
-                    <Button onClick={addWatchlist} size="sm" variant="outline" className="text-xs sm:text-sm h-7 sm:h-8">
-                      <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1" /> Add
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-1 sm:pt-2">
+          <div className="mb-4 sm:mb-6">
+            <div className="flex items-center justify-between gap-2 sm:gap-3 mt-2">
+              <h1 className="text-2xl sm:text-3xl font-bold">Watchlists</h1>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="min-w-[180px]">
                   <Combobox
                     options={watchlistOptions}
                     value={selectedWatchlist || undefined}
@@ -244,11 +237,24 @@ export default function WatchlistPage() {
                     placeholder="Select a watchlist"
                     emptyText="No watchlists found."
                   />
-                </CardContent>
-              </Card>
+                </div>
+                <Button 
+                  onClick={addWatchlist} 
+                  variant="outline" 
+                  size="default"
+                  className="whitespace-nowrap h-8"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add
+                </Button>
+              </div>
             </div>
+            <p className="text-muted-foreground">Manage your stock watchlists</p>
+          </div>
+          <div className="grid grid-cols-12 gap-2 sm:gap-6">
+            
 
-            <div className="col-span-12 md:col-span-8 lg:col-span-9">
+            <div className="col-span-12 md:col-span-9 lg:col-span-10">
               {selectedWatchlist && (
                 <WatchlistDetail
                   watchlist={watchlists.find(w => w.id === selectedWatchlist)!}
