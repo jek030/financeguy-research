@@ -221,14 +221,14 @@ export default function WatchlistPage() {
       >
         <div className="container-fluid mx-auto px-1 sm:px-4 py-2 sm:py-4 w-full max-w-full">
           <div className="mb-4 sm:mb-6">
-            <div className="flex items-center justify-between gap-2 sm:gap-3 mt-2">
-              <h1 className="text-2xl sm:text-3xl font-bold">Watchlists</h1>
-              <div className="flex items-center gap-2 sm:gap-3">              
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 sm:gap-3 mt-2">
+              <h1 className="text-2xl sm:text-3xl font-bold mb-2 md:mb-0">Watchlists</h1>
+              <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto">              
                 <Select
                   value={selectedWatchlist || undefined }
                   onValueChange={setSelectedWatchlist}
                 >
-                  <SelectTrigger className="w-[280px]">
+                  <SelectTrigger className="w-full md:w-[280px]">
                     <SelectValue placeholder="Select a watchlist" />
                   </SelectTrigger>
                   <SelectContent>
@@ -243,14 +243,13 @@ export default function WatchlistPage() {
                   onClick={addWatchlist} 
                   variant="outline" 
                   size="default"
-                  className="whitespace-nowrap"
+                  className="whitespace-nowrap shrink-0"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add
                 </Button>
               </div>
             </div>
-            <p className="text-muted-foreground">Manage your stock watchlists</p>
           </div>
           <div className="w-full">
             {selectedWatchlist && (
