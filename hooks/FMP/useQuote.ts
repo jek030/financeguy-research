@@ -23,5 +23,8 @@ export function useQuote(symbol: string) {
     enabled: Boolean(symbol),
     refetchInterval: 60000, // Refetch every minute
     staleTime: 30000, // Consider data stale after 30 seconds
+    gcTime: 5 * 60 * 1000, // Keep unused data in cache for 5 minutes
+    retry: 1,
+    retryDelay: 3000,
   });
 } 

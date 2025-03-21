@@ -51,8 +51,8 @@ interface QuoteRowProps {
 }
 
 function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
-  const { data: quote } = useQuote(symbol);
-  const { data: profile } = useProfile(symbol);
+  const { data: quote, isLoading: isQuoteLoading } = useQuote(symbol);
+  const { data: profile, isLoading: isProfileLoading } = useProfile(symbol);
 
   return (
     <TableRow key={`${symbol}-${watchlistId}`} className="group">
@@ -67,10 +67,10 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
         </div>
       </TableCell>
       <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
-        {quote ? `$${formatNumber(quote.price)}` : "-"}
+        {!isQuoteLoading && quote ? `$${formatNumber(quote.price)}` : "-"}
       </TableCell>
       <TableCell className="whitespace-nowrap py-1.5 sm:py-2">
-        {quote ? (
+        {!isQuoteLoading && quote ? (
           <span className={cn(
             "font-medium text-xs sm:text-sm",
             quote.change >= 0 ? "text-positive" : "text-destructive"
@@ -80,7 +80,7 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
         ) : "-"}
       </TableCell>
       <TableCell className="whitespace-nowrap py-1.5 sm:py-2">
-        {quote ? (
+        {!isQuoteLoading && quote ? (
           <span className={cn(
             "font-medium text-xs sm:text-sm",
             quote.changesPercentage >= 0 ? "text-positive" : "text-destructive"
@@ -90,13 +90,13 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
         ) : "-"}
       </TableCell>
       <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
-        {quote ? formatNumber(quote.volume) : "-"}
+        {!isQuoteLoading && quote ? formatNumber(quote.volume) : "-"}
       </TableCell>
       <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
-        {quote ? formatMarketCap(quote.marketCap) : "-"}
+        {!isQuoteLoading && quote ? formatMarketCap(quote.marketCap) : "-"}
       </TableCell>
       <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
-        {profile && profile.sector ? (
+        {!isProfileLoading && profile && profile.sector ? (
           <Link 
             href={`/scans/sectors/${encodeURIComponent(profile.sector)}`}
             className="hover:underline text-blue-600 dark:text-blue-400"
@@ -106,7 +106,7 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
         ) : "-"}
       </TableCell>
       <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
-        {profile && profile.sector && profile.industry ? (
+        {!isProfileLoading && profile && profile.sector && profile.industry ? (
           <Link 
             href={`/scans/sectors/${encodeURIComponent(profile.sector)}/industry/${encodeURIComponent(profile.industry)}`}
             className="hover:underline text-blue-600 dark:text-blue-400"
@@ -116,7 +116,7 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
         ) : "-"}
       </TableCell>
       <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
-        {quote ? formatEarningsDate(quote.earningsAnnouncement) : "-"}
+        {!isQuoteLoading && quote ? formatEarningsDate(quote.earningsAnnouncement) : "-"}
       </TableCell>
       <TableCell className="py-1.5 sm:py-2">
         <Button

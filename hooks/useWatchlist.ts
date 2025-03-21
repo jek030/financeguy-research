@@ -4,6 +4,11 @@ import { Ticker } from '@/lib/types';
 import { supabase, SupabaseWatchlist, SupabaseTicker } from '@/lib/supabase';
 import { useAuth } from '@/lib/context/auth-context';
 
+// Define a minimal ticker interface for initial loading
+interface MinimalTicker {
+  symbol: string;
+}
+
 export function useWatchlist() {
   const [watchlists, setWatchlists] = useState<WatchlistCard[]>([]);
   const [selectedWatchlist, setSelectedWatchlist] = useState<string | null>(null);
@@ -60,20 +65,10 @@ export function useWatchlist() {
             }
             
             if (tickerData && tickerData.length > 0) {
-              // Fetch quote data for each ticker
-              for (const ticker of tickerData) {
-                try {
-                  const response = await fetch(`/api/fmp/quote?symbol=${ticker.symbol}`);
-                  if (response.ok) {
-                    const quoteData = await response.json();
-                    if (quoteData[0]) {
-                      watchlist.tickers.push(quoteData[0]);
-                    }
-                  }
-                } catch (error) {
-                  console.error(`Error fetching quote for ${ticker.symbol}:`, error);
-                }
-              }
+              // Instead of fetching quote data here, just add the ticker symbols
+              watchlist.tickers = tickerData.map(ticker => ({
+                symbol: ticker.symbol
+              })) as Ticker[];
             }
           }
           

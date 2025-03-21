@@ -23,5 +23,8 @@ export function useProfile(symbol: string) {
     enabled: Boolean(symbol),
     refetchInterval: 3600000, // Refetch every hour (profile data doesn't change often)
     staleTime: 1800000, // Consider data stale after 30 minutes
+    gcTime: 24 * 60 * 60 * 1000, // Keep unused data in cache for 24 hours
+    retry: 1,
+    retryDelay: 5000,
   });
 } 
