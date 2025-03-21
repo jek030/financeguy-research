@@ -19,7 +19,7 @@ import { X } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useQueries } from '@tanstack/react-query';
-import type { Ticker } from '@/lib/types';
+import type { Ticker, CompanyProfile } from '@/lib/types';
 
 // Add a function to format market cap
 function formatMarketCap(marketCap: number): string {
@@ -150,7 +150,7 @@ async function fetchQuote(symbol: string): Promise<Ticker[]> {
   return response.json();
 }
 
-async function fetchProfile(symbol: string): Promise<any> {
+async function fetchProfile(symbol: string): Promise<CompanyProfile[]> {
   if (!symbol) {
     throw new Error('Symbol is required');
   }
@@ -183,7 +183,7 @@ function ExportButton({ watchlist }: ExportButtonProps) {
     queries: watchlist.tickers.map(ticker => ({
       queryKey: ['profile', ticker.symbol],
       queryFn: () => fetchProfile(ticker.symbol),
-      select: (data: any) => data[0],
+      select: (data: CompanyProfile[]) => data[0],
       enabled: Boolean(ticker.symbol),
       staleTime: Infinity,
       refetchInterval: 0,
@@ -269,7 +269,7 @@ export function WatchlistDetail({
   onRemoveWatchlist,
 }: WatchlistDetailProps) {
   return (
-    <Card className="border-border shadow-sm">
+    <Card className="border-border shadow-sm w-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-3 sm:px-6 px-3">
         {watchlist.isEditing ? (
           <div className="flex items-center gap-1 sm:gap-2 w-full">
@@ -331,8 +331,8 @@ export function WatchlistDetail({
           items={watchlist.tickers.map(t => `${t.symbol}-${watchlist.id}`)}
           strategy={verticalListSortingStrategy}
         >
-          <div className="rounded-md border border-border overflow-x-auto">
-            <Table>
+          <div className="rounded-md border border-border overflow-x-auto w-full">
+            <Table className="w-full">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
                   <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Symbol</TableHead>
@@ -352,7 +352,7 @@ export function WatchlistDetail({
                   <TableRow>
                     <TableCell 
                       colSpan={10} 
-                      className="h-16 sm:h-20 text-center text-xs sm:text-sm text-muted-foreground"
+                      className="h-12 sm:h-12 text-center text-xs sm:text-sm text-muted-foreground"
                     >
                       No tickers added yet.
                     </TableCell>

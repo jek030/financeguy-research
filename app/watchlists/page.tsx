@@ -1,10 +1,8 @@
 "use client"
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Plus, Loader2 } from 'lucide-react';
-import { Combobox } from '@/components/ui/Combobox';
 import {
   DndContext,
   DragOverlay,
@@ -169,10 +167,6 @@ export default function WatchlistPage() {
     value: watchlist.id
   }));
 
-  const handleWatchlistSelect = (value: string) => {
-    setSelectedWatchlist(value);
-  };
-
   // Authentication loading state
   if (isAuthLoading) {
     return (
@@ -225,7 +219,7 @@ export default function WatchlistPage() {
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="container mx-auto px-1 sm:px-4 py-2 sm:py-4">
+        <div className="container-fluid mx-auto px-1 sm:px-4 py-2 sm:py-4 w-full max-w-full">
           <div className="mb-4 sm:mb-6">
             <div className="flex items-center justify-between gap-2 sm:gap-3 mt-2">
               <h1 className="text-2xl sm:text-3xl font-bold">Watchlists</h1>
@@ -249,7 +243,7 @@ export default function WatchlistPage() {
                   onClick={addWatchlist} 
                   variant="outline" 
                   size="default"
-                  className="whitespace-nowrap h-8"
+                  className="whitespace-nowrap"
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add
@@ -258,32 +252,28 @@ export default function WatchlistPage() {
             </div>
             <p className="text-muted-foreground">Manage your stock watchlists</p>
           </div>
-          <div className="grid grid-cols-12 gap-2 sm:gap-6">
-            
-
-            <div className="col-span-12 md:col-span-9 lg:col-span-10">
-              {selectedWatchlist && (
-                <WatchlistDetail
-                  watchlist={watchlists.find(w => w.id === selectedWatchlist)!}
-                  editNameInput={editNameInputs[selectedWatchlist] || ''}
-                  onEditNameChange={(value: string) => setEditNameInputs({
-                    ...editNameInputs,
-                    [selectedWatchlist]: value,
-                  })}
-                  onSaveWatchlistName={() => saveWatchlistName(selectedWatchlist)}
-                  onToggleEditMode={() => toggleEditMode(selectedWatchlist)}
-                  newTickerInput={newTickerInputs[selectedWatchlist] || ''}
-                  onNewTickerChange={(value: string) => setNewTickerInputs({
-                    ...newTickerInputs,
-                    [selectedWatchlist]: value,
-                  })}
-                  onAddTicker={() => addTickerToWatchlist(selectedWatchlist, newTickerInputs[selectedWatchlist])}
-                  onKeyPress={handleKeyPress}
-                  onRemoveTicker={removeTicker}
-                  onRemoveWatchlist={removeWatchlist}
-                />
-              )}
-            </div>
+          <div className="w-full">
+            {selectedWatchlist && (
+              <WatchlistDetail
+                watchlist={watchlists.find(w => w.id === selectedWatchlist)!}
+                editNameInput={editNameInputs[selectedWatchlist] || ''}
+                onEditNameChange={(value: string) => setEditNameInputs({
+                  ...editNameInputs,
+                  [selectedWatchlist]: value,
+                })}
+                onSaveWatchlistName={() => saveWatchlistName(selectedWatchlist)}
+                onToggleEditMode={() => toggleEditMode(selectedWatchlist)}
+                newTickerInput={newTickerInputs[selectedWatchlist] || ''}
+                onNewTickerChange={(value: string) => setNewTickerInputs({
+                  ...newTickerInputs,
+                  [selectedWatchlist]: value,
+                })}
+                onAddTicker={() => addTickerToWatchlist(selectedWatchlist, newTickerInputs[selectedWatchlist])}
+                onKeyPress={handleKeyPress}
+                onRemoveTicker={removeTicker}
+                onRemoveWatchlist={removeWatchlist}
+              />
+            )}
           </div>
         </div>
 
