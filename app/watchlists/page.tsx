@@ -26,6 +26,7 @@ import { Ticker } from '@/lib/types';
 import { useAuth } from '@/lib/context/auth-context';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 
 export default function WatchlistPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -228,16 +229,22 @@ export default function WatchlistPage() {
           <div className="mb-4 sm:mb-6">
             <div className="flex items-center justify-between gap-2 sm:gap-3 mt-2">
               <h1 className="text-2xl sm:text-3xl font-bold">Watchlists</h1>
-              <div className="flex items-center gap-2 sm:gap-3">
-                <div className="min-w-[180px]">
-                  <Combobox
-                    options={watchlistOptions}
-                    value={selectedWatchlist || undefined}
-                    onSelect={handleWatchlistSelect}
-                    placeholder="Select a watchlist"
-                    emptyText="No watchlists found."
-                  />
-                </div>
+              <div className="flex items-center gap-2 sm:gap-3">              
+                <Select
+                  value={selectedWatchlist || undefined }
+                  onValueChange={setSelectedWatchlist}
+                >
+                  <SelectTrigger className="w-[280px]">
+                    <SelectValue placeholder="Select a watchlist" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {watchlistOptions.map((watchlist) => (
+                      <SelectItem key={watchlist.value} value={watchlist.value}>
+                        {watchlist.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button 
                   onClick={addWatchlist} 
                   variant="outline" 
