@@ -1,9 +1,8 @@
 "use client"
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
 import {
   DndContext,
   DragOverlay,
@@ -17,21 +16,25 @@ import {
 } from '@dnd-kit/core';
 import {
   arrayMove,
-  SortableContext,
   sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { SortableWatchlistItem } from '@/components/watchlist/SortableWatchlistItem';
 import { WatchlistDetail } from '@/components/watchlist/WatchlistDetail';
 import { useWatchlist } from '@/hooks/useWatchlist';
 import { Ticker } from '@/lib/types';
+import { useAuth } from '@/lib/context/auth-context';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 
 export default function WatchlistPage() {
+  const { user, isLoading: isAuthLoading } = useAuth();
   const {
     watchlists,
     selectedWatchlist,
     newTickerInputs,
     editNameInputs,
+    isLoading: isWatchlistLoading,
+    error,
     setSelectedWatchlist,
     setNewTickerInputs,
     setEditNameInputs,
@@ -107,24 +110,49 @@ export default function WatchlistPage() {
           });
           updateWatchlists(updatedWatchlists);
         } else {
-          const updatedWatchlists = watchlists.map(watchlist => {
-            if (watchlist.id === sourceWatchlistId) {
-              return {
-                ...watchlist,
-                tickers: watchlist.tickers.filter(t => t.symbol !== ticker.symbol)
-              };
-            }
-            if (watchlist.id === targetWatchlistId) {
-              if (!watchlist.tickers.some(t => t.symbol === ticker.symbol)) {
-                return {
-                  ...watchlist,
-                  tickers: [...watchlist.tickers, ticker]
-                };
-              }
-            }
-            return watchlist;
-          });
-          updateWatchlists(updatedWatchlists);
+          // Moving ticker between watchlists - need to update database
+          
+          // First remove from source watchlist
+          const removePromise = supabase
+            .from('watchlist_tickers')
+            .delete()
+            .eq('watchlist_id', sourceWatchlistId)
+            .eq('symbol', ticker.symbol);
+          
+          // Then add to target watchlist
+          const addPromise = supabase
+            .from('watchlist_tickers')
+            .insert({
+              watchlist_id: targetWatchlistId,
+              symbol: ticker.symbol,
+            });
+          
+          // Execute database operations
+          Promise.all([removePromise, addPromise])
+            .then(() => {
+              // Then update local state
+              const updatedWatchlists = watchlists.map(watchlist => {
+                if (watchlist.id === sourceWatchlistId) {
+                  return {
+                    ...watchlist,
+                    tickers: watchlist.tickers.filter(t => t.symbol !== ticker.symbol)
+                  };
+                }
+                if (watchlist.id === targetWatchlistId) {
+                  if (!watchlist.tickers.some(t => t.symbol === ticker.symbol)) {
+                    return {
+                      ...watchlist,
+                      tickers: [...watchlist.tickers, ticker]
+                    };
+                  }
+                }
+                return watchlist;
+              });
+              updateWatchlists(updatedWatchlists);
+            })
+            .catch(error => {
+              console.error('Error moving ticker between watchlists:', error);
+            });
         }
       }
     }
@@ -133,82 +161,124 @@ export default function WatchlistPage() {
     setDraggedTicker(null);
   };
 
+  // Convert watchlists to options format for Combobox
+  const watchlistOptions = watchlists.map(watchlist => ({
+    label: watchlist.name,
+    value: watchlist.id
+  }));
+
+  // Authentication loading state
+  if (isAuthLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <span className="ml-2 text-lg">Loading...</span>
+      </div>
+    );
+  }
+
+  // User not logged in
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <h1 className="text-2xl font-bold">You need to be logged in to view watchlists</h1>
+        <p className="text-lg text-muted-foreground">Sign in to create and manage your watchlists</p>
+        <Button asChild>
+          <Link href="/login">Sign in</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  // Watchlist loading state
+  if (isWatchlistLoading) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <span className="ml-2 text-lg">Loading watchlists...</span>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-4">
+        <h1 className="text-2xl font-bold text-destructive">Error loading watchlists</h1>
+        <p className="text-lg text-muted-foreground">{error}</p>
+        <Button onClick={() => window.location.reload()}>Try again</Button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col">
-      <div className="bg-background py-4 border-b">
-        <div className="container mx-auto px-4">
-          <h1 className="text-3xl font-bold tracking-tight">Watchlists</h1>
-          <p className="text-muted-foreground mt-1">
-            Create and manage your stock watchlists with real-time data
-          </p>
-        </div>
-      </div>
-
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="container mx-auto px-4 py-6">
-          <div className="grid grid-cols-12 gap-6">
-            <div className="col-span-12 md:col-span-4 lg:col-span-3">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <h2 className="text-lg font-semibold">Your Watchlists</h2>
-                  <Button onClick={addWatchlist} size="sm" variant="outline">
-                    <Plus className="h-4 w-4 mr-1" /> Add
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <SortableContext
-                    items={watchlists.map(w => w.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div className="space-y-2">
-                      {watchlists.map((watchlist) => (
-                        <SortableWatchlistItem 
-                          key={watchlist.id} 
-                          watchlist={watchlist}
-                          selectedWatchlist={selectedWatchlist}
-                          onSelect={setSelectedWatchlist}
-                          onRemove={removeWatchlist}
-                        />
-                      ))}
-                    </div>
-                  </SortableContext>
-                </CardContent>
-              </Card>
+        <div className="container-fluid mx-auto px-1 sm:px-4 py-2 sm:py-4 w-full max-w-full">
+          <div className="mb-4 sm:mb-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 sm:gap-3 mt-2">
+              <h1 className="text-2xl sm:text-3xl font-bold mb-2 md:mb-0">Watchlists</h1>
+              <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto">              
+                <Select
+                  value={selectedWatchlist || undefined }
+                  onValueChange={setSelectedWatchlist}
+                >
+                  <SelectTrigger className="w-full md:w-[280px]">
+                    <SelectValue placeholder="Select a watchlist" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {watchlistOptions.map((watchlist) => (
+                      <SelectItem key={watchlist.value} value={watchlist.value}>
+                        {watchlist.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button 
+                  onClick={addWatchlist} 
+                  variant="outline" 
+                  size="default"
+                  className="whitespace-nowrap shrink-0"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add
+                </Button>
+              </div>
             </div>
-
-            <div className="col-span-12 md:col-span-8 lg:col-span-9">
-              {selectedWatchlist && (
-                <WatchlistDetail
-                  watchlist={watchlists.find(w => w.id === selectedWatchlist)!}
-                  editNameInput={editNameInputs[selectedWatchlist] || ''}
-                  onEditNameChange={(value: string) => setEditNameInputs({
-                    ...editNameInputs,
-                    [selectedWatchlist]: value,
-                  })}
-                  onSaveWatchlistName={() => saveWatchlistName(selectedWatchlist)}
-                  onToggleEditMode={() => toggleEditMode(selectedWatchlist)}
-                  newTickerInput={newTickerInputs[selectedWatchlist] || ''}
-                  onNewTickerChange={(value: string) => setNewTickerInputs({
-                    ...newTickerInputs,
-                    [selectedWatchlist]: value,
-                  })}
-                  onAddTicker={() => addTickerToWatchlist(selectedWatchlist, newTickerInputs[selectedWatchlist])}
-                  onKeyPress={handleKeyPress}
-                  onRemoveTicker={removeTicker}
-                />
-              )}
-            </div>
+          </div>
+          <div className="w-full">
+            {selectedWatchlist && (
+              <WatchlistDetail
+                watchlist={watchlists.find(w => w.id === selectedWatchlist)!}
+                editNameInput={editNameInputs[selectedWatchlist] || ''}
+                onEditNameChange={(value: string) => setEditNameInputs({
+                  ...editNameInputs,
+                  [selectedWatchlist]: value,
+                })}
+                onSaveWatchlistName={() => saveWatchlistName(selectedWatchlist)}
+                onToggleEditMode={() => toggleEditMode(selectedWatchlist)}
+                newTickerInput={newTickerInputs[selectedWatchlist] || ''}
+                onNewTickerChange={(value: string) => setNewTickerInputs({
+                  ...newTickerInputs,
+                  [selectedWatchlist]: value,
+                })}
+                onAddTicker={() => addTickerToWatchlist(selectedWatchlist, newTickerInputs[selectedWatchlist])}
+                onKeyPress={handleKeyPress}
+                onRemoveTicker={removeTicker}
+                onRemoveWatchlist={removeWatchlist}
+              />
+            )}
           </div>
         </div>
 
         <DragOverlay>
           {activeId && draggedTicker ? (
-            <div className="bg-card p-2 rounded shadow-lg border">
+            <div className="bg-card p-1.5 sm:p-2 rounded shadow-lg border text-sm">
               {draggedTicker.symbol}
             </div>
           ) : null}

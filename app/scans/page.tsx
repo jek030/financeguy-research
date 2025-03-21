@@ -26,8 +26,7 @@ export default function SectorsPage() {
           </TabsContent>
           <TabsContent value="gainers">
             <MarketGainers />
-          </TabsContent> 
-          
+          </TabsContent>         
         </Tabs>
       </div>
     </div>

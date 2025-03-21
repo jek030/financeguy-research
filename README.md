@@ -27,8 +27,9 @@ A comprehensive financial research dashboard for investors and traders. All data
   - Top gainers daily scan
 
 ### ⭐ Watchlists
-- Fully customizable watchlist functionality
-- Persistent storage using local cache
+- Login required
+- Customizable watchlist functionality
+- Persistent storage saved to login
 - Track your favorite securities in one place
 
 ### 🔍 Search Page

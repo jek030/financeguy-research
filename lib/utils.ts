@@ -7,7 +7,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export function formatNumber(num: number): string {
   return new Intl.NumberFormat('en-US', {
-    minimumFractionDigits: 2,
+    minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(num);
 }

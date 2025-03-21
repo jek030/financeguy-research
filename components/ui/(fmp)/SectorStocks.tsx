@@ -235,7 +235,7 @@ export default function SectorStocks({ sector }: SectorStocksProps) {
                   className="hover:bg-muted/50 transition-colors"
                 >
                   <TableCell 
-                    className="font-medium cursor-pointer hover:text-primary sm:p-4 py-2 px-1 text-sm sm:text-base"
+                    className="font-medium cursor-pointer text-blue-600 dark:text-blue-400 hover:underline sm:p-4 py-2 px-1 text-sm sm:text-base"
                     onClick={() => handleSymbolClick(item.symbol)}
                   >
                     {item.symbol}
@@ -250,7 +250,7 @@ export default function SectorStocks({ sector }: SectorStocksProps) {
                     {formatMarketCap(item.marketCap)}
                   </TableCell>
                   <TableCell 
-                    className="font-medium cursor-pointer hover:text-primary truncate max-w-[100px] sm:max-w-none sm:p-4 py-2 px-1 text-xs sm:text-sm"
+                    className="font-medium cursor-pointer text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[100px] sm:max-w-none sm:p-4 py-2 px-1 text-xs sm:text-sm"
                     onClick={() => handleIndustryClick(item.industry)}
                   >
                     {item.industry}
