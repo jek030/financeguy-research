@@ -1,170 +1,160 @@
 'use client';
 
-import { useState } from 'react';
-import { useCryptoQuote } from '@/hooks/FMP/useCryptoQuote';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/Select";
-import { formatNumber, formatPercentage } from '@/lib/utils';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/Table";
+import { formatNumber, formatPercentage, formatCryptoNumber } from '@/lib/utils';
 import { SUPPORTED_CRYPTOCURRENCIES } from '@/lib/constants';
-import { TrendingUp, TrendingDown, DollarSign, BarChart3, LineChart } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+
+interface CryptoData {
+  symbol: string;
+  name: string;
+  price: number;
+  change: number;
+  changesPercentage: number;
+  dayLow: number;
+  dayHigh: number;
+  yearLow: number;
+  yearHigh: number;
+  marketCap: number;
+  volume: number;
+  avgVolume: number;
+  priceAvg50: number;
+  priceAvg200: number;
+  exchange: string;
+}
 
 export default function CryptoPage() {
-  const [selectedSymbol, setSelectedSymbol] = useState('BTCUSD');
-  const { data: cryptoData, isLoading } = useCryptoQuote(selectedSymbol);
-  const crypto = cryptoData?.[0];
+  const [cryptoQuotes, setCryptoQuotes] = useState<Record<string, CryptoData>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // Fetch data for all cryptocurrencies
+  useEffect(() => {
+    const fetchAllCryptoData = async () => {
+      setIsLoading(true);
+      try {
+        const promises = SUPPORTED_CRYPTOCURRENCIES.map(async (crypto) => {
+          const response = await fetch(`/api/fmp/cryptoquote?symbol=${crypto.value}`);
+          if (!response.ok) throw new Error(`Failed to fetch ${crypto.value}`);
+          const data = await response.json();
+          return { symbol: crypto.value, data: data[0] };
+        });
+
+        const results = await Promise.all(promises);
+        const quotesMap: Record<string, CryptoData> = {};
+        
+        results.forEach((result) => {
+          if (result.data) {
+            quotesMap[result.symbol] = result.data;
+          }
+        });
+        
+        setCryptoQuotes(quotesMap);
+      } catch (error) {
+        console.error("Error fetching crypto data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAllCryptoData();
+  }, []);
 
   return (
-    <div className="container mx-auto p-6 space-y-8 animate-in fade-in-50 duration-500">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b">
+    <div className="container mx-auto p-2 space-y-8 animate-in fade-in-50 duration-500">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-2 border-b">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">Crypto Dashboard</h1>
           <p className="text-muted-foreground">
             Real-time cryptocurrency market data and analytics
           </p>
         </div>
-        <Select
-          value={selectedSymbol}
-          onValueChange={setSelectedSymbol}
-        >
-          <SelectTrigger className="w-[280px]">
-            <SelectValue placeholder="Select a cryptocurrency" />
-          </SelectTrigger>
-          <SelectContent>
-            {SUPPORTED_CRYPTOCURRENCIES.map((crypto) => (
-              <SelectItem key={crypto.value} value={crypto.value}>
-                {crypto.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       {isLoading ? (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {[...Array(4)].map((_, i) => (
-            <Skeleton key={i} className="h-[200px] w-full" />
-          ))}
-        </div>
-      ) : !crypto ? (
+        <Skeleton className="h-[600px] w-full rounded-md" />
+      ) : Object.keys(cryptoQuotes).length === 0 ? (
         <div className="flex flex-col items-center justify-center h-[400px] text-center space-y-4">
           <DollarSign className="h-12 w-12 text-muted-foreground" />
           <p className="text-xl text-muted-foreground">No crypto data available</p>
         </div>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <Card className="overflow-hidden">
-            <CardHeader className="border-b bg-muted/40">
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span>{crypto.name}</span>
-                </div>
-                <Badge 
-                  variant={crypto.change >= 0 ? "positive" : "destructive"}
-                  className="flex items-center gap-1"
-                >
-                  {crypto.change >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                  {formatPercentage(crypto.changesPercentage)}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="text-4xl font-bold tracking-tight">${formatNumber(crypto.price)}</div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
-                <span>24h Change:</span>
-                <span className={crypto.change >= 0 ? "text-green-500" : "text-red-500"}>
-                  ${formatNumber(crypto.change)}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="border-b bg-muted/40">
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Trading Range
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">Day Low</p>
-                    <p className="text-xl font-semibold">${formatNumber(crypto.dayLow)}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">Day High</p>
-                    <p className="text-xl font-semibold">${formatNumber(crypto.dayHigh)}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">Year Low</p>
-                    <p className="text-xl font-semibold">${formatNumber(crypto.yearLow)}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">Year High</p>
-                    <p className="text-xl font-semibold">${formatNumber(crypto.yearHigh)}</p>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="border-b bg-muted/40">
-              <CardTitle className="flex items-center gap-2">
-                <DollarSign className="h-5 w-5" />
-                Market Stats
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Market Cap</p>
-                  <p className="text-xl font-semibold">${formatNumber(crypto.marketCap)}</p>
-                </div>
-                <div className="space-y-2 pt-4 border-t">
-                  <p className="text-sm text-muted-foreground">Volume (24h)</p>
-                  <p className="text-xl font-semibold">{formatNumber(crypto.volume)}</p>
-                </div>
-                <div className="space-y-2 pt-4 border-t">
-                  <p className="text-sm text-muted-foreground">Avg Volume</p>
-                  <p className="text-xl font-semibold">{formatNumber(crypto.avgVolume)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="border-b bg-muted/40">
-              <CardTitle className="flex items-center gap-2">
-                <LineChart className="h-5 w-5" />
-                Moving Averages
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">50 Day MA</p>
-                  <p className="text-xl font-semibold">${formatNumber(crypto.priceAvg50)}</p>
-                </div>
-                <div className="space-y-2 pt-4 border-t">
-                  <p className="text-sm text-muted-foreground">200 Day MA</p>
-                  <p className="text-xl font-semibold">${formatNumber(crypto.priceAvg200)}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader className="border-b bg-muted/40">
+            <CardTitle>Cryptocurrency Comparison</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="sticky left-0 bg-background z-10 w-[180px]">Name</TableHead>
+                    <TableHead>Price</TableHead>
+                    <TableHead>24h Change</TableHead>
+                    <TableHead>Day Low</TableHead>
+                    <TableHead>Day High</TableHead>
+                    <TableHead>Year Low</TableHead>
+                    <TableHead>Year High</TableHead>
+                    <TableHead>Market Cap</TableHead>
+                    <TableHead>Volume (24h)</TableHead>
+                    <TableHead>Avg Volume</TableHead>
+                    <TableHead>50 Day MA</TableHead>
+                    <TableHead>200 Day MA</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {SUPPORTED_CRYPTOCURRENCIES.map((crypto) => {
+                    const data = cryptoQuotes[crypto.value];
+                    if (!data) return null;
+                    
+                    return (
+                      <TableRow key={crypto.value}>
+                        <TableCell className="font-medium sticky left-0 bg-background z-10 w-[180px]">
+                          <div className="flex items-center gap-2">
+                            <span>{data.name}</span>
+                            <Badge 
+                              variant={data.change >= 0 ? "positive" : "destructive"}
+                              className="flex items-center gap-1 text-xs"
+                            >
+                              {data.change >= 0 ? 
+                                <TrendingUp className="h-3 w-3" /> : 
+                                <TrendingDown className="h-3 w-3" />
+                              }
+                              {formatPercentage(data.changesPercentage)}
+                            </Badge>
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-bold">${formatCryptoNumber(data.price)}</TableCell>
+                        <TableCell className={data.change >= 0 ? "text-green-500 font-medium" : "text-red-500 font-medium"}>
+                          ${formatCryptoNumber(data.change)}
+                        </TableCell>
+                        <TableCell>${formatCryptoNumber(data.dayLow)}</TableCell>
+                        <TableCell>${formatCryptoNumber(data.dayHigh)}</TableCell>
+                        <TableCell>${formatCryptoNumber(data.yearLow)}</TableCell>
+                        <TableCell>${formatCryptoNumber(data.yearHigh)}</TableCell>
+                        <TableCell>${formatNumber(data.marketCap)}</TableCell>
+                        <TableCell>{formatNumber(data.volume)}</TableCell>
+                        <TableCell>{formatNumber(data.avgVolume)}</TableCell>
+                        <TableCell>${formatCryptoNumber(data.priceAvg50)}</TableCell>
+                        <TableCell>${formatCryptoNumber(data.priceAvg200)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
