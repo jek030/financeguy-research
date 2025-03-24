@@ -7,6 +7,7 @@ import { useState, useEffect } from "react"
 import { AuthProvider } from "@/lib/context/auth-context"
 import { MobileMenuProvider } from "@/lib/context/MobileMenuContext"
 import { ThemeFixer } from "@/components/ThemeFixer"
+import { Toaster } from "sonner"
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient())
@@ -36,6 +37,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
             }
           </MobileMenuProvider>
         </AuthProvider>
+        <Toaster position="top-right" richColors />
       </ThemeProvider>
       {mounted && <ReactQueryDevtools initialIsOpen={false} />}
     </QueryClientProvider>
