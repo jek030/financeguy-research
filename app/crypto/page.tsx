@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/Table";
 import { formatNumber, formatPercentage, formatCryptoNumber } from '@/lib/utils';
 import { SUPPORTED_CRYPTOCURRENCIES } from '@/lib/constants';
-import { TrendingUp, TrendingDown, DollarSign, X, Plus } from 'lucide-react';
+import { TrendingUp, TrendingDown, X, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { toast } from 'sonner';
@@ -293,9 +293,7 @@ export default function CryptoPage() {
         <Skeleton className="h-[600px] w-full rounded-md" />
       ) : (
         <Card>
-            <CardHeader className="border-b bg-muted/40">
-            <CardTitle>Cryptocurrency Comparison</CardTitle>
-          </CardHeader>
+            
           <CardContent className="p-0">
             {/* Add crypto form */}
             <div className="p-4 border-b">
@@ -357,7 +355,7 @@ export default function CryptoPage() {
                           <TableCell className="font-medium sticky left-0 bg-background z-10 w-[180px]">
                             <div className="flex items-center gap-2">
                               {data.name}                         
-                </div>
+                            </div>
                           </TableCell>
                           <TableCell className="font-bold">${formatCryptoNumber(data.price)}</TableCell>
                           <TableCell>
@@ -372,18 +370,38 @@ export default function CryptoPage() {
                                 }
                                 {formatPercentage(data.changesPercentage)}
                               </Badge>
-                </div>
+                            </div>
                           </TableCell>
                           <TableCell className={data.change >= 0 ? "text-positive font-medium" : "text-destructive font-medium"}>
                             ${formatCryptoNumber(data.change)}
                           </TableCell>
-                          <TableCell>${formatCryptoNumber(data.yearLow)}</TableCell>
-                          <TableCell>${formatCryptoNumber(data.yearHigh)}</TableCell>
+                          <TableCell className={data.price >= data.yearLow ? "text-right text-positive font-medium" : "text-right text-destructive font-medium"}>
+                              <span className="text-black font-medium">${formatCryptoNumber(data.yearLow)}</span>
+                              <div className="text-xs">
+                                {((data.price - data.yearLow) / data.yearLow * 100).toFixed(2)}%
+                              </div>
+                          </TableCell>         
+                          <TableCell className={data.price >= data.yearHigh ? "text-right text-positive font-medium" : "text-right text-destructive font-medium"}>
+                              <span className="text-black font-medium">${formatCryptoNumber(data.yearHigh)}</span>
+                              <div className="text-xs">
+                                {((data.price - data.yearHigh) / data.yearHigh * 100).toFixed(2)}%
+                              </div>
+                          </TableCell>
                           <TableCell>${formatNumber(data.marketCap)}</TableCell>
                           <TableCell>{formatNumber(data.volume)}</TableCell>
                           <TableCell>{formatNumber(data.avgVolume)}</TableCell>
-                          <TableCell>${formatCryptoNumber(data.priceAvg50)}</TableCell>
-                          <TableCell>${formatCryptoNumber(data.priceAvg200)}</TableCell>
+                          <TableCell className={data.price >= data.priceAvg50 ? "text-right text-positive font-medium" : "text-right text-destructive font-medium"}>
+                              <span className="text-black font-medium">${formatCryptoNumber(data.priceAvg50)}</span>
+                              <div className="text-xs">
+                                {((data.price - data.priceAvg50) / data.priceAvg50 * 100).toFixed(2)}%
+                            </div>
+                          </TableCell>
+                          <TableCell className={data.price >= data.priceAvg200 ? "text-right text-positive font-medium" : "text-right text-destructive font-medium"}>
+                              <span className="text-black font-medium">${formatCryptoNumber(data.priceAvg200)}</span>
+                              <div className="text-xs">
+                                {((data.price - data.priceAvg200) / data.priceAvg200 * 100).toFixed(2)}%
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <Button
                               variant="ghost"
