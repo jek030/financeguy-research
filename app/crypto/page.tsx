@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Badge } from '@/components/ui/Badge';
-import { 
+import {
   Table, 
   TableBody, 
   TableCell, 
@@ -18,6 +18,8 @@ import { TrendingUp, TrendingDown, DollarSign, X, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { toast } from 'sonner';
+import { useAuth } from '@/lib/context/auth-context';
+import { supabase } from '@/lib/supabase';
 
 interface CryptoData {
   symbol: string;
@@ -38,13 +40,56 @@ interface CryptoData {
 }
 
 export default function CryptoPage() {
+  const { user, isLoading: isAuthLoading } = useAuth();
   const [cryptoQuotes, setCryptoQuotes] = useState<Record<string, CryptoData>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [newCryptoInput, setNewCryptoInput] = useState('');
   const [customCryptos, setCustomCryptos] = useState<string[]>([]);
-  const [activeCryptos, setActiveCryptos] = useState<string[]>(
-    SUPPORTED_CRYPTOCURRENCIES.map(c => c.value)
-  );
+  const [activeCryptos, setActiveCryptos] = useState<string[]>([]);
+  
+  // Load user's saved cryptos or defaults based on auth status
+  useEffect(() => {
+    const loadCryptos = async () => {
+      // Start with default list
+      let cryptoList = [...SUPPORTED_CRYPTOCURRENCIES.map(c => c.value)];
+      
+      // If user is logged in, try to get their saved cryptos
+      if (user) {
+        try {
+          const { data, error } = await supabase
+            .from('crypto')
+            .select('symbol')
+            .eq('user_id', user.id);
+            
+          if (error) {
+            console.error('Error fetching saved cryptos:', error);
+            toast.error('Failed to load your saved cryptocurrencies');
+          } else if (data && data.length > 0) {
+            // If user has saved cryptos, use those instead of defaults
+            const userCryptos = data.map(item => item.symbol);
+            
+            // Set custom cryptos to those that aren't in the default list
+            const customList = userCryptos.filter(
+              symbol => !SUPPORTED_CRYPTOCURRENCIES.some(c => c.value === symbol)
+            );
+            setCustomCryptos(customList);
+            
+            // Set the active list to all user cryptos
+            cryptoList = userCryptos;
+          }
+        } catch (error) {
+          console.error('Error in crypto fetch:', error);
+        }
+      }
+      
+      setActiveCryptos(cryptoList);
+    };
+    
+    // Don't load until auth state is determined
+    if (!isAuthLoading) {
+      loadCryptos();
+    }
+  }, [user, isAuthLoading]);
   
   // Fetch data for all cryptocurrencies
   useEffect(() => {
@@ -84,6 +129,12 @@ export default function CryptoPage() {
   }, [activeCryptos]);
 
   const handleAddCrypto = async () => {
+    // If user is not logged in, show login message and return
+    if (!user) {
+      toast.error("You need to log in to add cryptocurrencies to your watchlist");
+      return;
+    }
+
     if (!newCryptoInput.trim()) return;
     
     // Format input to uppercase and add USD suffix if not present
@@ -108,14 +159,52 @@ export default function CryptoPage() {
       
       const data = await response.json();
       if (!data[0]) {
-        throw new Error(`No data found for ${symbol}`);
+        toast.error(`Couldn't find cryptocurrency: ${symbol}`);
+        return;
       }
       
       // Add to our custom list and active list
       setCustomCryptos(prev => [...prev, symbol]);
       setActiveCryptos(prev => [...prev, symbol]);
       setNewCryptoInput('');
-      toast.success(`Added ${symbol} to comparison`);
+      
+      // If user is logged in, save to Supabase
+      try {
+        // First check if this crypto already exists for this user
+        const { data: existingData, error: checkError } = await supabase
+          .from('crypto')
+          .select('symbol')
+          .eq('user_id', user.id)
+          .eq('symbol', symbol)
+          .maybeSingle();
+          
+        if (checkError) {
+          console.error('Error checking for existing crypto:', checkError);
+        }
+        
+        // Only insert if it doesn't already exist
+        if (!existingData) {
+          const { error } = await supabase
+            .from('crypto')
+            .insert({
+              user_id: user.id,
+              symbol: symbol
+            });
+            
+          if (error) {
+            console.error('Error saving crypto:', error);
+            toast.error('Failed to save cryptocurrency to your account');
+          } else {
+            toast.success(`Added ${symbol} to your tracked cryptocurrencies`);
+          }
+        } else {
+          // It already exists in the database, no need to add it again
+          toast.info(`${symbol} is already in your tracked cryptocurrencies`);
+        }
+      } catch (error) {
+        console.error('Error in Supabase insert:', error);
+        toast.error('Failed to save cryptocurrency to your account');
+      }
       
       // Update the quotes map immediately with the fetched data
       setCryptoQuotes(prev => ({
@@ -130,7 +219,13 @@ export default function CryptoPage() {
     }
   };
   
-  const handleRemoveCrypto = (symbol: string) => {
+  const handleRemoveCrypto = async (symbol: string) => {
+    // If user is not logged in, show login message and return
+    if (!user) {
+      toast.error("You need to log in to remove cryptocurrencies from your watchlist");
+      return;
+    }
+    
     // If it's a custom crypto, remove it from that list
     if (customCryptos.includes(symbol)) {
       setCustomCryptos(prev => prev.filter(s => s !== symbol));
@@ -146,7 +241,24 @@ export default function CryptoPage() {
       return newQuotes;
     });
     
-    toast.success(`Removed ${symbol} from comparison`);
+    // Delete from Supabase
+    try {
+      const { error } = await supabase
+        .from('crypto')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('symbol', symbol);
+        
+      if (error) {
+        console.error('Error deleting crypto:', error);
+        toast.error('Failed to remove cryptocurrency from your account');
+      } else {
+        toast.success(`Removed ${symbol} from your tracked cryptocurrencies`);
+      }
+    } catch (error) {
+      console.error('Error in Supabase delete:', error);
+      toast.error('Failed to remove cryptocurrency from your account');
+    }
   };
   
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -172,16 +284,16 @@ export default function CryptoPage() {
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">Crypto Dashboard</h1>
           <p className="text-muted-foreground">
-            Real-time cryptocurrency market data and analytics. Log into your Finance Guy account to save and track your own cryptocurrencies.
+            Real-time cryptocurrency market data and analytics. {!user && "Log into your Finance Guy account to save and track your own cryptocurrencies."}
           </p>
         </div>
       </div>
 
-      {isLoading && Object.keys(cryptoQuotes).length === 0 ? (
+      {(isLoading && Object.keys(cryptoQuotes).length === 0) || isAuthLoading ? (
         <Skeleton className="h-[600px] w-full rounded-md" />
       ) : (
         <Card>
-          <CardHeader className="border-b bg-muted/40">
+            <CardHeader className="border-b bg-muted/40">
             <CardTitle>Cryptocurrency Comparison</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -204,8 +316,8 @@ export default function CryptoPage() {
                   <span className="hidden md:inline">Add Crypto</span>
                   <span className="inline md:hidden ml-0.5">Add</span>
                 </Button>
+                </div>
               </div>
-            </div>
             
             <div className="overflow-x-auto">
               <Table>
@@ -245,7 +357,7 @@ export default function CryptoPage() {
                           <TableCell className="font-medium sticky left-0 bg-background z-10 w-[180px]">
                             <div className="flex items-center gap-2">
                               {data.name}                         
-                            </div>
+                </div>
                           </TableCell>
                           <TableCell className="font-bold">${formatCryptoNumber(data.price)}</TableCell>
                           <TableCell>
@@ -260,7 +372,7 @@ export default function CryptoPage() {
                                 }
                                 {formatPercentage(data.changesPercentage)}
                               </Badge>
-                            </div>
+                </div>
                           </TableCell>
                           <TableCell className={data.change >= 0 ? "text-positive font-medium" : "text-destructive font-medium"}>
                             ${formatCryptoNumber(data.change)}
@@ -288,9 +400,9 @@ export default function CryptoPage() {
                   )}
                 </TableBody>
               </Table>
-            </div>
-          </CardContent>
-        </Card>
+              </div>
+            </CardContent>
+          </Card>
       )}
     </div>
   );
