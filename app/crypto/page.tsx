@@ -100,11 +100,10 @@ export default function CryptoPage() {
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="sticky left-0 bg-background z-10 w-[180px]">Name</TableHead>
                     <TableHead>Price</TableHead>
-                    <TableHead>24h Change</TableHead>
-                    <TableHead>Day Low</TableHead>
-                    <TableHead>Day High</TableHead>
-                    <TableHead>Year Low</TableHead>
-                    <TableHead>Year High</TableHead>
+                    <TableHead>24h Change (%)</TableHead>
+                    <TableHead>24h Change ($)</TableHead>
+                    <TableHead>52 Week Low</TableHead>
+                    <TableHead>52 Week High</TableHead>
                     <TableHead>Market Cap</TableHead>
                     <TableHead>Volume (24h)</TableHead>
                     <TableHead>Avg Volume</TableHead>
@@ -121,7 +120,12 @@ export default function CryptoPage() {
                       <TableRow key={crypto.value}>
                         <TableCell className="font-medium sticky left-0 bg-background z-10 w-[180px]">
                           <div className="flex items-center gap-2">
-                            <span>{data.name}</span>
+                            {data.name}                         
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-bold">${formatCryptoNumber(data.price)}</TableCell>
+                        <TableCell className="font-medium sticky left-0 bg-background z-10 w-[180px]">
+                          <div className="flex items-center gap-2">                      
                             <Badge 
                               variant={data.change >= 0 ? "positive" : "destructive"}
                               className="flex items-center gap-1 text-xs"
@@ -134,12 +138,9 @@ export default function CryptoPage() {
                             </Badge>
                           </div>
                         </TableCell>
-                        <TableCell className="font-bold">${formatCryptoNumber(data.price)}</TableCell>
-                        <TableCell className={data.change >= 0 ? "text-green-500 font-medium" : "text-red-500 font-medium"}>
+                        <TableCell className={data.change >= 0 ? "text-positive font-medium" : "text-destructive font-medium"}>
                           ${formatCryptoNumber(data.change)}
                         </TableCell>
-                        <TableCell>${formatCryptoNumber(data.dayLow)}</TableCell>
-                        <TableCell>${formatCryptoNumber(data.dayHigh)}</TableCell>
                         <TableCell>${formatCryptoNumber(data.yearLow)}</TableCell>
                         <TableCell>${formatCryptoNumber(data.yearHigh)}</TableCell>
                         <TableCell>${formatNumber(data.marketCap)}</TableCell>
