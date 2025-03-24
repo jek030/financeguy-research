@@ -299,7 +299,7 @@ export default function CryptoPage() {
             <div className="p-4 border-b">
               <div className="flex gap-2">
                 <Input
-                  placeholder="Add cryptocurrency (e.g. BTC, ETH, SOL)"
+                  placeholder="Add cryptocurrency (e.g. BTCUSD, ETHUSD, SOLUSD)"
                   value={newCryptoInput}
                   onChange={(e) => setNewCryptoInput(e.target.value)}
                   onKeyDown={handleKeyPress}
