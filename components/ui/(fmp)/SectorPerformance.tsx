@@ -4,8 +4,8 @@ import {Card, CardContent, CardHeader, CardTitle, CardDescription} from "@/compo
 import { useState } from 'react';
 import { Button } from "@/components/ui/Button";
 import { useRouter } from 'next/navigation';
-import { cn } from "@/lib/utils";
-
+import Link from 'next/link';
+import { ArrowUpDown } from 'lucide-react';
 interface SectorPerformance {
   sector: string;
   changesPercentage: string;
@@ -81,42 +81,43 @@ export default function SectorPerformance() {
         </CardDescription>
       </CardHeader>
       <CardContent className="pt-0 sm:px-6 px-2">
-        <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
-          <Table className="w-full text-sm sm:text-base">
+        <div className="overflow-x-auto w-full">
+          <Table className="w-full">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="min-w-[160px] sm:p-4 py-2 px-1">
+                <TableHead>
                   <Button
                     variant="ghost"
                     onClick={() => requestSort('sector')}
-                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
+                    className="hover:bg-transparent pl-0 pr-1 "
                   >
                     Sector
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
                   </Button>
                 </TableHead>
-                <TableHead className="w-[120px] sm:p-4 py-2 px-1">
+                <TableHead>
                   <Button
                     variant="ghost"
                     onClick={() => requestSort('changesPercentage')}
-                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
+                    className="hover:bg-transparent pl-0 pr-1"
                   >
                     Performance
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
                   </Button>
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sortedData.map((item, index) => (
-                <TableRow 
-                  key={index}
-                  className="cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => handleSectorClick(item.sector)}
-                >
-                  <TableCell className="font-medium sm:p-4 py-2 px-1 text-sm sm:text-base text-blue-500 hover:underline">{item.sector}</TableCell>
-                  <TableCell className={cn(
-                    "font-medium sm:p-4 py-2 px-1 text-sm sm:text-base",
-                    parseFloat(item.changesPercentage) >= 0 ? "text-positive" : "text-negative"
-                  )}>
+                <TableRow key={index} className="group">
+                  <TableCell>
+                    <Link
+                      href={`/scans/sectors/${encodeURIComponent(item.sector)}`}
+                      className="hover:underline text-blue-600 dark:text-blue-400">
+                        {item.sector}
+                    </Link>
+                  </TableCell>
+                  <TableCell className={parseFloat(item.changesPercentage) >= 0 ? "text-positive" : "text-negative"}>
                     {parseFloat(item.changesPercentage).toFixed(2)}%
                   </TableCell>
                 </TableRow>

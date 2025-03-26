@@ -45,46 +45,43 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
 
   return (
     <TableRow key={`${symbol}-${watchlistId}`} className="group">
-      <TableCell className="font-medium sticky left-0 bg-background z-10 w-[180px]">
+      <TableCell className="sticky left-0 bg-background z-10 w-[180px]">
         <div className="flex items-center gap-2">
           <Link 
             href={`/search/${symbol}`}
-            className="font-medium hover:underline text-blue-600 dark:text-blue-400 text-xs sm:text-sm"
+            className="hover:underline text-blue-600 dark:text-blue-400 text-xs sm:text-sm"
           >
             {symbol}
           </Link>
         </div>
       </TableCell>
-      <TableCell className="text-xs">
+      <TableCell>
         {!isQuoteLoading && quote ? `$${formatNumber(quote.price)}` : "-"}
       </TableCell>
-      <TableCell className="text-xs">
+      <TableCell>
         {!isQuoteLoading && quote ? (
           <span className={cn(
-            "font-medium text-xs sm:text-sm",
+            "text-xs sm:text-sm",
             quote.change >= 0 ? "text-positive" : "text-destructive"
           )}>
             {quote.change >= 0 ? '+' : '-'}{formatNumber(Math.abs(quote.change))}
           </span>
         ) : "-"}
       </TableCell>
-      <TableCell className="text-xs">
+      <TableCell>
         {!isQuoteLoading && quote ? (
-          <span className={cn(
-            "font-medium text-xs sm:text-sm",
-            quote.changesPercentage >= 0 ? "text-positive" : "text-destructive"
-          )}>
+          <span className={quote.changesPercentage >= 0 ? "text-positive" : "text-destructive"}>
             {quote.changesPercentage >= 0 ? '+' : ''}{formatPercentage(quote.changesPercentage)}
           </span>
         ) : "-"}
       </TableCell>
-      <TableCell className="text-xs">
+      <TableCell>
         {!isQuoteLoading && quote ? formatNumber(quote.volume) : "-"}
       </TableCell>
-      <TableCell className="text-xs">
+      <TableCell>
         {!isQuoteLoading && quote ? formatMarketCap(quote.marketCap) : "-"}
       </TableCell>
-      <TableCell className="text-xs">
+      <TableCell>
         {!isProfileLoading && profile && profile.sector ? (
           <Link 
             href={`/scans/sectors/${encodeURIComponent(profile.sector)}`}
@@ -94,7 +91,7 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
           </Link>
         ) : "-"}
       </TableCell>
-      <TableCell className="text-xs">
+      <TableCell>
         {!isProfileLoading && profile && profile.sector && profile.industry ? (
           <Link 
             href={`/scans/sectors/${encodeURIComponent(profile.sector)}/industry/${encodeURIComponent(profile.industry)}`}
@@ -104,10 +101,10 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
           </Link>
         ) : "-"}
       </TableCell>
-      <TableCell className="text-xs">
+      <TableCell>
         {!isQuoteLoading && quote ? formatEarningsDate(quote.earningsAnnouncement) : "-"}
       </TableCell>
-      <TableCell className="text-xs">
+      <TableCell>
         <Button
           variant="ghost"
           size="icon"
@@ -304,7 +301,7 @@ export function WatchlistDetail({
             value={newTickerInput}
             onChange={(e) => onNewTickerChange(e.target.value)}
             onKeyDown={(e) => onKeyPress(e, onAddTicker)}
-            className="font-medium text-xs sm:text-sm h-7 sm:h-8"
+            className="text-xs sm:text-sm h-7 sm:h-8"
           />
           <Button 
             onClick={onAddTicker}
