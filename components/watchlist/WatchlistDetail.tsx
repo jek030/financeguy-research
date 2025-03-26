@@ -321,7 +321,7 @@ export function WatchlistDetail({
             <Table className="w-full">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="sticky left-0 bg-background z-10 w-[180px]">Symbol</TableHead>
+                  <TableHead className="sticky">Symbol</TableHead>
                   <TableHead>Price</TableHead>
                   <TableHead>Change ($)</TableHead>
                   <TableHead>Change (%)</TableHead>

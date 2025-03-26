@@ -321,7 +321,7 @@ export default function CryptoPage() {
               <Table className="w-full">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="sticky left-0 bg-background z-10 w-[180px]">Name</TableHead>
+                    <TableHead className="sticky">Name</TableHead>
                     <TableHead>Price</TableHead>
                     <TableHead>24h Change (%)</TableHead>
                     <TableHead>24h Change ($)</TableHead>

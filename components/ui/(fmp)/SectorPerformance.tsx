@@ -3,7 +3,6 @@ import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow,} from "@/
 import {Card, CardContent, CardHeader, CardTitle, CardDescription} from "@/components/ui/Card";
 import { useState } from 'react';
 import { Button } from "@/components/ui/Button";
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowUpDown } from 'lucide-react';
 interface SectorPerformance {
@@ -14,7 +13,6 @@ interface SectorPerformance {
 
 export default function SectorPerformance() {
   const { data = [], isLoading, error } = useSectorPerformance();
-  const router = useRouter();
   const [sortConfig, setSortConfig] = useState<{
     key: keyof SectorPerformance;
     direction: 'asc' | 'desc';
@@ -65,11 +63,6 @@ export default function SectorPerformance() {
     });
   };
   
-
-  const handleSectorClick = (sector: string) => {
-    router.push(`/scans/sectors/${encodeURIComponent(sector)}`);
-  };
-
   return (
     <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
       <CardHeader className="pb-2 space-y-2 sm:px-6 px-3 pt-4 sm:pt-6">
@@ -89,7 +82,7 @@ export default function SectorPerformance() {
                   <Button
                     variant="ghost"
                     onClick={() => requestSort('sector')}
-                    className="hover:bg-transparent pl-0 pr-1 "
+                    className="hover:bg-transparent pl-0 pr-1"
                   >
                     Sector
                     <ArrowUpDown className="ml-2 h-4 w-4" />
