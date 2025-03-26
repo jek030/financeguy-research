@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
-import { ScrollArea } from '@/components/ui/ScrollArea';
 import { DatePicker } from '@/components/ui/date-picker';
 import { addYears, format } from 'date-fns';
 import { ArrowUpDown } from 'lucide-react';
