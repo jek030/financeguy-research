@@ -103,7 +103,7 @@ const PriceHistoryComponent: React.FC<PriceHistoryComponentProps> = ({ priceHist
                       className="hover:bg-transparent pl-0 pr-1 text-xs"
                     >
                       Date
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                      <ArrowUpDown className="ml-2 h-4 w-4" / >
                     </Button>
                   </TableHead>
                   <TableHead>Open</TableHead>
@@ -154,11 +154,8 @@ const PriceHistoryComponent: React.FC<PriceHistoryComponentProps> = ({ priceHist
                       <TableCell colSpan={9} className="text-center">No price history available</TableCell>
                     </TableRow>
                   )}
-                </TableBody>
-                
-              </Table>
-            
-            
+                </TableBody>             
+              </Table>          
           </div>
         )}
       </CardContent>

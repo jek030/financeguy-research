@@ -265,13 +265,21 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                   {companyData.profile.sector && (
                     <div>
                       <h3 className="text-sm font-medium text-muted-foreground">Sector</h3>
-                      <p className="text-sm font-medium">{companyData.profile.sector}</p>
+                      <Link
+                      href={`/scans/sectors/${encodeURIComponent(companyData.profile.sector)}`}
+                      className="hover:underline text-blue-600 dark:text-blue-400">
+                        <p className="text-sm font-medium">{companyData.profile.sector}</p>
+                      </Link>
                     </div>
                   )}
                   {companyData.profile.industry && (
                     <div>
                       <h3 className="text-sm font-medium text-muted-foreground">Industry</h3>
+                      <Link
+                      href={`/scans/sectors/${encodeURIComponent(companyData.profile.sector)}/industry/${encodeURIComponent(companyData.profile.industry)}`}
+                      className="hover:underline text-blue-600 dark:text-blue-400">
                       <p className="text-sm font-medium">{companyData.profile.industry}</p>
+                      </Link>
                     </div>
                   )}
                   {companyData.profile.ceo && (
@@ -309,15 +317,15 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
               <div className="space-y-4">
                 {companyData.profile.website && (
                   <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Website</h3>
-                    <a 
-                      href={companyData.profile.website}
+                    <h3 className="text-sm font-medium text-muted-foreground">Website</h3>             
+                    <Link 
+                    className="hover:underline text-blue-600 dark:text-blue-400 text-sm"
+                    href={companyData.profile.website}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 text-sm break-all"
-                    >
-                      {companyData.profile.website}
-                    </a>
+                  >
+                    {companyData.profile.website}
+                  </Link>
                   </div>
                 )}
                 <div className="flex gap-2">
