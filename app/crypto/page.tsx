@@ -321,7 +321,7 @@ export default function CryptoPage() {
               <Table className="w-full">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="sticky">Name</TableHead>
+                    <TableHead className="sticky left-0 bg-background">Name</TableHead>
                     <TableHead>Price</TableHead>
                     <TableHead>24h Change (%)</TableHead>
                     <TableHead>24h Change ($)</TableHead>
@@ -352,7 +352,7 @@ export default function CryptoPage() {
                       
                       return (
                         <TableRow key={crypto.symbol} className="group">
-                          <TableCell className="text-xs sticky left-0 bg-background z-10 w-[180px]">
+                          <TableCell className="sticky left-0 bg-background">
                             <div className="flex items-center gap-2">
                               {data.name}                         
                             </div>

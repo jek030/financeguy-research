@@ -45,7 +45,7 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
 
   return (
     <TableRow key={`${symbol}-${watchlistId}`} className="group">
-      <TableCell className="sticky left-0 bg-background z-10 w-[180px]">
+      <TableCell className="sticky left-0 bg-background">
         <div className="flex items-center gap-2">
           <Link 
             href={`/search/${symbol}`}
@@ -321,7 +321,7 @@ export function WatchlistDetail({
             <Table className="w-full">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="sticky">Symbol</TableHead>
+                  <TableHead className="sticky left-0 bg-background">Symbol</TableHead>
                   <TableHead>Price</TableHead>
                   <TableHead>Change ($)</TableHead>
                   <TableHead>Change (%)</TableHead>

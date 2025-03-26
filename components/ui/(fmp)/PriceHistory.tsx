@@ -93,42 +93,39 @@ const PriceHistoryComponent: React.FC<PriceHistoryComponentProps> = ({ priceHist
             No price history available
           </div>
         ) : (
-          <div className="relative border rounded-md">
-            <Table>
+          <div className="h-[600px] overflow-auto -mx-2 px-2 sm:mx-0 sm:px-0 relative">
+            <Table className="w-full">
               <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs w-[120px]">
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="sticky left-0 bg-background">
                     <Button
                       variant="ghost"
                       onClick={() => handleSort('date')}
-                      className="h-8 flex items-center gap-1 text-xs"
+                      className="hover:bg-transparent pl-0 pr-1 text-xs"
                     >
                       Date
-                      <ArrowUpDown className="h-4 w-4" />
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
                   </TableHead>
-                  <TableHead className="text-xs text-right w-[100px]">Open</TableHead>
-                  <TableHead className="text-xs text-right w-[100px]">High</TableHead>
-                  <TableHead className="text-xs text-right w-[100px]">Low</TableHead>
-                  <TableHead className="text-xs text-right w-[100px]">Close</TableHead>
-                  <TableHead className="text-xs text-right w-[100px]">Adj Close</TableHead>
-                  <TableHead className="text-xs text-right w-[100px]">Volume</TableHead>
-                  <TableHead className="text-xs text-right w-[100px]">Day Change</TableHead>
-                  <TableHead className="text-xs text-right w-[120px]">
+                  <TableHead>Open</TableHead>
+                  <TableHead>High</TableHead>
+                  <TableHead>Low</TableHead>
+                  <TableHead>Close</TableHead>
+                  <TableHead>Adj Close</TableHead>
+                  <TableHead>Volume</TableHead>
+                  <TableHead>Day Change</TableHead>
+                  <TableHead>
                     <Button
                       variant="ghost"
                       onClick={() => handleSort('changePercent')} 
-                      className="h-8 w-full flex items-center justify-end gap-1 text-xs"
+                      className="hover:bg-transparent pl-0 pr-1 text-xs"
                     >
                       Day Change %
-                      <ArrowUpDown className="h-4 w-4" />
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
                     </Button>
                   </TableHead>
                 </TableRow>
               </TableHeader>
-            </Table>
-            <ScrollArea className="h-[600px]">
-              <Table>
                 <TableBody>
                   {Array.isArray(sortedPriceHistory) && sortedPriceHistory.length > 0 ? (
                     sortedPriceHistory.map((price) => {
@@ -136,18 +133,18 @@ const PriceHistoryComponent: React.FC<PriceHistoryComponentProps> = ({ priceHist
                       const changePercent = (change / price.open) * 100;
                       
                       return (
-                        <TableRow key={price.date}>
-                          <TableCell className="text-xs w-[110px]">{formatDate(price.date)}</TableCell>
-                          <TableCell className="text-xs text-right w-[100px]">${price.open.toFixed(2)}</TableCell>
-                          <TableCell className="text-xs text-right w-[100px]">${price.high.toFixed(2)}</TableCell>
-                          <TableCell className="text-xs text-right w-[100px]">${price.low.toFixed(2)}</TableCell>
-                          <TableCell className="text-xs text-right w-[100px]">${price.close.toFixed(2)}</TableCell>
-                          <TableCell className="text-xs text-right w-[100px]">${price.adjClose.toFixed(2)}</TableCell>
-                          <TableCell className="text-xs text-right w-[100px]">{price.volume.toLocaleString()}</TableCell>
-                          <TableCell className={`text-xs text-right w-[100px] ${change >= 0 ? 'text-positive' : 'text-negative'}`}>
+                        <TableRow key={price.date} className="group">
+                          <TableCell className="sticky left-0 bg-background">{formatDate(price.date)}</TableCell>
+                          <TableCell>${price.open.toFixed(2)}</TableCell>
+                          <TableCell>${price.high.toFixed(2)}</TableCell>
+                          <TableCell>${price.low.toFixed(2)}</TableCell>
+                          <TableCell>${price.close.toFixed(2)}</TableCell>
+                          <TableCell>${price.adjClose.toFixed(2)}</TableCell>
+                          <TableCell>{price.volume.toLocaleString()}</TableCell>
+                          <TableCell className={`${change >= 0 ? 'text-positive' : 'text-negative'}`}>
                             ${Math.abs(change).toFixed(2)}
                           </TableCell>
-                          <TableCell className={`text-xs text-right w-[120px] ${changePercent >= 0 ? 'text-positive' : 'text-negative'}`}>
+                          <TableCell className={`${changePercent >= 0 ? 'text-positive' : 'text-negative'}`}>
                             {changePercent >= 0 ? '+' : '-'}{Math.abs(changePercent).toFixed(2)}%
                           </TableCell>
                         </TableRow>
@@ -159,8 +156,10 @@ const PriceHistoryComponent: React.FC<PriceHistoryComponentProps> = ({ priceHist
                     </TableRow>
                   )}
                 </TableBody>
+                
               </Table>
-            </ScrollArea>
+            
+            
           </div>
         )}
       </CardContent>

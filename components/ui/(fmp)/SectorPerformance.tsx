@@ -78,11 +78,11 @@ export default function SectorPerformance() {
           <Table className="w-full">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead>
+                <TableHead className="sticky left-0 bg-background">
                   <Button
                     variant="ghost"
                     onClick={() => requestSort('sector')}
-                    className="hover:bg-transparent pl-0 pr-1"
+                    className="hover:bg-transparent pl-0 pr-1 text-xs"
                   >
                     Sector
                     <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -92,7 +92,7 @@ export default function SectorPerformance() {
                   <Button
                     variant="ghost"
                     onClick={() => requestSort('changesPercentage')}
-                    className="hover:bg-transparent pl-0 pr-1"
+                    className="hover:bg-transparent pl-0 pr-1 text-xs"
                   >
                     Performance
                     <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -103,7 +103,7 @@ export default function SectorPerformance() {
             <TableBody>
               {sortedData.map((item, index) => (
                 <TableRow key={index} className="group">
-                  <TableCell>
+                  <TableCell className="sticky left-0 bg-background">
                     <Link
                       href={`/scans/sectors/${encodeURIComponent(item.sector)}`}
                       className="hover:underline text-blue-600 dark:text-blue-400">

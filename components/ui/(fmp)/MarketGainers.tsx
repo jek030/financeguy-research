@@ -103,12 +103,12 @@ export default function MarketGainers() {
         <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
           <Table className="w-full">
             <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="sticky">
+            <TableRow className="hover:bg-transparent">
+            <TableHead className="sticky left-0 bg-background">
                   <Button
                     variant="ghost"
                     onClick={() => requestSort('symbol')}
-                    className="hover:bg-transparent pl-0 pr-1"
+                    className="hover:bg-transparent pl-0 pr-1 text-xs"
                   >
                     Symbol
                     <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -118,7 +118,7 @@ export default function MarketGainers() {
                   <Button
                     variant="ghost"
                     onClick={() => requestSort('name')}
-                    className="hover:bg-transparent pl-0 pr-1"
+                    className="hover:bg-transparent pl-0 pr-1 text-xs"
                   >
                     Name
                     <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -128,7 +128,7 @@ export default function MarketGainers() {
                   <Button
                     variant="ghost"
                     onClick={() => requestSort('price')}
-                    className="hover:bg-transparent pl-0 pr-1"
+                    className="hover:bg-transparent pl-0 pr-1 text-xs"
                   >
                     Price
                     <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -138,7 +138,7 @@ export default function MarketGainers() {
                   <Button
                     variant="ghost"
                     onClick={() => requestSort('change')}
-                    className="hover:bg-transparent pl-0 pr-1"
+                    className="hover:bg-transparent pl-0 pr-1 text-xs"
                   >
                     Chg ($)
                     <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -148,7 +148,7 @@ export default function MarketGainers() {
                   <Button
                     variant="ghost"
                     onClick={() => requestSort('changesPercentage')}
-                    className="hover:bg-transparent pl-0 pr-1"
+                    className="hover:bg-transparent pl-0 pr-1 text-xs"
                   >
                     Chg (%)
                     <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -159,7 +159,7 @@ export default function MarketGainers() {
             <TableBody>
               {sortedData.map((item, index) => (
                 <TableRow key={index} className="group">
-                  <TableCell>
+                  <TableCell className="sticky left-0 bg-background">
                   <Link
                       href={`/search/${encodeURIComponent(item.symbol)}`}
                       className="hover:underline text-blue-600 dark:text-blue-400">
