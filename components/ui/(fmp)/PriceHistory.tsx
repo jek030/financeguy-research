@@ -92,70 +92,68 @@ const PriceHistoryComponent: React.FC<PriceHistoryComponentProps> = ({ priceHist
             No price history available
           </div>
         ) : (
-          <div className="h-[600px] overflow-auto -mx-2 px-2 sm:mx-0 sm:px-0 relative">
-            <Table className="w-full">
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="sticky left-0 bg-background">
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('date')}
-                      className="hover:bg-transparent pl-0 pr-1 text-xs"
-                    >
-                      Date
-                      <ArrowUpDown className="ml-2 h-4 w-4" / >
-                    </Button>
-                  </TableHead>
-                  <TableHead>Open</TableHead>
-                  <TableHead>High</TableHead>
-                  <TableHead>Low</TableHead>
-                  <TableHead>Close</TableHead>
-                  <TableHead>Adj Close</TableHead>
-                  <TableHead>Volume</TableHead>
-                  <TableHead>Day Change</TableHead>
-                  <TableHead>
-                    <Button
-                      variant="ghost"
-                      onClick={() => handleSort('changePercent')} 
-                      className="hover:bg-transparent pl-0 pr-1 text-xs"
-                    >
-                      Day Change %
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
+          <div className="relative border rounded-lg">
+            <div className="h-[600px] overflow-auto">
+              <Table>
+                <TableHeader className="sticky top-0 bg-background z-20">
+                  <TableRow>
+                    <TableHead className="sticky left-0 top-0 bg-background z-30">
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleSort('date')}
+                        className="hover:bg-transparent pl-0 pr-1 text-xs"
+                      >
+                        Date
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead>
+                    <TableHead className="bg-background">Open</TableHead>
+                    <TableHead className="bg-background">High</TableHead>
+                    <TableHead className="bg-background">Low</TableHead>
+                    <TableHead className="bg-background">Close</TableHead>
+                    <TableHead className="bg-background">Adj Close</TableHead>
+                    <TableHead className="bg-background">Volume</TableHead>
+                    <TableHead className="bg-background">Day Change</TableHead>
+                    <TableHead className="bg-background">
+                      <Button
+                        variant="ghost"
+                        onClick={() => handleSort('changePercent')} 
+                        className="hover:bg-transparent pl-0 pr-1 text-xs"
+                      >
+                        Day Change %
+                        <ArrowUpDown className="ml-2 h-4 w-4" />
+                      </Button>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
                 <TableBody>
-                  {Array.isArray(sortedPriceHistory) && sortedPriceHistory.length > 0 ? (
-                    sortedPriceHistory.map((price) => {
-                      const change = price.close - price.open;
-                      const changePercent = (change / price.open) * 100;
-                      
-                      return (
-                        <TableRow key={price.date} className="group">
-                          <TableCell className="sticky left-0 bg-background">{formatDate(price.date)}</TableCell>
-                          <TableCell>${price.open.toFixed(2)}</TableCell>
-                          <TableCell>${price.high.toFixed(2)}</TableCell>
-                          <TableCell>${price.low.toFixed(2)}</TableCell>
-                          <TableCell>${price.close.toFixed(2)}</TableCell>
-                          <TableCell>${price.adjClose.toFixed(2)}</TableCell>
-                          <TableCell>{price.volume.toLocaleString()}</TableCell>
-                          <TableCell className={`${change >= 0 ? 'text-positive' : 'text-negative'}`}>
-                            ${Math.abs(change).toFixed(2)}
-                          </TableCell>
-                          <TableCell className={`${changePercent >= 0 ? 'text-positive' : 'text-negative'}`}>
-                            {changePercent >= 0 ? '+' : '-'}{Math.abs(changePercent).toFixed(2)}%
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={9} className="text-center">No price history available</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>             
-              </Table>          
+                  {sortedPriceHistory.map((price) => {
+                    const change = price.close - price.open;
+                    const changePercent = (change / price.open) * 100;
+                    
+                    return (
+                      <TableRow key={price.date}>
+                        <TableCell className="sticky left-0 bg-background z-10">
+                          {formatDate(price.date)}
+                        </TableCell>
+                        <TableCell>${price.open.toFixed(2)}</TableCell>
+                        <TableCell>${price.high.toFixed(2)}</TableCell>
+                        <TableCell>${price.low.toFixed(2)}</TableCell>
+                        <TableCell>${price.close.toFixed(2)}</TableCell>
+                        <TableCell>${price.adjClose.toFixed(2)}</TableCell>
+                        <TableCell>{price.volume.toLocaleString()}</TableCell>
+                        <TableCell className={`${change >= 0 ? 'text-positive' : 'text-negative'}`}>
+                          ${Math.abs(change).toFixed(2)}
+                        </TableCell>
+                        <TableCell className={`${changePercent >= 0 ? 'text-positive' : 'text-negative'}`}>
+                          {changePercent >= 0 ? '+' : '-'}{Math.abs(changePercent).toFixed(2)}%
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )}
       </CardContent>
