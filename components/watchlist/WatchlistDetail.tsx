@@ -20,18 +20,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useQueries } from '@tanstack/react-query';
 import type { Ticker, CompanyProfile } from '@/lib/types';
-
-// Add a function to format market cap
-function formatMarketCap(marketCap: number): string {
-  if (marketCap >= 1e12) {
-    return `${(marketCap / 1e12).toFixed(2)}tln`;
-  } else if (marketCap >= 1e9) {
-    return `${(marketCap / 1e9).toFixed(2)}bln`;
-  } else if (marketCap >= 1e6) {
-    return `${(marketCap / 1e6).toFixed(2)}mln`;
-  }
-  return formatNumber(marketCap);
-}
+import { formatMarketCap } from '@/lib/utils';
 
 // Add a function to format date
 function formatEarningsDate(dateString: string): string {
@@ -56,8 +45,8 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
 
   return (
     <TableRow key={`${symbol}-${watchlistId}`} className="group">
-      <TableCell className="py-1.5 sm:py-2">
-        <div className="flex items-center gap-1">
+      <TableCell className="font-medium sticky left-0 bg-background z-10 w-[180px]">
+        <div className="flex items-center gap-2">
           <Link 
             href={`/search/${symbol}`}
             className="font-medium hover:underline text-blue-600 dark:text-blue-400 text-xs sm:text-sm"
@@ -66,10 +55,10 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
           </Link>
         </div>
       </TableCell>
-      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2">
+      <TableCell className="text-xs">
         {!isQuoteLoading && quote ? `$${formatNumber(quote.price)}` : "-"}
       </TableCell>
-      <TableCell className="whitespace-nowrap py-1.5 sm:py-2">
+      <TableCell className="text-xs">
         {!isQuoteLoading && quote ? (
           <span className={cn(
             "font-medium text-xs sm:text-sm",
@@ -79,7 +68,7 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
           </span>
         ) : "-"}
       </TableCell>
-      <TableCell className="whitespace-nowrap py-1.5 sm:py-2">
+      <TableCell className="text-xs">
         {!isQuoteLoading && quote ? (
           <span className={cn(
             "font-medium text-xs sm:text-sm",
@@ -89,13 +78,13 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
           </span>
         ) : "-"}
       </TableCell>
-      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2 hidden sm:table-cell">
+      <TableCell className="text-xs">
         {!isQuoteLoading && quote ? formatNumber(quote.volume) : "-"}
       </TableCell>
-      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2 hidden sm:table-cell">
+      <TableCell className="text-xs">
         {!isQuoteLoading && quote ? formatMarketCap(quote.marketCap) : "-"}
       </TableCell>
-      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2 hidden md:table-cell">
+      <TableCell className="text-xs">
         {!isProfileLoading && profile && profile.sector ? (
           <Link 
             href={`/scans/sectors/${encodeURIComponent(profile.sector)}`}
@@ -105,7 +94,7 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
           </Link>
         ) : "-"}
       </TableCell>
-      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2 hidden md:table-cell">
+      <TableCell className="text-xs">
         {!isProfileLoading && profile && profile.sector && profile.industry ? (
           <Link 
             href={`/scans/sectors/${encodeURIComponent(profile.sector)}/industry/${encodeURIComponent(profile.industry)}`}
@@ -115,10 +104,10 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
           </Link>
         ) : "-"}
       </TableCell>
-      <TableCell className="font-medium text-xs sm:text-sm whitespace-nowrap py-1.5 sm:py-2 hidden lg:table-cell">
+      <TableCell className="text-xs">
         {!isQuoteLoading && quote ? formatEarningsDate(quote.earningsAnnouncement) : "-"}
       </TableCell>
-      <TableCell className="py-1.5 sm:py-2">
+      <TableCell className="text-xs">
         <Button
           variant="ghost"
           size="icon"
@@ -335,16 +324,15 @@ export function WatchlistDetail({
             <Table className="w-full">
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Symbol</TableHead>
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Price</TableHead>
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Change ($)</TableHead>
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3">Change (%)</TableHead>
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3 hidden sm:table-cell">Volume</TableHead>
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3 hidden sm:table-cell">Market Cap</TableHead>
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3 hidden md:table-cell">Sector</TableHead>
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3 hidden md:table-cell">Industry</TableHead>
-                  <TableHead className="font-semibold text-xs sm:text-sm whitespace-nowrap py-2 sm:py-3 hidden lg:table-cell">Next Earnings</TableHead>
-                  <TableHead className="w-[35px] sm:w-[45px] py-2 sm:py-3"></TableHead>
+                  <TableHead className="sticky left-0 bg-background z-10 w-[180px]">Symbol</TableHead>
+                  <TableHead>Price</TableHead>
+                  <TableHead>Change ($)</TableHead>
+                  <TableHead>Change (%)</TableHead>
+                  <TableHead>Volume</TableHead>
+                  <TableHead>Market Cap</TableHead> 
+                  <TableHead>Sector</TableHead>
+                  <TableHead>Industry</TableHead>
+                  <TableHead>Next Earnings</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
