@@ -2,13 +2,12 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import {Building2, Users, DollarSign, PieChart, Activity, ChevronDown, ChevronUp, Calculator} from 'lucide-react';
+import {Building2, Users, DollarSign, PieChart, Activity, ChevronDown, ChevronUp, Calculator, ArrowUp, ArrowDown} from 'lucide-react';
 import { addYears } from 'date-fns';
 
 //UI Components
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { Badge } from '@/components/ui/Badge';
 import { Financials } from '@/components/ui/(fmp)/Financials';
 import { cn } from '@/lib/utils';
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -199,13 +198,25 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                   </h2>
                   {quote?.change && (
                     <div className="flex gap-1.5 mt-1 sm:mt-0">
-                      <Badge variant={quote.change >= 0 ? "positive" : "destructive"}>
-                        {quote.change >= 0 ? '+' : ''}{safeFormat(quote.change)}
-                      </Badge>
-                      <Badge variant={quote.changesPercentage ? (quote.changesPercentage >= 0 ? "positive" : "destructive") : "secondary"}>
-                        {quote.changesPercentage ? (quote.changesPercentage >= 0 ? '+' : '') : ''}
-                        {quote.changesPercentage ? safeFormat(quote.changesPercentage) : 'N/A'}%
-                      </Badge>
+                      <div className={cn(
+                        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm font-medium",
+                        quote.change >= 0 ? "bg-positive/10 text-positive" : "bg-negative/10 text-negative"
+                      )}>
+                        {quote.change >= 0 ? (
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        ) : (
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        )}
+                        ${Math.abs(quote.change).toFixed(2)}
+                      </div>
+                      <div className={cn(
+                        "inline-flex items-center rounded-full px-2 py-1 text-sm font-medium",
+                        quote.changesPercentage >= 0 ? "bg-positive/10 text-positive" : "bg-negative/10 text-negative"
+                      )}>
+                        {quote.changesPercentage ? (
+                          `${quote.changesPercentage >= 0 ? '+' : ''}${quote.changesPercentage.toFixed(2)}%`
+                        ) : 'N/A'}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -371,7 +382,10 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                   <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
                   <div className="text-right">
                     <span className="font-medium">${safeFormat(quote.yearLow)}</span>
-                    <div className="text-xs text-green-600">
+                    <div className={cn(
+                      "text-xs font-medium px-1.5 py-0.5 rounded-full inline-block mt-1",
+                      "bg-positive/10 text-positive"
+                    )}>
                       +{((quote.price - quote.yearLow) / quote.yearLow * 100).toFixed(2)}%
                     </div>
                   </div>
@@ -381,7 +395,10 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                   <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
                   <div className="text-right">
                     <span className="font-medium">${safeFormat(quote.yearHigh)}</span>
-                    <div className="text-xs text-red-600">
+                    <div className={cn(
+                      "text-xs font-medium px-1.5 py-0.5 rounded-full inline-block mt-1",
+                      "bg-negative/10 text-negative"
+                    )}>
                       {((quote.price - quote.yearHigh) / quote.yearHigh * 100).toFixed(2)}%
                     </div>
                   </div>
