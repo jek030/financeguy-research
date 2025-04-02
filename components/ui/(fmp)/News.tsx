@@ -30,38 +30,45 @@ export const News: React.FC<NewsProps> = ({ symbol }) => {
     <Card>
       <CardHeader>
         <CardTitle>News</CardTitle>
-        <div className="flex items-end gap-4">
-          <div className="flex-1">
-            <label htmlFor="startDate" className="block text-sm font-medium text-gray-700 mb-1">
-              Start Date
-            </label>
-            <Input
-              id="startDate"
-              type="date"
-              value={newsStartDate}
-              onChange={(e) => setNewsStartDate(e.target.value)}
-              max={newsEndDate}
-            />
+        <div className="flex justify-start">
+          <div className="grid grid-cols-2 sm:grid-cols-[200px,200px,auto] gap-2">
+            <div>
+              <label htmlFor="startDate" className="block text-sm font-medium text-muted-foreground mb-1.5">
+                Start Date
+              </label>
+              <Input
+                id="startDate"
+                type="date"
+                value={newsStartDate}
+                onChange={(e) => setNewsStartDate(e.target.value)}
+                max={newsEndDate}
+                className="h-9"
+              />
+            </div>
+            <div>
+              <label htmlFor="endDate" className="block text-sm font-medium text-muted-foreground mb-1.5">
+                End Date
+              </label>
+              <Input
+                id="endDate"
+                type="date"
+                value={newsEndDate}
+                onChange={(e) => setNewsEndDate(e.target.value)}
+                min={newsStartDate}
+                max={new Date().toISOString().split('T')[0]}
+                className="h-9"
+              />
+            </div>
+            <div className="col-span-2 sm:col-span-1 flex items-end">
+              <Button 
+                onClick={() => setNewsTrigger(prev => prev + 1)}
+                disabled={newsLoading}
+                className="h-9 px-4"
+              >
+                {newsLoading ? 'Searching...' : 'Search News'}
+              </Button>
+            </div>
           </div>
-          <div className="flex-1">
-            <label htmlFor="endDate" className="block text-sm font-medium text-gray-700 mb-1">
-              End Date
-            </label>
-            <Input
-              id="endDate"
-              type="date"
-              value={newsEndDate}
-              onChange={(e) => setNewsEndDate(e.target.value)}
-              min={newsStartDate}
-              max={new Date().toISOString().split('T')[0]}
-            />
-          </div>
-          <Button 
-            onClick={() => setNewsTrigger(prev => prev + 1)}
-            disabled={newsLoading}
-          >
-            {newsLoading ? 'Searching...' : 'Search News'}
-          </Button>
         </div>
       </CardHeader>
       <CardContent>

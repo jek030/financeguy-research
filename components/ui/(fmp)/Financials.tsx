@@ -3,7 +3,6 @@ import React from 'react';
 import type { CompanyOutlook } from '@/lib/types';
 //UI Components
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
-import { ScrollArea } from '@/components/ui/ScrollArea';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from "@/components/ui/Table";
 import {BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer} from 'recharts';
 
@@ -49,15 +48,15 @@ export const Financials: React.FC<FinancialsProps> = ({ companyData }) => {
   }, [companyData?.financialsAnnual?.income]);
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-2">
       {/* Performance Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         {/* Quarterly Performance */}
-        <Card className="border-border">
+        <Card >
           <CardHeader>
-            <CardTitle className="text-foreground">Quarterly Performance</CardTitle>
+            <CardTitle>Quarterly Performance</CardTitle>
           </CardHeader>
-          <CardContent className="text-muted-foreground">
+          <CardContent>
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={quarterlyData}>
@@ -80,11 +79,11 @@ export const Financials: React.FC<FinancialsProps> = ({ companyData }) => {
         </Card>
 
         {/* Annual Performance */}
-        <Card className="border-border">
+        <Card >
           <CardHeader>
-            <CardTitle className="text-foreground">Annual Performance</CardTitle>
+            <CardTitle>Annual Performance</CardTitle>
           </CardHeader>
-          <CardContent className="text-muted-foreground">
+          <CardContent>
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={annualData}>
@@ -108,23 +107,24 @@ export const Financials: React.FC<FinancialsProps> = ({ companyData }) => {
       </div>
 
       {/* Financial Tables */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
         {/* Quarterly Income Statement */}
-        <Card className="border-border">
+        <Card>
           <CardHeader>
-            <CardTitle className="text-foreground">Quarterly Income Statements</CardTitle>
+            <CardTitle>Quarterly Income Statements</CardTitle>
             <CardDescription>Last 5 quarters</CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[300px]">
+            <div className="relative border rounded-lg">
+            <div className="overflow-auto">
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 bg-background z-20">
                   <TableRow>
                     <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Revenue</TableHead>
-                    <TableHead className="text-right">Gross Profit</TableHead>
-                    <TableHead className="text-right">Net Income</TableHead>
-                    <TableHead className="text-right">EPS</TableHead>
+                    <TableHead>Revenue</TableHead>
+                    <TableHead>Gross Profit</TableHead>
+                    <TableHead>Net Income</TableHead>
+                    <TableHead>EPS</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -141,10 +141,10 @@ export const Financials: React.FC<FinancialsProps> = ({ companyData }) => {
                             {new Date(quarter.date).toLocaleDateString()}
                           </a>
                         </TableCell>
-                        <TableCell className="text-right">${(quarter.revenue / 1e9).toFixed(2)}B</TableCell>
-                        <TableCell className="text-right">${(quarter.grossProfit / 1e9).toFixed(2)}B</TableCell>
-                        <TableCell className="text-right">${(quarter.netIncome / 1e9).toFixed(2)}B</TableCell>
-                        <TableCell className="text-right">${quarter.eps.toFixed(2)}</TableCell>
+                        <TableCell>${(quarter.revenue / 1e9).toFixed(2)}B</TableCell>
+                        <TableCell>${(quarter.grossProfit / 1e9).toFixed(2)}B</TableCell>
+                        <TableCell>${(quarter.netIncome / 1e9).toFixed(2)}B</TableCell>
+                        <TableCell>${quarter.eps.toFixed(2)}</TableCell>
                       </TableRow>
                     ))
                   ) : (
@@ -154,26 +154,28 @@ export const Financials: React.FC<FinancialsProps> = ({ companyData }) => {
                   )}
                 </TableBody>
               </Table>
-            </ScrollArea>
+            </div>
+            </div>
           </CardContent>
         </Card>
 
         {/* Annual Income Statement */}
-        <Card className="border-border">
+        <Card>
           <CardHeader>
-            <CardTitle className="text-foreground">Annual Income Statements</CardTitle>
+            <CardTitle>Annual Income Statements</CardTitle>
             <CardDescription>Last 5 years</CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[300px]">
+            <div className="relative border rounded-lg">
+            <div className="overflow-auto">              
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Year</TableHead>
-                    <TableHead className="text-right">Revenue</TableHead>
-                    <TableHead className="text-right">Gross Profit</TableHead>
-                    <TableHead className="text-right">Net Income</TableHead>
-                    <TableHead className="text-right">EPS</TableHead>
+                    <TableHead>Revenue</TableHead>
+                    <TableHead>Gross Profit</TableHead>
+                    <TableHead>Net Income</TableHead>
+                    <TableHead>EPS</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -190,10 +192,10 @@ export const Financials: React.FC<FinancialsProps> = ({ companyData }) => {
                             {new Date(annual.date).getFullYear()}
                           </a>
                         </TableCell>
-                        <TableCell className="text-right">${(annual.revenue / 1e9).toFixed(2)}B</TableCell>
-                        <TableCell className="text-right">${(annual.grossProfit / 1e9).toFixed(2)}B</TableCell>
-                        <TableCell className="text-right">${(annual.netIncome / 1e9).toFixed(2)}B</TableCell>
-                        <TableCell className="text-right">${annual.eps.toFixed(2)}</TableCell>
+                        <TableCell>${(annual.revenue / 1e9).toFixed(2)}B</TableCell>
+                        <TableCell>${(annual.grossProfit / 1e9).toFixed(2)}B</TableCell>
+                        <TableCell>${(annual.netIncome / 1e9).toFixed(2)}B</TableCell>
+                        <TableCell>${annual.eps.toFixed(2)}</TableCell>
                       </TableRow>
                     ))
                   ) : (
@@ -203,7 +205,8 @@ export const Financials: React.FC<FinancialsProps> = ({ companyData }) => {
                   )}
                 </TableBody>
               </Table>
-            </ScrollArea>
+            </div>  
+            </div>
           </CardContent>
         </Card>
       </div>

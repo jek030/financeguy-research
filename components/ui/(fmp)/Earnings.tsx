@@ -2,7 +2,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
-import { ScrollArea } from '@/components/ui/ScrollArea';
 import { useEarnings } from '@/hooks/FMP/useEarnings';
 import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
@@ -36,17 +35,18 @@ function calculatePercentageChange(current: number, previous: number): number {
 }
 
 const AnnualTable: React.FC<{ data: IncomeStatement[] | undefined }> = ({ data = [] }) => (
-  <ScrollArea className="h-[600px]">
+  <div className="relative border rounded-lg">
+      <div className="h-[600px] overflow-auto">
     <Table>
-      <TableHeader>
+      <TableHeader className="sticky top-0 bg-background z-20">
         <TableRow>
-          <TableHead className="text-xs">Filing Date</TableHead>
-          <TableHead className="text-xs">Date</TableHead>
-          <TableHead className="text-xs text-right">Revenue</TableHead>
-          <TableHead className="text-xs text-right">Revenue % Chg</TableHead>
-          <TableHead className="text-xs text-right">Net Income</TableHead>
-          <TableHead className="text-xs text-right">EPS</TableHead>
-          <TableHead className="text-xs text-right">EPS % Chg</TableHead>
+          <TableHead>Filing Date</TableHead>
+          <TableHead>Date</TableHead>
+          <TableHead>Revenue</TableHead>
+          <TableHead>Revenue % Chg</TableHead>
+          <TableHead>Net Income</TableHead>
+          <TableHead>EPS</TableHead>
+          <TableHead>EPS % Chg</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -59,29 +59,29 @@ const AnnualTable: React.FC<{ data: IncomeStatement[] | undefined }> = ({ data =
             
             return (
               <TableRow key={statement.date}>
-                <TableCell className="text-xs">
+                <TableCell>
                   {format(new Date(statement.fillingDate), 'MM/dd/yyyy')}
                 </TableCell>
-                <TableCell className="text-xs">
+                <TableCell>
                   {format(new Date(statement.date), 'MM/dd/yyyy')}
                 </TableCell>
-                <TableCell className="text-xs text-right">
+                <TableCell>
                   {formatLargeNumber(statement.revenue)}
                 </TableCell>
                 <TableCell className={cn(
-                  "text-xs text-right",
+                  "",
                   revenueChange > 0 ? "text-positive" : revenueChange < 0 ? "text-negative" : ""
                 )}>
                   {revenueChange ? `${revenueChange > 0 ? '+' : ''}${revenueChange.toFixed(2)}%` : 'N/A'}
                 </TableCell>
-                <TableCell className="text-xs text-right">
+                <TableCell>
                   {formatLargeNumber(statement.netIncome)}
                 </TableCell>
-                <TableCell className="text-xs text-right">
+                <TableCell>
                   ${statement.eps.toFixed(2)}
                 </TableCell>
                 <TableCell className={cn(
-                  "text-xs text-right",
+                  "",
                   epsChange > 0 ? "text-positive" : epsChange < 0 ? "text-negative" : ""
                 )}>
                   {epsChange ? `${epsChange > 0 ? '+' : ''}${epsChange.toFixed(2)}%` : 'N/A'}
@@ -96,7 +96,8 @@ const AnnualTable: React.FC<{ data: IncomeStatement[] | undefined }> = ({ data =
         )}
       </TableBody>
     </Table>
-  </ScrollArea>
+    </div>
+    </div>
 );
 
 const QuarterlyTable: React.FC<{ data: IncomeStatement[] | undefined }> = ({ data = [] }) => {
@@ -113,18 +114,19 @@ const QuarterlyTable: React.FC<{ data: IncomeStatement[] | undefined }> = ({ dat
   };
 
   return (
-    <ScrollArea className="h-[600px]">
+    <div className="relative border rounded-lg">
+      <div className="h-[600px] overflow-auto">
       <Table>
-        <TableHeader>
+        <TableHeader className="sticky top-0 bg-background z-20">
           <TableRow>
-            <TableHead className="text-xs">Filing Date</TableHead>
-            <TableHead className="text-xs">Period</TableHead>
-            <TableHead className="text-xs">Date</TableHead>
-            <TableHead className="text-xs text-right">Revenue</TableHead>
-            <TableHead className="text-xs text-right">Revenue % YoY</TableHead>
-            <TableHead className="text-xs text-right">Net Income</TableHead>
-            <TableHead className="text-xs text-right">EPS</TableHead>
-            <TableHead className="text-xs text-right">EPS % YoY</TableHead>
+            <TableHead>Filing Date</TableHead>
+            <TableHead>Period</TableHead>
+            <TableHead>Date</TableHead>
+            <TableHead>Revenue</TableHead>
+            <TableHead>Revenue % YoY</TableHead>
+            <TableHead>Net Income</TableHead>
+            <TableHead>EPS</TableHead>
+            <TableHead>EPS % YoY</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -140,32 +142,32 @@ const QuarterlyTable: React.FC<{ data: IncomeStatement[] | undefined }> = ({ dat
               
               return (
                 <TableRow key={statement.date}>
-                  <TableCell className="text-xs">
+                  <TableCell>
                     {format(new Date(statement.fillingDate), 'MM/dd/yyyy')}
                   </TableCell>
-                  <TableCell className="text-xs">
+                  <TableCell>
                     {statement.period}
                   </TableCell>
-                  <TableCell className="text-xs">
+                  <TableCell>
                     {format(new Date(statement.date), 'MM/dd/yyyy')}
                   </TableCell>
-                  <TableCell className="text-xs text-right">
+                  <TableCell>
                     {formatLargeNumber(statement.revenue)}
                   </TableCell>
                   <TableCell className={cn(
-                    "text-xs text-right",
+                    "",
                     revenueChange > 0 ? "text-positive" : revenueChange < 0 ? "text-negative" : ""
                   )}>
                     {previousYearQuarter ? `${revenueChange > 0 ? '+' : ''}${revenueChange.toFixed(2)}%` : 'N/A'}
                   </TableCell>
-                  <TableCell className="text-xs text-right">
+                  <TableCell>
                     {formatLargeNumber(statement.netIncome)}
                   </TableCell>
-                  <TableCell className="text-xs text-right">
+                  <TableCell>
                     ${statement.eps.toFixed(2)}
                   </TableCell>
                   <TableCell className={cn(
-                    "text-xs text-right",
+                    "",
                     epsChange > 0 ? "text-positive" : epsChange < 0 ? "text-negative" : ""
                   )}>
                     {previousYearQuarter ? `${epsChange > 0 ? '+' : ''}${epsChange.toFixed(2)}%` : 'N/A'}
@@ -180,7 +182,8 @@ const QuarterlyTable: React.FC<{ data: IncomeStatement[] | undefined }> = ({ dat
           )}
         </TableBody>
       </Table>
-    </ScrollArea>
+    </div>  
+    </div>
   );
 };
 
