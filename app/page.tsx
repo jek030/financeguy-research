@@ -7,6 +7,7 @@ import { ArrowUp, ArrowDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMovingAverageData } from '@/hooks/FMP/useMovingAverage';
 import type { Ticker } from "@/lib/types";
+import SectorReturns from "@/components/SectorReturns";
 
 interface MovingAverageData {
   ma: number;
@@ -88,7 +89,7 @@ export default function Home() {
     const movingAverages = useMovingAverages(symbol, data?.price || 0);
 
     return (
-      <Card className="border border-border/40 bg-card/60 shadow-md hover:shadow-lg transition-shadow">
+      <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-xl font-medium text-foreground/90">{title} ({symbol})</CardTitle>
         </CardHeader>
@@ -254,6 +255,11 @@ export default function Home() {
             <MarketCard title="S&P 500 ETF" symbol="SPY" data={spyData} isLoading={isSpyLoading} />
             <MarketCard title="Nasdaq 100 ETF" symbol="QQQ" data={qqqData} isLoading={isQqqLoading} />
             <MarketCard title="Dow Jones ETF" symbol="DIA" data={diaData} isLoading={isDiaLoading} />
+          </div>
+          
+          {/* Sector Performance */}
+          <div className="mt-8">
+            <SectorReturns />
           </div>
         </div>
       </main>

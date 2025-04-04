@@ -91,6 +91,26 @@ func insertIntoSupabase(quote *Quote, supabaseUrl, supabaseKey string) error {
 }
 
 func main() {
+	// Check if backfill command was specified
+	if len(os.Args) > 1 && os.Args[1] == "backfill" {
+		BackfillCommand()
+		return
+	}
+
+	// Check if help was requested
+	if len(os.Args) > 1 && (os.Args[1] == "-h" || os.Args[1] == "--help") {
+		fmt.Println("Usage:")
+		fmt.Println("  go run . [command] [options]")
+		fmt.Println("\nCommands:")
+		fmt.Println("  (default)   Fetch and store today's data for all sectors")
+		fmt.Println("  backfill    Fetch and store historical data")
+		fmt.Println("\nOptions for backfill:")
+		fmt.Println("  [symbols]   Optional list of symbols to backfill (e.g., XLF XLE XLK)")
+		fmt.Println("              Default: All sector ETFs")
+		return
+	}
+
+	// Regular daily update
 	loadEnv()
 
 	fmpKey := os.Getenv("FMP_API_KEY")
@@ -100,7 +120,7 @@ func main() {
 		log.Fatal("Missing environment variables")
 	}
 
-	symbols := []string{"XLE", "XLC", "XLP", "XLV", "XLU", "XLRE", "XLI", "XLY", "XLB", "XLK"}
+	symbols := []string{"XLF", "XLE", "XLC", "XLP", "XLV", "XLU", "XLRE", "XLI", "XLY", "XLB", "XLK"}
 
 	for _, symbol := range symbols {
 		fmt.Printf("Fetching %s... ", symbol)

@@ -415,3 +415,18 @@ export interface EarningsCalendar {
   updatedFromDate: string;
   fiscalDateEnding: string;
 }
+
+// Sector types for the sectors table
+export interface Sector {
+  id: string;
+  created_at: string;
+  symbol: string;
+  date: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+  change: number;
+  changePercent: number;
+}
