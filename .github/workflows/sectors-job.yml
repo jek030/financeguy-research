@@ -20,13 +20,13 @@ jobs:
 
       - name: Build app
         run: |
-          cd sectorsJobs
+          cd sectorsJob
           go build -o sectors-job main.go
 
       
           
       - name: Run updater (directly with go run)
-        working-directory: sectorsJobs
+        working-directory: sectorsJob
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
