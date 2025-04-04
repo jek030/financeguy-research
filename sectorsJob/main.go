@@ -97,7 +97,7 @@ func main() {
 	supabaseUrl := os.Getenv("SUPABASE_URL")
 	supabaseKey := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
 	if fmpKey == "" || supabaseUrl == "" || supabaseKey == "" {
-		log.Fatal("Missing environment variables")cd 
+		log.Fatal("Missing environment variables")
 	}
 
 	symbols := []string{"XLE", "XLC", "XLP", "XLV", "XLU", "XLRE", "XLI", "XLY", "XLB", "XLK"}
