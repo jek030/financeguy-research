@@ -25,10 +25,10 @@ jobs:
 
       
           
-        - name: Run updater (directly with go run)
-          working-directory: sectorsJobs
-          env:
-            SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-            SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-            FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
-          run: go run main.go
+      - name: Run updater (directly with go run)
+        working-directory: sectorsJobs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
+        run: go run main.go
