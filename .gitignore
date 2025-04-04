@@ -42,3 +42,7 @@ supabase_rules.txt
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# sectorsJob
+sectorsJob/.env
+
