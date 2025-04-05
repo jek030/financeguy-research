@@ -2,7 +2,7 @@ name: Sectors Job (Daily ETF Updater)
 
 on:
   schedule:
-    - cron: '50 21 * * *' # 4:05 PM EST = 9:05 PM UTC
+    - cron: '5 22 * * *' # 4:05 PM EST = 9:05 PM UTC
   workflow_dispatch: # allows manual triggering
 
 jobs:
