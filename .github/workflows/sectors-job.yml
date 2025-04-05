@@ -21,7 +21,7 @@ jobs:
       - name: Build app
         run: |
           cd sectorsJob
-          go build -o sectors-job main.go
+          go build -o sectors-job
 
       
           
