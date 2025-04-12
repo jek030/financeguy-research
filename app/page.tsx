@@ -92,10 +92,10 @@ export default function Home() {
 
     return (
       <Card>
-        <CardHeader className="pb-1.5 pt-3 px-3">
+        <CardHeader className="pb-0 pt-2 px-2">
           <CardTitle className="text-base font-medium text-foreground/90">{title} ({symbol})</CardTitle>
         </CardHeader>
-        <CardContent className="px-3 pb-3">
+        <CardContent className="px-2 pb-2">
           {isLoading ? (
             <div className="flex items-center space-x-4 h-12">
               <div className="h-5 w-20 bg-muted animate-pulse rounded"></div>
@@ -119,10 +119,10 @@ export default function Home() {
                 </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-2 text-xs">
                 <div className="bg-background/50 p-1.5 rounded-lg">
                   <div className="flex items-center justify-between">
-                    <p className="text-muted-foreground font-medium">52-Week High</p>
+                    <p className="text-muted-foreground font-medium">52Wk High</p>
                     <span className={cn(
                       "text-[10px] font-medium px-1 py-0.5 rounded-full whitespace-nowrap",
                       data.price >= data.yearHigh ? "bg-positive/10 text-positive" : "bg-negative/10 text-negative"
@@ -134,7 +134,7 @@ export default function Home() {
                 </div>
                 <div className="bg-background/50 p-1.5 rounded-lg">
                   <div className="flex items-center justify-between">
-                    <p className="text-muted-foreground font-medium">52-Week Low</p>
+                    <p className="text-muted-foreground font-medium">52Wk Low</p>
                     <span className={cn(
                       "text-[10px] font-medium px-1 py-0.5 rounded-full whitespace-nowrap",
                       data.price >= data.yearLow ? "bg-positive/10 text-positive" : "bg-negative/10 text-negative"
@@ -147,9 +147,7 @@ export default function Home() {
               </div>
               
               {/* Moving Averages */}
-              <div className="space-y-1.5">
-                <p className="text-xs font-medium text-muted-foreground border-b pb-1">Moving Averages</p>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-3 gap-1">
                   {/* 21 EMA */}
                   {movingAverages.ema21.isLoading ? (
                     <div className="bg-muted/30 rounded-lg p-1.5 animate-pulse h-12"></div>
@@ -228,7 +226,6 @@ export default function Home() {
                     </div>
                   )}
                 </div>
-              </div>
             </div>
           ) : (
             <div className="text-sm text-muted-foreground">Unable to load {symbol} data</div>
