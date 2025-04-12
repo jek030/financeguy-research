@@ -1,7 +1,6 @@
 'use client';
 
 import { useQuote } from "@/hooks/FMP/useQuote";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/Select";
 import { cn } from "@/lib/utils";
