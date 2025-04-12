@@ -1,6 +1,5 @@
 'use client';
 
-import { useAuth } from "@/lib/context/auth-context";
 import { useQuote } from "@/hooks/FMP/useQuote";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
 import { ArrowUp, ArrowDown } from "lucide-react";
@@ -15,7 +14,6 @@ interface MovingAverageData {
 }
 
 export default function Home() {
-  const { user } = useAuth();
   const { data: spyData, isLoading: isSpyLoading } = useQuote("SPY");
   const { data: qqqData, isLoading: isQqqLoading } = useQuote("QQQ");
   const { data: diaData, isLoading: isDiaLoading } = useQuote("DIA");
@@ -239,28 +237,18 @@ export default function Home() {
   return (
     <div className="flex flex-col">
       <main className="flex-1 overflow-y-auto p-4 md:p-6">
+        {/* Market Data Cards - Constrained width */}
         <div className="max-w-7xl mx-auto space-y-8">
-          {/* Welcome Section */}
-          <div className="text-center md:text-left">
-            <h1 className="text-3xl font-bold text-foreground mb-2 tracking-tight">
-              {user ? `Welcome to Finance Guy, ${user.email}` : 'Welcome to Finance Guy'}
-            </h1>
-            <p className="text-muted-foreground text-lg">
-              Your research tool for investors. Search a company&apos;s ticker symbol to get started.
-            </p>
-          </div>
-
-          {/* Market Data Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
             <MarketCard title="S&P 500 ETF" symbol="SPY" data={spyData} isLoading={isSpyLoading} />
             <MarketCard title="Nasdaq 100 ETF" symbol="QQQ" data={qqqData} isLoading={isQqqLoading} />
             <MarketCard title="Dow Jones ETF" symbol="DIA" data={diaData} isLoading={isDiaLoading} />
           </div>
+        </div>
           
-          {/* Sector Performance */}
-          <div className="mt-8">
-            <SectorReturns />
-          </div>
+        {/* Sector Performance - Full width */}
+        <div className="mt-8 -mx-4 md:-mx-6 px-4 md:px-6">
+          <SectorReturns />
         </div>
       </main>
     </div>
