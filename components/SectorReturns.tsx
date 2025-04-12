@@ -14,7 +14,7 @@ export default function SectorReturns() {
     return (
       <div className="w-full grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {['1 WEEK PERFORMANCE', '1 MONTH PERFORMANCE', '3 MONTH PERFORMANCE', '6 MONTH PERFORMANCE'].map((title) => (
-          <Card key={title} className="w-full border border-border/40 bg-card/60 shadow-md hover:shadow-lg transition-shadow">
+          <Card key={title} className="w-full">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg font-medium text-foreground/90">{title}</CardTitle>
             </CardHeader>
@@ -29,7 +29,7 @@ export default function SectorReturns() {
 
   if (error) {
     return (
-      <Card className="w-full border border-border/40 bg-card/60 shadow-md hover:shadow-lg transition-shadow">
+      <Card className="w-full">
         <CardHeader className="pb-2">
           <CardTitle className="text-xl font-medium text-foreground/90">Sector Performance</CardTitle>
         </CardHeader>
@@ -47,7 +47,7 @@ export default function SectorReturns() {
   // Check if data is empty or not available
   if (!sectorData || sectorData.length === 0) {
     return (
-      <Card className="w-full border border-border/40 bg-card/60 shadow-md hover:shadow-lg transition-shadow">
+      <Card className="w-full">
         <CardHeader className="pb-2">
           <CardTitle className="text-xl font-medium text-foreground/90">Sector Performance</CardTitle>
         </CardHeader>
@@ -119,7 +119,7 @@ export default function SectorReturns() {
 
   return (
     <div className="w-full grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-      <Card className="w-full border border-border/40 bg-card/60 shadow-md hover:shadow-lg transition-shadow">
+      <Card className="w-full">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg font-medium text-foreground/90">1 Week Performance</CardTitle>
           {dateRanges && (
@@ -136,7 +136,7 @@ export default function SectorReturns() {
         </CardContent>
       </Card>
 
-      <Card className="w-full border border-border/40 bg-card/60 shadow-md hover:shadow-lg transition-shadow">
+      <Card className="w-full">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg font-medium text-foreground/90">1 Month Performance</CardTitle>
           {dateRanges && (
@@ -153,7 +153,7 @@ export default function SectorReturns() {
         </CardContent>
       </Card>
 
-      <Card className="w-full border border-border/40 bg-card/60 shadow-md hover:shadow-lg transition-shadow">
+      <Card className="w-full">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg font-medium text-foreground/90">3 Month Performance</CardTitle>
           {dateRanges && (
@@ -170,7 +170,7 @@ export default function SectorReturns() {
         </CardContent>
       </Card>
 
-      <Card className="w-full border border-border/40 bg-card/60 shadow-md hover:shadow-lg transition-shadow">
+      <Card className="w-full">
         <CardHeader className="pb-2">
           <CardTitle className="text-lg font-medium text-foreground/90">6 Month Performance</CardTitle>
           {dateRanges && (
