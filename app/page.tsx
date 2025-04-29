@@ -21,6 +21,7 @@ export default function Home() {
   const { data: slvData, isLoading: isSlvLoading } = useQuote("SLV");
   const { data: gldData, isLoading: isGldLoading } = useQuote("GLD");
   const { data: vixData, isLoading: isVixLoading } = useQuote("^VIX");
+  const { data: rspData, isLoading: isRspLoading } = useQuote("RSP");
 
   const formatNumber = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -252,6 +253,9 @@ export default function Home() {
                 </div>
                 <div className="flex-shrink-0 w-[280px] md:w-[300px]">
                   <MarketCard title="Dow Jones ETF" symbol="DIA" data={diaData} isLoading={isDiaLoading} />
+                </div>
+                <div className="flex-shrink-0 w-[280px] md:w-[300px]">
+                  <MarketCard title="Equal Weight S&P" symbol="RSP" data={rspData} isLoading={isRspLoading} />
                 </div>
                 <div className="flex-shrink-0 w-[280px] md:w-[300px]">
                   <MarketCard title="Silver ETF" symbol="SLV" data={slvData} isLoading={isSlvLoading} />
