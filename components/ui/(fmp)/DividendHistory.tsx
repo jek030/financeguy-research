@@ -2,7 +2,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
-import { ScrollArea } from '@/components/ui/ScrollArea';
 import { useDividendHistory } from '@/hooks/FMP/useDividendHistory';
 
 interface DividendHistoryProps {
