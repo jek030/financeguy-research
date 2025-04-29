@@ -2,7 +2,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
-import { ScrollArea } from '@/components/ui/ScrollArea';
 import type { CompanyOutlook } from '@/lib/types';
 
 interface ExecutivesProps {
@@ -20,33 +19,31 @@ export const Executives: React.FC<ExecutivesProps> = ({ companyData }) => {
         <CardTitle>Key Executives</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="relative border rounded-md">
+      <div className="relative border rounded-lg">
+      <div className="h-[600px] overflow-auto">
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 bg-background z-20">
               <TableRow>
-                <TableHead className="w-[200px]">Name</TableHead>
-                <TableHead className="w-[220px]">Title</TableHead>
-                <TableHead className="w-[100px] text-right">Pay</TableHead>
-                <TableHead className="w-[70px]">Gender</TableHead>
-                <TableHead className="w-[80px] text-right">Year Born</TableHead>
-                <TableHead className="w-[100px] text-right">Title Since</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Title</TableHead>
+                <TableHead>Pay</TableHead>
+                <TableHead>Gender</TableHead>
+                <TableHead>Year Born</TableHead>
+                <TableHead>Title Since</TableHead>
               </TableRow>
             </TableHeader>
-          </Table>
-          <ScrollArea className="h-[600px]">
-            <Table>
-              <TableBody>
+            <TableBody>
                 {Array.isArray(companyData.keyExecutives) && companyData.keyExecutives.length > 0 ? (
                   companyData.keyExecutives.map((executive, index) => (
                     <TableRow key={`${executive.name}-${index}`}>
-                      <TableCell className="w-[200px] font-medium">{executive.name}</TableCell>
-                      <TableCell className="w-[220px]">{executive.title}</TableCell>
-                      <TableCell className="w-[100px] text-right">
+                      <TableCell>{executive.name}</TableCell>
+                      <TableCell>{executive.title}</TableCell>
+                      <TableCell>
                         {executive.pay ? `$${formatLargeNumber(executive.pay)}` : 'N/A'}
                       </TableCell>
-                      <TableCell className="w-[70px]">{executive.gender || 'N/A'}</TableCell>
-                      <TableCell className="w-[80px] text-right">{executive.yearBorn || 'N/A'}</TableCell>
-                      <TableCell className="w-[100px] text-right">{executive.titleSince || 'N/A'}</TableCell>
+                      <TableCell>{executive.gender || 'N/A'}</TableCell>
+                      <TableCell>{executive.yearBorn || 'N/A'}</TableCell>
+                      <TableCell>{executive.titleSince || 'N/A'}</TableCell>
                     </TableRow>
                   ))
                 ) : (
@@ -56,7 +53,7 @@ export const Executives: React.FC<ExecutivesProps> = ({ companyData }) => {
                 )}
               </TableBody>
             </Table>
-          </ScrollArea>
+          </div>
         </div>
       </CardContent>
     </Card>
