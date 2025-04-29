@@ -27,16 +27,17 @@ export const DividendHistory: React.FC<DividendHistoryProps> = ({ symbol }) => {
             Error loading dividend history: {dividendError.message}
           </div>
         ) : (
-          <ScrollArea className="h-[600px]">
+          <div className="relative border rounded-lg">
+          <div className="h-[600px] overflow-auto">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 bg-background z-20">
                 <TableRow>
                   <TableHead>Declaration Date</TableHead>
                   <TableHead>Payment Date</TableHead>
-                  <TableHead className="text-right">Dividend</TableHead>
+                  <TableHead>Dividend</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Record Date</TableHead>
-                  <TableHead className="text-right">Adjusted Dividend</TableHead>
+                  <TableHead>Adjusted Dividend</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -45,10 +46,10 @@ export const DividendHistory: React.FC<DividendHistoryProps> = ({ symbol }) => {
                     <TableRow key={`${dividend.date}-${dividend.dividend}`}>
                       <TableCell>{dividend.declarationDate ? new Date(dividend.declarationDate).toLocaleDateString() : 'N/A'}</TableCell>
                       <TableCell>{dividend.paymentDate ? new Date(dividend.paymentDate).toLocaleDateString() : 'N/A'}</TableCell>
-                      <TableCell className="text-right">${dividend.dividend.toFixed(4)}</TableCell>
+                      <TableCell>${dividend.dividend.toFixed(4)}</TableCell>
                       <TableCell>{new Date(dividend.date).toLocaleDateString()}</TableCell>
                       <TableCell>{dividend.recordDate ? new Date(dividend.recordDate).toLocaleDateString() : 'N/A'}</TableCell>
-                      <TableCell className="text-right">${dividend.adjDividend.toFixed(4)}</TableCell>
+                      <TableCell>${dividend.adjDividend.toFixed(4)}</TableCell>
                     </TableRow>
                   ))
                 ) : (
@@ -58,7 +59,8 @@ export const DividendHistory: React.FC<DividendHistoryProps> = ({ symbol }) => {
                 )}
               </TableBody>
             </Table>
-          </ScrollArea>
+          </div>
+          </div>
         )}
       </CardContent>
     </Card>

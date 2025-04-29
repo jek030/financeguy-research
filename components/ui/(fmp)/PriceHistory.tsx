@@ -97,7 +97,7 @@ const PriceHistoryComponent: React.FC<PriceHistoryComponentProps> = ({ priceHist
               <Table>
                 <TableHeader className="sticky top-0 bg-background z-20">
                   <TableRow>
-                    <TableHead className="sticky left-0 top-0 bg-background z-30">
+                    <TableHead className="sticky left-0 bg-background top-0 z-30">
                       <Button
                         variant="ghost"
                         onClick={() => handleSort('date')}
@@ -107,14 +107,14 @@ const PriceHistoryComponent: React.FC<PriceHistoryComponentProps> = ({ priceHist
                         <ArrowUpDown className="ml-2 h-4 w-4" />
                       </Button>
                     </TableHead>
-                    <TableHead className="bg-background">Open</TableHead>
-                    <TableHead className="bg-background">High</TableHead>
-                    <TableHead className="bg-background">Low</TableHead>
-                    <TableHead className="bg-background">Close</TableHead>
-                    <TableHead className="bg-background">Adj Close</TableHead>
-                    <TableHead className="bg-background">Volume</TableHead>
-                    <TableHead className="bg-background">Day Change</TableHead>
-                    <TableHead className="bg-background">
+                    <TableHead>Open</TableHead>
+                    <TableHead>High</TableHead>
+                    <TableHead>Low</TableHead>
+                    <TableHead>Close</TableHead>
+                    <TableHead>Adj Close</TableHead>
+                    <TableHead>Volume</TableHead>
+                    <TableHead>Day Change</TableHead>
+                    <TableHead>
                       <Button
                         variant="ghost"
                         onClick={() => handleSort('changePercent')} 
