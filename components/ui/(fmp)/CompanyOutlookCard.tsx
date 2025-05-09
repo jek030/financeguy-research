@@ -75,40 +75,61 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
 
   if (isLoading || quoteLoading) {
     return (
-      <div className="space-y-6">
-        <Card className="w-full bg-card border">
-          <CardHeader className="pb-4">
-            <div className="flex flex-col lg:flex-row justify-between gap-6">
-              <div className="flex gap-4">
-                <Skeleton className="h-16 w-16 rounded-lg" />
-                <div>
-                  <Skeleton className="h-8 w-64 mb-2" />
-                  <Skeleton className="h-4 w-32" />
-                </div>
-              </div>
-              <div className="lg:text-right">
-                <Skeleton className="h-8 w-32 mb-2" />
-                <Skeleton className="h-4 w-48" />
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="border-b pb-4">
-              <Skeleton className="h-16 w-full" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 border-b pb-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    {[...Array(4)].map((_, j) => (
-                      <div key={j}>
-                        <Skeleton className="h-4 w-20 mb-2" />
-                        <Skeleton className="h-4 w-24" />
-                      </div>
-                    ))}
+      <div>
+        {/* Header Skeleton */}
+        <div className="bg-secondary/60">
+          <div className="px-6 py-4">
+            <div className="flex flex-col gap-4">
+              <div className="flex gap-4 justify-between">
+                <div className="flex gap-4">
+                  <Skeleton className="h-16 w-16 rounded-lg" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-8 w-48" />
+                      <div className="mx-2 h-5 w-px bg-border"></div>
+                      <Skeleton className="h-8 w-24" />
+                    </div>
+                    <Skeleton className="h-4 w-64 mt-2" />
                   </div>
                 </div>
-              ))}
+                
+                {/* Next Earnings Skeleton */}
+                <div className="text-right">
+                  <Skeleton className="h-3 w-24 mb-1 ml-auto" />
+                  <Skeleton className="h-5 w-32 ml-auto" />
+                </div>
+              </div>
+              
+              {/* Market Cap and other metrics Skeleton */}
+              <div className="flex items-center gap-6 flex-wrap">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i}>
+                    <Skeleton className="h-6 w-24 mb-1" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Company Info Skeleton in Header */}
+            <div className="mt-4 pt-4 border-t border-border/40">
+              <div className="flex flex-wrap gap-x-8 gap-y-2">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="min-w-[80px]">
+                    <Skeleton className="h-3 w-16 mb-1" />
+                    <Skeleton className="h-3 w-24" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Content Skeleton */}
+        <div className="bg-card">
+          <div className="p-6 space-y-6">
+            <div className="border-b pb-4">
+              <Skeleton className="h-16 w-full" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[...Array(3)].map((_, i) => (
@@ -124,8 +145,8 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         <Skeleton className="h-[400px] w-full" />
 
@@ -149,17 +170,13 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
   if (!companyData || !quote) {
     console.log('CompanyOutlookCard: No data available');
     return (
-      <div className="space-y-6">
-        <Card className="w-full bg-card border">
-          <CardHeader>
-            <CardTitle>Invalid Symbol</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground">
-              Unable to load data for symbol: {symbol}. Please enter a valid stock or crypto symbol. For example: AAPL, BTCUSD, etc.
-            </p>
-          </CardContent>
-        </Card>
+      <div>
+        <div className="bg-secondary/60 p-6">
+          <h2 className="text-xl font-bold">Invalid Symbol</h2>
+          <p className="text-muted-foreground mt-2">
+            Unable to load data for symbol: {symbol}. Please enter a valid stock or crypto symbol. For example: AAPL, BTCUSD, etc.
+          </p>
+        </div>
       </div>
     );
   }
@@ -176,68 +193,185 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
   };
 
   return (
-    <div className="space-y-6">
-      {/* Company Header Card */}
-      <Card className="w-full bg-card border">
-        <CardHeader className="pb-4">
-          <div className="flex flex-col lg:flex-row justify-between gap-4">
-            <div className="flex gap-3">
-              {companyData.profile.image && (
-                <Image
-                  src={companyData.profile.image}
-                  alt={companyData.profile.companyName || 'Company logo'}
-                  width={56}
-                  height={56}
-                  className="rounded-lg object-cover"
-                />
-              )}
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
-                    {companyData.profile.companyName}
-                  </h2>
-                  {quote?.change && (
-                    <div className="flex gap-1.5 mt-1 sm:mt-0">
-                      <div className={cn(
-                        "inline-flex items-center gap-1 rounded-full px-2 py-1 text-sm font-medium",
-                        quote.change >= 0 ? "bg-positive/10 text-positive" : "bg-negative/10 text-negative"
-                      )}>
-                        {quote.change >= 0 ? (
-                          <ArrowUp className="h-3.5 w-3.5" />
-                        ) : (
-                          <ArrowDown className="h-3.5 w-3.5" />
-                        )}
-                        ${Math.abs(quote.change).toFixed(2)}
-                      </div>
-                      <div className={cn(
-                        "inline-flex items-center rounded-full px-2 py-1 text-sm font-medium",
-                        quote.changesPercentage >= 0 ? "bg-positive/10 text-positive" : "bg-negative/10 text-negative"
-                      )}>
-                        {quote.changesPercentage ? (
-                          `${quote.changesPercentage >= 0 ? '+' : ''}${quote.changesPercentage.toFixed(2)}%`
-                        ) : 'N/A'}
-                      </div>
+    <div>
+      {/* Company Header */}
+      <div className="bg-secondary/60">
+        <div className="px-6 py-4">
+          <div className="flex flex-col gap-1">
+            <div className="flex gap-3 justify-between">
+              <div className="flex gap-3">
+                {companyData.profile.image && (
+                  <Image
+                    src={companyData.profile.image}
+                    alt={companyData.profile.companyName || 'Company logo'}
+                    width={56}
+                    height={56}
+                    className="rounded-lg object-cover"
+                  />
+                )}
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-xl font-bold tracking-tight sm:text-2xl">
+                      {companyData.profile.companyName}
+                    </h2>
+                    
+                    <div className="flex items-center">
+                      <div className="mx-2 h-5 w-px bg-border"></div>
+                      <span className="text-xl font-bold">
+                        ${typeof quote.price === 'number' ? safeFormat(quote.price) : 'N/A'}
+                      </span>
                     </div>
-                  )}
+                    
+                    {quote?.change && (
+                      <div className="flex gap-1.5 mt-1 sm:mt-0">
+                        <div className={cn(
+                          "inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-medium",
+                          quote.change >= 0 ? "bg-positive/15 text-positive" : "bg-negative/15 text-negative"
+                        )}>
+                          {quote.change >= 0 ? (
+                            <ArrowUp className="h-3.5 w-3.5" />
+                          ) : (
+                            <ArrowDown className="h-3.5 w-3.5" />
+                          )}
+                          ${Math.abs(quote.change).toFixed(2)}
+                        </div>
+                        <div className={cn(
+                          "inline-flex items-center rounded-md px-2 py-1 text-sm font-medium",
+                          quote.changesPercentage >= 0 ? "bg-positive/15 text-positive" : "bg-negative/15 text-negative"
+                        )}>
+                          {quote.changesPercentage ? (
+                            `${quote.changesPercentage >= 0 ? '+' : ''}${quote.changesPercentage.toFixed(2)}%`
+                          ) : 'N/A'}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {quote?.symbol} • {quote?.exchange || 'N/A'}
+                    {quote.timestamp && (
+                      <>
+                        <span className="mx-2">•</span>
+                        <span className="text-xs">Updated: {new Date(quote.timestamp * 1000).toLocaleString()}</span>
+                      </>
+                    )}
+                  </div>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  {quote?.symbol} • {quote?.exchange || 'N/A'}
-                </div>
+              </div>
+              
+              {/* Next Earnings in top right */}
+              <div className="text-right">
+                <h3 className="text-xs font-medium text-muted-foreground">Next Earnings</h3>
+                <p className="text-sm font-medium">
+                  {quote.earningsAnnouncement ? 
+                    new Date(quote.earningsAnnouncement).toLocaleDateString() : 'N/A'}
+                </p>
               </div>
             </div>
-
-            <div className="lg:text-right mt-2 lg:mt-0">
-              <div className="text-2xl sm:text-3xl font-bold">
-                ${typeof quote.price === 'number' ? safeFormat(quote.price) : 'N/A'}
+            
+            {/* Market Cap and other metrics */}
+            <div className="flex items-center gap-6 flex-wrap">
+              <div>
+                <div className="text-lg">
+                  {quote.marketCap ? formatMarketCap(quote.marketCap) : 'N/A'}
+                </div>
+                <div className="text-xs text-muted-foreground">Market Cap</div>
               </div>
-              <div className="text-sm text-muted-foreground mt-1">
-                Market Cap: {quote.marketCap ? formatMarketCap(quote.marketCap) : 'N/A'}
+              
+              <div>
+                <div className="text-lg">
+                  {formatLargeNumber(quote.volume || 0)}
+                </div>
+                <div className="text-xs text-muted-foreground">Volume</div>
               </div>
             </div>
           </div>
-        </CardHeader>
-
-        <CardContent className="space-y-6">
+          
+          {/* Company Info - Moved from grid to header */}
+          {(companyData.profile.sector || companyData.profile.industry || companyData.profile.ceo || 
+            companyData.profile.fullTimeEmployees || companyData.profile.address || companyData.profile.website) && (
+            <div className="mt-4 pt-4 border-t border-border/40">
+              <div className="flex flex-wrap gap-x-8 gap-y-2 items-start">
+                {companyData.profile.sector && (
+                  <div className="min-w-[80px]">
+                    <h3 className="text-xs font-medium text-muted-foreground">Sector</h3>
+                    <Link
+                    href={`/scans/sectors/${encodeURIComponent(companyData.profile.sector)}`}
+                    className="hover:underline text-blue-600 dark:text-blue-400 text-xs font-medium">
+                      {companyData.profile.sector}
+                    </Link>
+                  </div>
+                )}
+                
+                {companyData.profile.industry && (
+                  <div className="min-w-[80px]">
+                    <h3 className="text-xs font-medium text-muted-foreground">Industry</h3>
+                    <Link
+                    href={`/scans/sectors/${encodeURIComponent(companyData.profile.sector)}/industry/${encodeURIComponent(companyData.profile.industry)}`}
+                    className="hover:underline text-blue-600 dark:text-blue-400 text-xs font-medium">
+                      {companyData.profile.industry}
+                    </Link>
+                  </div>
+                )}
+                
+                {companyData.profile.ceo && (
+                  <div className="min-w-[80px]">
+                    <h3 className="text-xs font-medium text-muted-foreground">CEO</h3>
+                    <p className="text-xs font-medium">{companyData.profile.ceo}</p>
+                  </div>
+                )}
+                
+                {companyData.profile.fullTimeEmployees && (
+                  <div className="min-w-[80px]">
+                    <h3 className="text-xs font-medium text-muted-foreground">Employees</h3>
+                    <p className="text-xs font-medium">{companyData.profile.fullTimeEmployees}</p>
+                  </div>
+                )}
+                
+                {(companyData.profile.address || companyData.profile.city) && (
+                  <div className="min-w-[120px]">
+                    <h3 className="text-xs font-medium text-muted-foreground">Address</h3>
+                    <p className="text-xs">
+                      {companyData.profile.city && (
+                        <>{companyData.profile.city}, {companyData.profile.state}</>
+                      )}
+                    </p>
+                  </div>
+                )}
+                
+                {companyData.profile.website && (
+                  <div className="min-w-[120px]">
+                    <h3 className="text-xs font-medium text-muted-foreground">Website</h3>             
+                    <Link 
+                      className="hover:underline text-blue-600 dark:text-blue-400 text-xs"
+                      href={companyData.profile.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {companyData.profile.website}
+                    </Link>
+                  </div>
+                )}
+                
+                <div className="min-w-[100px]">
+                  <h3 className="text-xs font-medium text-muted-foreground">Links</h3>
+                  <Link 
+                    className="inline-flex items-center justify-center rounded-sm bg-purple-500 px-2 py-1 text-xs font-medium text-white hover:bg-purple-400 transition-colors"
+                    href={`https://finance.yahoo.com/quote/${symbol}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Yahoo Finance
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Content Section */}
+      <div className="bg-card">
+        <div className="p-6 space-y-6">
           {/* Company Description */}
           {companyData.profile.description && (
             <div className="border-b pb-4">
@@ -262,93 +396,6 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                     </>
                   )}
                 </button>
-              </div>
-            </div>
-          )}
-
-          {/* Key Company Info Grid - Only show if any company data exists */}
-          {(companyData.profile.sector || companyData.profile.industry || companyData.profile.ceo || 
-            companyData.profile.fullTimeEmployees || companyData.profile.address || companyData.profile.website) && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 border-b pb-4">
-              {/* Quick Stats */}
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  {companyData.profile.sector && (
-                    <div>
-                      <h3 className="text-sm font-medium text-muted-foreground">Sector</h3>
-                      <Link
-                      href={`/scans/sectors/${encodeURIComponent(companyData.profile.sector)}`}
-                      className="hover:underline text-blue-600 dark:text-blue-400">
-                        <p className="text-sm font-medium">{companyData.profile.sector}</p>
-                      </Link>
-                    </div>
-                  )}
-                  {companyData.profile.industry && (
-                    <div>
-                      <h3 className="text-sm font-medium text-muted-foreground">Industry</h3>
-                      <Link
-                      href={`/scans/sectors/${encodeURIComponent(companyData.profile.sector)}/industry/${encodeURIComponent(companyData.profile.industry)}`}
-                      className="hover:underline text-blue-600 dark:text-blue-400">
-                      <p className="text-sm font-medium">{companyData.profile.industry}</p>
-                      </Link>
-                    </div>
-                  )}
-                  {companyData.profile.ceo && (
-                    <div>
-                      <h3 className="text-sm font-medium text-muted-foreground">CEO</h3>
-                      <p className="text-sm font-medium">{companyData.profile.ceo}</p>
-                    </div>
-                  )}
-                  {companyData.profile.fullTimeEmployees && (
-                    <div>
-                      <h3 className="text-sm font-medium text-muted-foreground">Employees</h3>
-                      <p className="text-sm font-medium">{companyData.profile.fullTimeEmployees}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Contact Info */}
-              {(companyData.profile.address || companyData.profile.city) && (
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-sm text-muted-foreground">Address</h3>
-                    <p className="text-sm">
-                      {companyData.profile.address && <>{companyData.profile.address}<br /></>}
-                      {companyData.profile.city && (
-                        <>{companyData.profile.city}, {companyData.profile.state} {companyData.profile.zip}<br /></>
-                      )}
-                      {companyData.profile.country}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Links and Website */}
-              <div className="space-y-4">
-                {companyData.profile.website && (
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground">Website</h3>             
-                    <Link 
-                    className="hover:underline text-blue-600 dark:text-blue-400 text-sm"
-                    href={companyData.profile.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                  >
-                    {companyData.profile.website}
-                  </Link>
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <Link 
-                    className="inline-flex items-center justify-center rounded-md bg-purple-500 px-4 py-2 text-sm font-medium text-white hover:bg-purple-400 transition-colors"
-                    href={`https://finance.yahoo.com/quote/${symbol}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Yahoo Finance
-                  </Link>
-                </div>
               </div>
             </div>
           )}
@@ -493,21 +540,8 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
               </div>
             </div>
           </div>
-
-          <div className="flex flex-col sm:flex-row justify-between text-sm text-muted-foreground mt-4 pt-4 border-t">
-            <div className="flex items-center gap-2 mb-2 sm:mb-0">
-              <span className="font-medium">Next Earnings:</span>
-              {quote.earningsAnnouncement ? 
-                new Date(quote.earningsAnnouncement).toLocaleDateString() : 'N/A'}
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="font-medium">Last Updated:</span>
-              {quote.timestamp ? 
-                new Date(quote.timestamp * 1000).toLocaleString() : 'N/A'}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> 
         <MovingAverages companyData={companyData} symbol={companyData.profile.symbol} />
