@@ -102,7 +102,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
               
               {/* Market Cap and other metrics Skeleton */}
               <div className="flex items-center gap-6 flex-wrap">
-                {[...Array(3)].map((_, i) => (
+                {[...Array(6)].map((_, i) => (
                   <div key={i}>
                     <Skeleton className="h-6 w-24 mb-1" />
                     <Skeleton className="h-3 w-16" />
@@ -113,12 +113,15 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
             
             {/* Company Info Skeleton in Header */}
             <div className="mt-4 pt-4 border-t border-border/40">
-              <div className="flex flex-wrap gap-x-8 gap-y-2">
+              <div className="flex flex-wrap items-start">
                 {[...Array(6)].map((_, i) => (
-                  <div key={i} className="min-w-[80px]">
-                    <Skeleton className="h-3 w-16 mb-1" />
-                    <Skeleton className="h-3 w-24" />
-                  </div>
+                  <React.Fragment key={i}>
+                    {i > 0 && <div className="mx-3 h-5 w-px bg-border self-center"></div>}
+                    <div className="min-w-[80px] px-3">
+                      <Skeleton className="h-3 w-16 mb-1" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  </React.Fragment>
                 ))}
               </div>
             </div>
@@ -271,18 +274,40 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
             {/* Market Cap and other metrics */}
             <div className="flex items-center gap-6 flex-wrap">
               <div>
-                <div className="text-lg">
                   {quote.marketCap ? formatMarketCap(quote.marketCap) : 'N/A'}
-                </div>
                 <div className="text-xs text-muted-foreground">Market Cap</div>
               </div>
-              
+              <div className="mx-1 h-5 w-px bg-border"></div>
               <div>
-                <div className="text-lg">
                   {formatLargeNumber(quote.volume || 0)}
-                </div>
                 <div className="text-xs text-muted-foreground">Volume</div>
               </div>
+              <div className="mx-1 h-5 w-px bg-border"></div>
+              {/* Float information moved to header */}
+              {!floatLoading && floatData?.[0] && (
+                <>
+                  
+                  <div>
+                      {((quote.volume / floatData[0].floatShares) * 100).toFixed(2)}%
+                    <div className="text-xs text-muted-foreground">% Float Traded</div>
+                  </div>
+                  <div className="mx-1 h-5 w-px bg-border"></div>
+                  <div>
+                      {floatData[0].freeFloat.toFixed(2)}%
+                    <div className="text-xs text-muted-foreground">Free Float</div>
+                  </div>          
+                  <div className="mx-1 h-5 w-px bg-border"></div>
+                  <div>
+                      {formatLargeNumber(floatData[0].floatShares)}
+                    <div className="text-xs text-muted-foreground">Float</div>
+                  </div>
+                  <div className="mx-1 h-5 w-px bg-border"></div>
+                  <div>
+                      {formatLargeNumber(floatData[0].outstandingShares)}
+                    <div className="text-xs text-muted-foreground">Shares Outstanding</div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
           
@@ -290,7 +315,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
           {(companyData.profile.sector || companyData.profile.industry || companyData.profile.ceo || 
             companyData.profile.fullTimeEmployees || companyData.profile.address || companyData.profile.website) && (
             <div className="mt-4 pt-4 border-t border-border/40">
-              <div className="flex flex-wrap gap-x-8 gap-y-2 items-start">
+              <div className="flex flex-wrap items-start">
                 {companyData.profile.sector && (
                   <div className="min-w-[80px]">
                     <h3 className="text-xs font-medium text-muted-foreground">Sector</h3>
@@ -302,8 +327,12 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                   </div>
                 )}
                 
+                {companyData.profile.sector && companyData.profile.industry && (
+                  <div className="mx-3 h-5 w-px bg-border self-center"></div>
+                )}
+                
                 {companyData.profile.industry && (
-                  <div className="min-w-[80px]">
+                  <div className="min-w-[80px] px-3">
                     <h3 className="text-xs font-medium text-muted-foreground">Industry</h3>
                     <Link
                     href={`/scans/sectors/${encodeURIComponent(companyData.profile.sector)}/industry/${encodeURIComponent(companyData.profile.industry)}`}
@@ -313,22 +342,34 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                   </div>
                 )}
                 
+                {(companyData.profile.industry && companyData.profile.ceo) && (
+                  <div className="mx-3 h-5 w-px bg-border self-center"></div>
+                )}
+                
                 {companyData.profile.ceo && (
-                  <div className="min-w-[80px]">
+                  <div className="min-w-[80px] px-3">
                     <h3 className="text-xs font-medium text-muted-foreground">CEO</h3>
                     <p className="text-xs font-medium">{companyData.profile.ceo}</p>
                   </div>
                 )}
                 
+                {(companyData.profile.ceo && companyData.profile.fullTimeEmployees) && (
+                  <div className="mx-3 h-5 w-px bg-border self-center"></div>
+                )}
+                
                 {companyData.profile.fullTimeEmployees && (
-                  <div className="min-w-[80px]">
+                  <div className="min-w-[80px] px-3">
                     <h3 className="text-xs font-medium text-muted-foreground">Employees</h3>
                     <p className="text-xs font-medium">{companyData.profile.fullTimeEmployees}</p>
                   </div>
                 )}
                 
+                {(companyData.profile.fullTimeEmployees && (companyData.profile.address || companyData.profile.city)) && (
+                  <div className="mx-3 h-5 w-px bg-border self-center"></div>
+                )}
+                
                 {(companyData.profile.address || companyData.profile.city) && (
-                  <div className="min-w-[120px]">
+                  <div className="min-w-[120px] px-3">
                     <h3 className="text-xs font-medium text-muted-foreground">Address</h3>
                     <p className="text-xs">
                       {companyData.profile.city && (
@@ -338,8 +379,12 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                   </div>
                 )}
                 
+                {((companyData.profile.address || companyData.profile.city) && companyData.profile.website) && (
+                  <div className="mx-3 h-5 w-px bg-border self-center"></div>
+                )}
+                
                 {companyData.profile.website && (
-                  <div className="min-w-[120px]">
+                  <div className="min-w-[120px] px-3">
                     <h3 className="text-xs font-medium text-muted-foreground">Website</h3>             
                     <Link 
                       className="hover:underline text-blue-600 dark:text-blue-400 text-xs"
@@ -351,18 +396,6 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                     </Link>
                   </div>
                 )}
-                
-                <div className="min-w-[100px]">
-                  <h3 className="text-xs font-medium text-muted-foreground">Links</h3>
-                  <Link 
-                    className="inline-flex items-center justify-center rounded-sm bg-purple-500 px-2 py-1 text-xs font-medium text-white hover:bg-purple-400 transition-colors"
-                    href={`https://finance.yahoo.com/quote/${symbol}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Yahoo Finance
-                  </Link>
-                </div>
               </div>
             </div>
           )}
@@ -456,12 +489,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
             <div className="p-4 rounded-lg bg-secondary/50">
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Volume</span>
-                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                  <span className="font-medium">{formatLargeNumber(quote.volume)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Avg. Volume</span>
+                  <span className="text-sm text-muted-foreground">Avg. Volume (50d)</span>
                   <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
                   <span className="font-medium">{formatLargeNumber(quote.avgVolume)}</span>
                 </div>
@@ -507,35 +535,6 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                       </span>
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-
-            <div className="p-4 rounded-lg bg-secondary/50">
-              <div className="space-y-2">
-                {!floatLoading && floatData?.[0] && (
-                  <>
-                  <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Shares Outstanding</span>
-                      <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                      <span className="font-medium">{formatLargeNumber(floatData[0].outstandingShares)}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Float</span>
-                      <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                      <span className="font-medium">{formatLargeNumber(floatData[0].floatShares)}</span>
-                    </div>                   
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">Free Float</span>
-                      <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                      <span className="font-medium">{floatData[0].freeFloat.toFixed(2)}%</span>
-                    </div>                                  
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">% Float Traded</span>
-                      <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                      <span className="font-medium">{((quote.volume / floatData[0].floatShares) * 100).toFixed(2)}%</span>
-                    </div>
-                  </>
                 )}
               </div>
             </div>
