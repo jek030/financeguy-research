@@ -198,6 +198,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
   return (
     <div>
       {/* Company Header */}
+       
       <div className="bg-secondary/60">
         <div className="px-6 py-4">
           <div className="flex flex-col gap-1">
@@ -271,16 +272,49 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
               </div>
             </div>
             
+            {/* 5D and 20D ADR/ATR row */}
+            <div className="mt-4 pt-4 border-t border-border/40">
+            <div className="flex items-center gap-6 flex-wrap ">
+              {range5Day && (
+                <div>
+                  <div >
+                    {range5Day.averageDailyRange}% / ${safeFormat(range5Day.averageTrueRange)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">5 Day ADR/ATR</div>
+                </div>
+              )}
+              
+              {range5Day && range20Day && (
+                <div className="mx-1 h-5 w-px bg-border"></div>
+              )}
+              
+              {range20Day && (
+                <div>
+                  <div>
+                    {range20Day.averageDailyRange}% / ${safeFormat(range20Day.averageTrueRange)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">20 Day ADR/ATR</div>
+                </div>
+              )}
+            </div>
+            </div>
+            
             {/* Market Cap and other metrics */}
+            <div className="mt-4 pt-4 border-t border-border/40">
             <div className="flex items-center gap-6 flex-wrap">
               <div>
-                  {quote.marketCap ? formatMarketCap(quote.marketCap) : 'N/A'}
+                {quote.marketCap ? formatMarketCap(quote.marketCap) : 'N/A'}
                 <div className="text-xs text-muted-foreground">Market Cap</div>
               </div>
               <div className="mx-1 h-5 w-px bg-border"></div>
               <div>
-                  {formatLargeNumber(quote.volume || 0)}
+                {formatLargeNumber(quote.volume || 0)}
                 <div className="text-xs text-muted-foreground">Volume</div>
+              </div>
+              <div className="mx-1 h-5 w-px bg-border"></div>
+              <div>
+                {formatLargeNumber(quote.avgVolume)}
+                <div className="text-xs text-muted-foreground">50 Day Avg Volume</div>
               </div>
               <div className="mx-1 h-5 w-px bg-border"></div>
               {/* Float information moved to header */}
@@ -309,6 +343,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                 </>
               )}
             </div>
+          </div>
           </div>
           
           {/* Company Info - Moved from grid to header */}
@@ -433,122 +468,90 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
             </div>
           )}
 
-          {/* Trading Stats Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="p-4 rounded-lg bg-secondary/50">
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Previous Close</span>
-                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                  <span className="font-medium">${safeFormat(quote.previousClose)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Open</span>
-                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                  <span className="font-medium">${safeFormat(quote.open)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Day&apos;s Low</span>
-                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                  <span className="font-medium">${safeFormat(quote.dayLow)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Day&apos;s High</span>
-                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                  <span className="font-medium">${safeFormat(quote.dayHigh)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">52 Week Low</span>
-                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                  <div className="text-right">
-                    <span className="font-medium">${safeFormat(quote.yearLow)}</span>
-                    <div className={cn(
-                      "text-xs font-medium px-1.5 py-0.5 rounded-full inline-block mt-1",
-                      "bg-positive/10 text-positive"
-                    )}>
-                      +{((quote.price - quote.yearLow) / quote.yearLow * 100).toFixed(2)}%
-                    </div>
-                  </div>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">52 Week High</span>
-                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                  <div className="text-right">
-                    <span className="font-medium">${safeFormat(quote.yearHigh)}</span>
-                    <div className={cn(
-                      "text-xs font-medium px-1.5 py-0.5 rounded-full inline-block mt-1",
-                      "bg-negative/10 text-negative"
-                    )}>
-                      {((quote.price - quote.yearHigh) / quote.yearHigh * 100).toFixed(2)}%
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 rounded-lg bg-secondary/50">
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">Avg. Volume (50d)</span>
-                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                  <span className="font-medium">{formatLargeNumber(quote.avgVolume)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">RSI (14)</span>
-                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                  <span className={cn("font-medium", {
-                    "text-positive": rsi && rsi >= 70,
-                    "text-negative": rsi && rsi <= 30
-                  })}>
-                    {rsiLoading ? "Loading..." : (rsi ? `${safeFormat(rsi)}` : 'N/A')}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-muted-foreground">P/E Ratio</span>
-                  <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                  <span className="font-medium">{quote.pe ? safeFormat(quote.pe) : 'N/A'}</span>
-                </div>
-                {range5Day && (
+          {/* Trading Stats, Moving Averages, and Risk Calculator Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Trading Stats Card */}
+            <Card className="w-full border bg-card">
+              <CardHeader>
+                <CardTitle>Trading Stats</CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">5D ADR/ATR</span>
+                    <span className="text-sm text-muted-foreground">Previous Close</span>
+                    <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                    <span className="font-medium">${safeFormat(quote.previousClose)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Open</span>
+                    <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                    <span className="font-medium">${safeFormat(quote.open)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Day&apos;s Low</span>
+                    <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                    <span className="font-medium">${safeFormat(quote.dayLow)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">Day&apos;s High</span>
+                    <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                    <span className="font-medium">${safeFormat(quote.dayHigh)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">52 Week Low</span>
                     <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
                     <div className="text-right">
-                      <span className={cn("font-medium", {
-                        "text-positive": range5Day.averageDailyRange > 5,
-                        "text-negative": range5Day.averageDailyRange <= 5
-                      })}>
-                        {range5Day.averageDailyRange}% / ${safeFormat(range5Day.averageTrueRange)}
-                      </span>
+                      <span className="font-medium">${safeFormat(quote.yearLow)}</span>
+                      <div className={cn(
+                        "text-xs font-medium px-1.5 py-0.5 rounded-full inline-block mt-1",
+                        "bg-positive/10 text-positive"
+                      )}>
+                        +{((quote.price - quote.yearLow) / quote.yearLow * 100).toFixed(2)}%
+                      </div>
                     </div>
                   </div>
-                )}
-                {range20Day && (
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">20D ADR/ATR</span>
+                    <span className="text-sm text-muted-foreground">52 Week High</span>
                     <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
                     <div className="text-right">
-                      <span className={cn("font-medium", {
-                        "text-positive": range20Day.averageDailyRange > 5,
-                        "text-negative": range20Day.averageDailyRange <= 5
-                      })}>
-                        {range20Day.averageDailyRange}% / ${safeFormat(range20Day.averageTrueRange)}
-                      </span>
+                      <span className="font-medium">${safeFormat(quote.yearHigh)}</span>
+                      <div className={cn(
+                        "text-xs font-medium px-1.5 py-0.5 rounded-full inline-block mt-1",
+                        "bg-negative/10 text-negative"
+                      )}>
+                        {((quote.price - quote.yearHigh) / quote.yearHigh * 100).toFixed(2)}%
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">RSI (14)</span>
+                    <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                    <span className={cn("font-medium", {
+                      "text-positive": rsi && rsi >= 70,
+                      "text-negative": rsi && rsi <= 30
+                    })}>
+                      {rsiLoading ? "Loading..." : (rsi ? `${safeFormat(rsi)}` : 'N/A')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-muted-foreground">P/E Ratio</span>
+                    <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                    <span className="font-medium">{quote.pe ? safeFormat(quote.pe) : 'N/A'}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Moving Averages Card */}
+            <MovingAverages companyData={companyData} symbol={companyData.profile.symbol} />
+            
+            {/* Risk Calculator Card */}
+            <RRCard price={quote.price || 0} />
           </div>
+
+          <IntradayChart symbol={symbol} />
         </div>
       </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6"> 
-        <MovingAverages companyData={companyData} symbol={companyData.profile.symbol} />
-        <RRCard price={quote.price || 0} />
-      </div>
-
-      <IntradayChart symbol={symbol} />
-      
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="earnings" className="space-y-4">
