@@ -554,7 +554,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="earnings" className="space-y-4">
+      <Tabs defaultValue="earnings" className="space-y-4 px-6 bg-card">
         <div className="relative">
           <TabsList className="flex w-full overflow-x-auto scrollbar-hide pb-1 md:grid md:grid-cols-8 lg:grid-cols-8">
             <TabsTrigger value="earnings" className="flex items-center gap-1.5 whitespace-nowrap">
@@ -592,28 +592,28 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
           </TabsList>
         </div>
 
-        <TabsContent value="earnings">
+        <TabsContent value="earnings" className="py-4">
           <Earnings symbol={symbol} />
         </TabsContent>
-        <TabsContent value="news">
+        <TabsContent value="news" className="py-4">
           <News symbol={symbol} />
         </TabsContent>
-        <TabsContent value="financials">
+        <TabsContent value="financials" className="py-4">
           <Financials companyData={companyData} />
         </TabsContent>
-        <TabsContent value="keymetrics">
+        <TabsContent value="keymetrics" className="py-4">
           <KeyMetrics symbol={symbol} />
         </TabsContent>
-        <TabsContent value="insiders">
+        <TabsContent value="insiders" className="py-4">
           <InsiderActivity symbol={symbol} />
         </TabsContent>
-        <TabsContent value="executives">
+        <TabsContent value="executives" className="py-4">
           <Executives companyData={companyData} />
         </TabsContent>
-        <TabsContent value="dividends">
+        <TabsContent value="dividends" className="py-4">
           <DividendHistory symbol={symbol} />
         </TabsContent>
-        <TabsContent value="pricehistory">
+        <TabsContent value="pricehistory" className="py-4">
           <PriceHistoryComponent symbol={symbol} priceHistory={priceHistory} />
         </TabsContent>
       </Tabs>
