@@ -5,8 +5,10 @@ interface IncomeStatement {
   symbol: string;
   fillingDate: string;
   revenue: number;
-  eps: number;
+  epsdiluted: number;
   netIncome: number;
+  period: string;
+  weightedAverageShsOutDil: number;
 }
 
 async function fetchIncomeStatement(symbol: string, period: 'annual' | 'quarter'): Promise<IncomeStatement[]> {
@@ -20,7 +22,26 @@ async function fetchIncomeStatement(symbol: string, period: 'annual' | 'quarter'
     throw new Error('Failed to fetch income statement data');
   }
 
-  return response.json();
+  const data = await response.json();
+  
+  // Calculate EPS diluted ourselves and format all data
+  return data.map((item: any) => {
+    // Calculate EPS diluted with precision (netIncome / weightedAverageShsOutDil)
+    const calculatedEpsDiluted = item.weightedAverageShsOutDil ? 
+      Number((item.netIncome / item.weightedAverageShsOutDil).toFixed(6)) : 
+      item.epsdiluted || item.eps || 0;
+    
+    return {
+      date: item.date,
+      symbol: item.symbol,
+      fillingDate: item.fillingDate,
+      revenue: item.revenue,
+      epsdiluted: calculatedEpsDiluted,
+      netIncome: item.netIncome,
+      period: item.period,
+      weightedAverageShsOutDil: item.weightedAverageShsOutDil || 0
+    };
+  });
 }
 
 export function useEarnings(symbol: string) {
@@ -40,7 +61,6 @@ export function useEarnings(symbol: string) {
       },
     ],
   });
-
   return {
     annualData: results[0].data,
     quarterlyData: results[1].data,

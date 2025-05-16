@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import {Building2, Users, DollarSign, PieChart, Activity, ChevronDown, ChevronUp, Calculator, ArrowUp, ArrowDown} from 'lucide-react';
+import {Building2, Users, DollarSign, PieChart, Activity, ChevronDown, ChevronUp, Calculator, ArrowUp, ArrowDown, InfoIcon} from 'lucide-react';
 import { addYears } from 'date-fns';
 
 //UI Components
@@ -12,6 +12,7 @@ import { Financials } from '@/components/ui/(fmp)/Financials';
 import { cn } from '@/lib/utils';
 import { Skeleton } from "@/components/ui/Skeleton";
 import RRCard from '@/components/ui/RRCard';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/Tooltip";
 
 //FMP Hooks
 import { useCompanyOutlook } from '@/hooks/FMP/useCompanyOutlook';
@@ -21,6 +22,7 @@ import { MovingAverages } from '@/components/ui/(fmp)/MovingAverages';
 import { useRSIData } from '@/hooks/FMP/useRSIData';
 import { useQuote } from '@/hooks/FMP/useQuote';
 import { useFloat } from '@/hooks/FMP/useFloat';
+import { useEarnings } from '@/hooks/FMP/useEarnings';
 import News from '@/components/ui/(fmp)/News';
 import KeyMetrics from '@/components/ui/(fmp)/KeyMetrics';
 import InsiderActivity from '@/components/ui/(fmp)/InsiderActivity';
@@ -49,6 +51,51 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
 
   /** Float Data from FMP */
   const { data: floatData, isLoading: floatLoading } = useFloat(symbol);
+
+  /** Earnings Data from FMP */
+  const { quarterlyData: quarterlyEarnings } = useEarnings(symbol);
+  
+  // Calculate YoY EPS % change for the last quarter
+  const lastQuarterEpsChange = React.useMemo(() => {
+    if (!quarterlyEarnings || quarterlyEarnings.length < 5) return null;
+    
+    // Get the most recent quarter
+    const latestQuarter = quarterlyEarnings[0];
+    
+    // Find the same quarter from last year (e.g., Q1 2023 vs Q1 2022)
+    const sameQuarterLastYear = quarterlyEarnings.find(q => 
+      q.period === latestQuarter.period && 
+      new Date(q.date).getFullYear() === new Date(latestQuarter.date).getFullYear() - 1
+    );
+    
+    if (!sameQuarterLastYear) return null;
+    
+    // Calculate YoY change with handling for zero values
+    let epsChange = 0;
+    
+    if (sameQuarterLastYear.epsdiluted === 0) {
+      // If previous EPS was 0, check if current is different
+      if (latestQuarter.epsdiluted > 0) {
+        epsChange = 100; // Positive infinite change (simplified to 100%)
+      } else if (latestQuarter.epsdiluted < 0) {
+        epsChange = -100; // Negative change from 0
+      } else {
+        epsChange = 0; // No change
+      }
+    } else {
+      // Normal calculation
+      epsChange = ((latestQuarter.epsdiluted - sameQuarterLastYear.epsdiluted) / 
+                    Math.abs(sameQuarterLastYear.epsdiluted)) * 100;
+    }
+    
+    return {
+      value: epsChange,
+      period: latestQuarter.period,
+      year: new Date(latestQuarter.date).getFullYear(),
+      current: latestQuarter.epsdiluted,
+      previous: sameQuarterLastYear.epsdiluted
+    };
+  }, [quarterlyEarnings]);
 
   /** Price History Data from FMP */
   const { data: priceHistory } = useDailyPrices({
@@ -97,6 +144,26 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                 <div className="text-right">
                   <Skeleton className="h-3 w-24 mb-1 ml-auto" />
                   <Skeleton className="h-5 w-32 ml-auto" />
+                </div>
+              </div>
+              
+              {/* 5D and 20D ADR/ATR row Skeleton */}
+              <div className="mt-4 pt-4 border-t border-border/40">
+                <div className="flex items-center gap-6 flex-wrap">
+                  <div>
+                    <Skeleton className="h-6 w-24 mb-1" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                  <div className="mx-1 h-5 w-px bg-border/20"></div>
+                  <div>
+                    <Skeleton className="h-6 w-24 mb-1" />
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                  <div className="mx-1 h-5 w-px bg-border/20"></div>
+                  <div>
+                    <Skeleton className="h-6 w-24 mb-1" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
                 </div>
               </div>
               
@@ -274,29 +341,61 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
             
             {/* 5D and 20D ADR/ATR row */}
             <div className="mt-4 pt-4 border-t border-border/40">
-            <div className="flex items-center gap-6 flex-wrap ">
-              {range5Day && (
-                <div>
-                  <div >
-                    {range5Day.averageDailyRange}% / ${safeFormat(range5Day.averageTrueRange)}
-                  </div>
-                  <div className="text-xs text-muted-foreground">5 Day ADR/ATR</div>
-                </div>
-              )}
-              
-              {range5Day && range20Day && (
-                <div className="mx-1 h-5 w-px bg-border"></div>
-              )}
-              
-              {range20Day && (
-                <div>
+              <div className="flex items-center gap-6 flex-wrap">
+                {range5Day && (
                   <div>
-                    {range20Day.averageDailyRange}% / ${safeFormat(range20Day.averageTrueRange)}
+                    <div >
+                      {range5Day.averageDailyRange}% / ${safeFormat(range5Day.averageTrueRange)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">5 Day ADR/ATR</div>
                   </div>
-                  <div className="text-xs text-muted-foreground">20 Day ADR/ATR</div>
-                </div>
-              )}
-            </div>
+                )}
+                
+                {range5Day && range20Day && (
+                  <div className="mx-1 h-5 w-px bg-border"></div>
+                )}
+                
+                {range20Day && (
+                  <div>
+                    <div>
+                      {range20Day.averageDailyRange}% / ${safeFormat(range20Day.averageTrueRange)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">20 Day ADR/ATR</div>
+                  </div>
+                )}
+                
+                {range20Day && lastQuarterEpsChange && (
+                  <div className="mx-1 h-5 w-px bg-border"></div>
+                )}
+                
+                {lastQuarterEpsChange && (
+                  <div>
+                    <div className={cn(
+                      "flex items-center gap-1",
+                      lastQuarterEpsChange.value > 0 ? "text-positive" : lastQuarterEpsChange.value < 0 ? "text-negative" : ""
+                    )}>
+                      {lastQuarterEpsChange.value > 0 ? "+" : ""}{lastQuarterEpsChange.value.toFixed(2)}%
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <InfoIcon className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <div className="space-y-1">
+                              <p>Current: ${lastQuarterEpsChange.current.toFixed(6)}</p>
+                              <p>Previous: ${lastQuarterEpsChange.previous.toFixed(6)}</p>
+                              <p className="text-xs text-muted-foreground mt-1">Year-over-year comparison for the most recent quarter</p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      YoY EPS % Change ({lastQuarterEpsChange.period} {lastQuarterEpsChange.year})
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             
             {/* Market Cap and other metrics */}
