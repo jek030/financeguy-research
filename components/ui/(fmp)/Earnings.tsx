@@ -157,7 +157,7 @@ const QuarterlyTable: React.FC<{ data: IncomeStatement[] | undefined }> = ({ dat
         </TableRow>
       </TableHeader>
       <TableBody>
-        {data.map((statement, index) => {
+        {data.map((statement) => {
           // Find same quarter last year for % change calculation
           const sameQuarterLastYear = data.find(s => 
             s.period === statement.period && 
