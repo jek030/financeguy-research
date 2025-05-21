@@ -23,7 +23,7 @@ async function fetchIncomeStatement(symbol: string, period: 'annual' | 'quarter'
   }
 
   const data = await response.json();
-  
+  console.log(data);
   // Calculate EPS diluted ourselves and format all data
   return data.map((item: any) => {
     // Calculate EPS diluted with precision (netIncome / weightedAverageShsOutDil)

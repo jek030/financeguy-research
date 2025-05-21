@@ -23,6 +23,7 @@ import { useRSIData } from '@/hooks/FMP/useRSIData';
 import { useQuote } from '@/hooks/FMP/useQuote';
 import { useFloat } from '@/hooks/FMP/useFloat';
 import { useEarnings } from '@/hooks/FMP/useEarnings';
+import { useBalanceSheet } from '@/hooks/FMP/useBalanceSheet';
 import News from '@/components/ui/(fmp)/News';
 import KeyMetrics from '@/components/ui/(fmp)/KeyMetrics';
 import InsiderActivity from '@/components/ui/(fmp)/InsiderActivity';
@@ -53,8 +54,34 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
   const { data: floatData, isLoading: floatLoading } = useFloat(symbol);
 
   /** Earnings Data from FMP */
-  const { quarterlyData: quarterlyEarnings } = useEarnings(symbol);
+  const { quarterlyData: quarterlyEarnings, annualData: annualEarnings } = useEarnings(symbol);
   
+  /** Balance Sheet Data from FMP */
+  const { annualData: annualBalanceSheet } = useBalanceSheet(symbol);
+  
+  /** Price History Data from FMP */
+  const { data: priceHistory } = useDailyPrices({
+    symbol,
+    from: fromDate.toISOString().split('T')[0],
+    to: toDate.toISOString().split('T')[0],
+  });
+
+  /*Company Outlook Data from FMP*/
+  const { data: companyData, isLoading, error } = useCompanyOutlook(symbol);
+  
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+
+  // Calculate 5 and 20 day ranges
+  const range5Day = React.useMemo(() => {
+    if (!priceHistory || priceHistory.length < 5) return null;
+    return calculateRanges(priceHistory, 5);
+  }, [priceHistory]);
+
+  const range20Day = React.useMemo(() => {
+    if (!priceHistory || priceHistory.length < 20) return null;
+    return calculateRanges(priceHistory, 20);
+  }, [priceHistory]);
+
   // Calculate YoY EPS % change for the last quarter
   const lastQuarterEpsChange = React.useMemo(() => {
     if (!quarterlyEarnings || quarterlyEarnings.length < 5) return null;
@@ -97,28 +124,76 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
     };
   }, [quarterlyEarnings]);
 
-  /** Price History Data from FMP */
-  const { data: priceHistory } = useDailyPrices({
-    symbol,
-    from: fromDate.toISOString().split('T')[0],
-    to: toDate.toISOString().split('T')[0],
-  });
-
-  /*Company Outlook Data from FMP*/
-  const { data: companyData, isLoading, error } = useCompanyOutlook(symbol);
+  // Calculate YoY Revenue % change for the last quarter
+  const lastQuarterRevenueChange = React.useMemo(() => {
+    if (!quarterlyEarnings || quarterlyEarnings.length < 5) return null;
+    
+    // Get the most recent quarter
+    const latestQuarter = quarterlyEarnings[0];
+    
+    // Find the same quarter from last year (e.g., Q1 2023 vs Q1 2022)
+    const sameQuarterLastYear = quarterlyEarnings.find(q => 
+      q.period === latestQuarter.period && 
+      new Date(q.date).getFullYear() === new Date(latestQuarter.date).getFullYear() - 1
+    );
+    
+    if (!sameQuarterLastYear) return null;
+    
+    // Calculate YoY change with handling for zero values
+    let revenueChange = 0;
+    
+    if (sameQuarterLastYear.revenue === 0) {
+      // If previous revenue was 0, check if current is different
+      if (latestQuarter.revenue > 0) {
+        revenueChange = 100; // Positive infinite change (simplified to 100%)
+      } else if (latestQuarter.revenue < 0) {
+        revenueChange = -100; // Negative change from 0
+      } else {
+        revenueChange = 0; // No change
+      }
+    } else {
+      // Normal calculation
+      revenueChange = ((latestQuarter.revenue - sameQuarterLastYear.revenue) / 
+                      Math.abs(sameQuarterLastYear.revenue)) * 100;
+    }
+    
+    return {
+      value: revenueChange,
+      period: latestQuarter.period,
+      year: new Date(latestQuarter.date).getFullYear(),
+      current: latestQuarter.revenue,
+      previous: sameQuarterLastYear.revenue
+    };
+  }, [quarterlyEarnings]);
   
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-
-  // Calculate 5 and 20 day ranges
-  const range5Day = React.useMemo(() => {
-    if (!priceHistory || priceHistory.length < 5) return null;
-    return calculateRanges(priceHistory, 5);
-  }, [priceHistory]);
-
-  const range20Day = React.useMemo(() => {
-    if (!priceHistory || priceHistory.length < 20) return null;
-    return calculateRanges(priceHistory, 20);
-  }, [priceHistory]);
+  // Calculate ROE based on Annual Net Income and Shareholders' Equity
+  const calculatedROE = React.useMemo(() => {
+    if (!annualEarnings || annualEarnings.length < 1 || !annualBalanceSheet || annualBalanceSheet.length < 2) {
+      return null;
+    }
+    
+    // Get the most recent annual net income
+    const annualNetIncome = annualEarnings[0].netIncome;
+    
+    // Get the total stockholders' equity from the last two annual balance sheets
+    const currentEquity = annualBalanceSheet[0].totalStockholdersEquity;
+    const previousEquity = annualBalanceSheet[1].totalStockholdersEquity;
+    
+    // Calculate average shareholder's equity
+    const averageEquity = (currentEquity + previousEquity) / 2;
+    
+    // Calculate ROE as a percentage
+    const roe = (annualNetIncome / averageEquity) * 100;
+    
+    return {
+      value: roe,
+      annualNetIncome,
+      currentEquity,
+      previousEquity,
+      averageEquity,
+      year: new Date(annualEarnings[0].date).getFullYear()
+    };
+  }, [annualEarnings, annualBalanceSheet]);
 
   if (isLoading || quoteLoading) {
     return (
@@ -163,6 +238,16 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                   <div>
                     <Skeleton className="h-6 w-24 mb-1" />
                     <Skeleton className="h-3 w-32" />
+                  </div>
+                  <div className="mx-1 h-5 w-px bg-border/20"></div>
+                  <div>
+                    <Skeleton className="h-6 w-24 mb-1" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
+                  <div className="mx-1 h-5 w-px bg-border/20"></div>
+                  <div>
+                    <Skeleton className="h-6 w-24 mb-1" />
+                    <Skeleton className="h-3 w-16" />
                   </div>
                 </div>
               </div>
@@ -392,6 +477,77 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       YoY EPS % Change ({lastQuarterEpsChange.period} {lastQuarterEpsChange.year})
+                    </div>
+                  </div>
+                )}
+                
+                {lastQuarterEpsChange && lastQuarterRevenueChange && (
+                  <div className="mx-1 h-5 w-px bg-border"></div>
+                )}
+                
+                {lastQuarterRevenueChange && (
+                  <div>
+                    <div className={cn(
+                      "flex items-center gap-1",
+                      lastQuarterRevenueChange.value > 0 ? "text-positive" : lastQuarterRevenueChange.value < 0 ? "text-negative" : ""
+                    )}>
+                      {lastQuarterRevenueChange.value > 0 ? "+" : ""}{lastQuarterRevenueChange.value.toFixed(2)}%
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <InfoIcon className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <div className="space-y-1">
+                              <p>Current: ${(lastQuarterRevenueChange.current / 1000000).toFixed(2)}M</p>
+                              <p>Previous: ${(lastQuarterRevenueChange.previous / 1000000).toFixed(2)}M</p>
+                              <p className="text-xs text-muted-foreground mt-1">Year-over-year comparison for the most recent quarter</p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      YoY Revenue % Change ({lastQuarterRevenueChange.period} {lastQuarterRevenueChange.year})
+                    </div>
+                  </div>
+                )}
+                
+                {lastQuarterRevenueChange && calculatedROE && (
+                  <div className="mx-1 h-5 w-px bg-border"></div>
+                )}
+                
+                {calculatedROE && (
+                  <div>
+                    <div className={cn(
+                      "flex items-center gap-1",
+                      calculatedROE.value > 15 ? "text-positive" : 
+                      calculatedROE.value < 5 ? "text-negative" : ""
+                    )}>
+                      {calculatedROE.value.toFixed(2)}%
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <InfoIcon className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <div className="space-y-1">
+                              <p>Annual Net Income ({calculatedROE.year}): ${(calculatedROE.annualNetIncome / 1000000).toFixed(2)}M</p>
+                              <p>Current Equity: ${(calculatedROE.currentEquity / 1000000).toFixed(2)}M</p>
+                              <p>Previous Equity: ${(calculatedROE.previousEquity / 1000000).toFixed(2)}M</p>
+                              <p>Average Equity: ${(calculatedROE.averageEquity / 1000000).toFixed(2)}M</p>
+                              <p className="text-xs text-muted-foreground mt-1">ROE = (Annual Net Income / Average Equity) × 100</p>
+                              <p className="text-xs mt-1">
+                                <span className="text-positive font-medium">Above 15%</span>: Excellent |  
+                                <span className="text-negative font-medium"> Below 5%</span>: Poor
+                              </p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      ROE ({calculatedROE.year})
                     </div>
                   </div>
                 )}
