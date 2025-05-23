@@ -100,7 +100,9 @@ export default function SectorStocks({ sector }: SectorStocksProps) {
 
     let comparison = 0;
     if (sortConfig.key === 'symbol' || sortConfig.key === 'companyName' || sortConfig.key === 'industry' || sortConfig.key === 'exchangeShortName' || sortConfig.key === 'country') {
-      comparison = a[sortConfig.key].localeCompare(b[sortConfig.key]);
+      const aValue = a[sortConfig.key] || '';
+      const bValue = b[sortConfig.key] || '';
+      comparison = aValue.localeCompare(bValue);
     } else {
       const aValue = Number(a[sortConfig.key]) || 0;
       const bValue = Number(b[sortConfig.key]) || 0;
@@ -122,10 +124,16 @@ export default function SectorStocks({ sector }: SectorStocksProps) {
     });
   };
 
-  const formatMarketCap = (value: number) => {
+  const formatMarketCap = (value: number | null | undefined) => {
+    if (!value || isNaN(value)) return 'N/A';
     if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
     if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
     if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
+    return `$${value.toFixed(2)}`;
+  };
+
+  const formatPrice = (value: number | null | undefined) => {
+    if (!value || isNaN(value)) return 'N/A';
     return `$${value.toFixed(2)}`;
   };
 
@@ -236,30 +244,30 @@ export default function SectorStocks({ sector }: SectorStocksProps) {
                 >
                   <TableCell 
                     className="font-medium cursor-pointer text-blue-600 dark:text-blue-400 hover:underline sm:p-4 py-2 px-1 text-sm sm:text-base"
-                    onClick={() => handleSymbolClick(item.symbol)}
+                    onClick={() => handleSymbolClick(item.symbol || '')}
                   >
-                    {item.symbol}
+                    {item.symbol || 'N/A'}
                   </TableCell>
                   <TableCell className="text-muted-foreground truncate max-w-[120px] sm:max-w-[200px] md:max-w-none sm:p-4 py-2 px-1 text-xs sm:text-sm">
-                    {item.companyName}
+                    {item.companyName || 'N/A'}
                   </TableCell>
                   <TableCell className="font-medium sm:p-4 py-2 px-1 text-sm sm:text-base">
-                    ${item.price.toFixed(2)}
+                    {formatPrice(item.price)}
                   </TableCell>
                   <TableCell className="font-medium sm:p-4 py-2 px-1 text-sm sm:text-base">
                     {formatMarketCap(item.marketCap)}
                   </TableCell>
                   <TableCell 
                     className="font-medium cursor-pointer text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[100px] sm:max-w-none sm:p-4 py-2 px-1 text-xs sm:text-sm"
-                    onClick={() => handleIndustryClick(item.industry)}
+                    onClick={() => handleIndustryClick(item.industry || '')}
                   >
-                    {item.industry}
+                    {item.industry || 'N/A'}
                   </TableCell>
                   <TableCell className="font-medium hidden sm:table-cell">
-                    {item.exchangeShortName}
+                    {item.exchangeShortName || 'N/A'}
                   </TableCell>
                   <TableCell className="font-medium hidden sm:table-cell">
-                    {item.country}
+                    {item.country || 'N/A'}
                   </TableCell>
                 </TableRow>
               ))}
