@@ -58,14 +58,10 @@ const marketLinks = [
 ];
 
 
-interface NavLinksProps {
-  collapsed?: boolean;
-}
-
-export default function NavLinks({ collapsed = false }: NavLinksProps) {
+export default function NavLinks() {
   const pathname = usePathname();
   const router = useRouter();
-  const { isMobile, setIsExpanded } = useMobileMenu();
+  const { isMobile, toggleSidebar } = useMobileMenu();
 
   const NavButton = ({ link }: { link: typeof mainLinks[0] }) => {
     const LinkIcon = link.icon;
@@ -73,7 +69,7 @@ export default function NavLinks({ collapsed = false }: NavLinksProps) {
     const handleClick = (e: React.MouseEvent) => {
       if (isMobile) {
         e.preventDefault();
-        setIsExpanded(false);
+        toggleSidebar(); // Close sidebar on mobile
         // Small delay to allow animation to start before navigation
         setTimeout(() => {
           router.push(link.href);
@@ -87,14 +83,15 @@ export default function NavLinks({ collapsed = false }: NavLinksProps) {
         asChild
         variant={pathname === link.href ? "secondary" : "ghost"}
         className={cn(
-          "w-full",
-          collapsed ? "justify-center px-2" : "justify-start",
+          "w-full transition-all duration-200 justify-start",
           electrolize.className
         )}
       >
         <Link href={link.href} onClick={isMobile ? handleClick : undefined}>
-          <LinkIcon className="h-4 w-4" />
-          {!collapsed && <span className="ml-2">{link.name}</span>}
+          <LinkIcon className="h-4 w-4 flex-shrink-0" />
+          <span className="ml-2 whitespace-nowrap">
+            {link.name}
+          </span>
         </Link>
       </Button>
     );

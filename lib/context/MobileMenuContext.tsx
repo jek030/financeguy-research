@@ -2,40 +2,60 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 
-interface MobileMenuContextType {
-  isExpanded: boolean;
-  setIsExpanded: (value: boolean) => void;
+interface SidebarContextType {
+  isSidebarOpen: boolean;
+  setSidebarOpen: (value: boolean) => void;
+  toggleSidebar: () => void;
   isMobile: boolean;
 }
 
-const MobileMenuContext = createContext<MobileMenuContextType | undefined>(undefined);
+const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
 
 export function MobileMenuProvider({ children }: { children: ReactNode }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Default to open
   const [isMobile, setIsMobile] = useState(false);
+  const [hasUserToggled, setHasUserToggled] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth >= 768) {
-        setIsExpanded(false);
+      const mobile = window.innerWidth < 1024; // Use lg breakpoint (1024px)
+      const wasMobile = isMobile;
+      setIsMobile(mobile);
+      
+      // Only auto-adjust if user hasn't manually toggled, or on device type change
+      if (!hasUserToggled || wasMobile !== mobile) {
+        if (mobile) {
+          setIsSidebarOpen(false); // Close on mobile
+        } else {
+          setIsSidebarOpen(true); // Open on desktop
+        }
       }
     };
     
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  }, [isMobile, hasUserToggled]);
+
+  const toggleSidebar = () => {
+    setHasUserToggled(true); // Mark that user has manually toggled
+    setIsSidebarOpen(!isSidebarOpen);
+  };
 
   return (
-    <MobileMenuContext.Provider value={{ isExpanded, setIsExpanded, isMobile }}>
+    <SidebarContext.Provider value={{ 
+      isSidebarOpen, 
+      setSidebarOpen: setIsSidebarOpen,
+      toggleSidebar,
+      isMobile
+    }}>
       {children}
-    </MobileMenuContext.Provider>
+    </SidebarContext.Provider>
   );
 }
 
 export function useMobileMenu() {
-  const context = useContext(MobileMenuContext);
+  const context = useContext(SidebarContext);
   if (context === undefined) {
     throw new Error('useMobileMenu must be used within a MobileMenuProvider');
   }
