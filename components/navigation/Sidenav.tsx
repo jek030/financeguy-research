@@ -8,7 +8,7 @@ import { electrolize } from '@/lib/fonts';
 import { useMobileMenu } from '@/lib/context/MobileMenuContext';
 import { useAuth } from '@/lib/context/auth-context';
 import { LogIn, LogOut } from 'lucide-react';
-import { XMarkIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon } from '@heroicons/react/24/outline';
 import { Button } from '@/components/ui/Button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/Tooltip";
 
@@ -54,7 +54,7 @@ export default function SideNav() {
         )}
       >
         {/* Close button when sidebar is open */}
-        <div className="flex justify-end mb-2">
+        <div className="flex justify-start mb-2">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -64,7 +64,7 @@ export default function SideNav() {
                   className="h-8 w-8"
                   onClick={toggleSidebar}
                 >
-                  <XMarkIcon className="h-4 w-4" />
+                  <Bars3Icon className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
