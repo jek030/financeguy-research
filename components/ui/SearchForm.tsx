@@ -144,30 +144,35 @@ const SearchForm: React.FC<SearchFormProps> = ({ className = "" }) => {
                         onChange={(e) => handleInputChange(e.target.value)}
                         onFocus={() => setOpen(inputValue.length > 0 && filteredStocks.length > 0)}
                         onKeyDown={(e) => {
-                          if (!open || filteredStocks.length === 0) return;
-                          
                           switch (e.key) {
                             case 'ArrowDown':
-                              e.preventDefault();
-                              setSelectedIndex(prev => 
-                                prev < filteredStocks.length - 1 ? prev + 1 : 0
-                              );
+                              if (open && filteredStocks.length > 0) {
+                                e.preventDefault();
+                                setSelectedIndex(prev => 
+                                  prev < filteredStocks.length - 1 ? prev + 1 : 0
+                                );
+                              }
                               break;
                             case 'ArrowUp':
-                              e.preventDefault();
-                              setSelectedIndex(prev => 
-                                prev > 0 ? prev - 1 : filteredStocks.length - 1
-                              );
+                              if (open && filteredStocks.length > 0) {
+                                e.preventDefault();
+                                setSelectedIndex(prev => 
+                                  prev > 0 ? prev - 1 : filteredStocks.length - 1
+                                );
+                              }
                               break;
-                            case 'Enter':
-                              if (selectedIndex >= 0 && selectedIndex < filteredStocks.length) {
+                            case 'Tab':
+                              // Tab should select the highlighted dropdown item if dropdown is open
+                              if (open && filteredStocks.length > 0 && selectedIndex >= 0 && selectedIndex < filteredStocks.length) {
                                 e.preventDefault();
                                 handleSelectStock(filteredStocks[selectedIndex]);
                               }
                               break;
                             case 'Escape':
-                              e.preventDefault();
-                              setOpen(false);
+                              if (open) {
+                                e.preventDefault();
+                                setOpen(false);
+                              }
                               break;
                           }
                         }}
