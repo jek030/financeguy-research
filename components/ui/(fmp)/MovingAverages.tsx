@@ -49,7 +49,7 @@ function useMovingAverages(symbol: string, currentPrice: number) {
 
   // Call hooks at the top level
   const tenEmaData = useMovingAverageData(symbol, 'ema', '10', '1day');
-  const twentyEmaData = useMovingAverageData(symbol, 'ema', '20', '1day');
+  const twentyOneEmaData = useMovingAverageData(symbol, 'ema', '21', '1day');
   const fiftyEmaData = useMovingAverageData(symbol, 'sma', '50', '1day');
   const twoHundredSmaData = useMovingAverageData(symbol, 'sma', '200', '1day');
   const twentyWeekSmaData = useMovingAverageData(symbol, 'sma', '20', '1week');
@@ -59,9 +59,9 @@ function useMovingAverages(symbol: string, currentPrice: number) {
       data: calculateMovingAverageData(getMovingAverageValue(tenEmaData.data)),
       isLoading: tenEmaData.isLoading
     },
-    twentyEma: {
-      data: calculateMovingAverageData(getMovingAverageValue(twentyEmaData.data)),
-      isLoading: twentyEmaData.isLoading
+    twentyOneEma: {
+      data: calculateMovingAverageData(getMovingAverageValue(twentyOneEmaData.data)),
+      isLoading: twentyOneEmaData.isLoading
     },
     fiftySma: {
       data: calculateMovingAverageData(getMovingAverageValue(fiftyEmaData.data)),
@@ -118,8 +118,8 @@ export function MovingAverages({ companyData, symbol }: MovingAveragesProps) {
                           isLoading 
                             ? "bg-muted/50"
                             : isAbove 
-                              ? "bg-emerald-50/50 dark:bg-emerald-950/50" 
-                              : "bg-rose-50/50 dark:bg-rose-950/50"
+                              ? "bg-emerald-500/5 dark:bg-emerald-500/10" 
+                              : "bg-rose-500/5 dark:bg-rose-500/10"
                         )}
                       >
                         <TableCell className="whitespace-nowrap text-xs p-2 !sm:text-xs">
@@ -146,7 +146,9 @@ export function MovingAverages({ companyData, symbol }: MovingAveragesProps) {
                             <div className="flex items-center gap-1">
                               <div className={cn(
                                 "flex items-center gap-0.5",
-                                isAbove ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                                isAbove 
+                                  ? "text-emerald-500 dark:text-emerald-400" 
+                                  : "text-rose-500 dark:text-rose-400"
                               )}>
                                 {isAbove ? (
                                   <ArrowUpIcon className="h-3 w-3" />
@@ -157,16 +159,18 @@ export function MovingAverages({ companyData, symbol }: MovingAveragesProps) {
                                   ${formatter.format(difference)}
                                 </span>
                               </div>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="cursor-help text-xs text-muted-foreground">
-                                    ({formatter.format(percentDiff)}%)
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p className="text-xs">Percentage difference from current price</p>
-                                </TooltipContent>
-                              </Tooltip>
+                              <TooltipProvider delayDuration={0}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button className="inline-flex text-xs text-muted-foreground hover:text-foreground transition-colors">
+                                      ({formatter.format(percentDiff)}%)
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" sideOffset={5}>
+                                    <p className="text-xs">Percentage difference from current price</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             </div>
                           )}
                         </TableCell>
@@ -185,7 +189,7 @@ export function MovingAverages({ companyData, symbol }: MovingAveragesProps) {
 
 const LABELS = {
   tenEma: '10 Day EMA',
-  twentyEma: '20 Day EMA',
+  twentyOneEma: '21 Day EMA',
   fiftySma: '50 Day SMA',
   twentyWeekSma: '20 Week SMA',
   twoHundredSma: '200 Day SMA',

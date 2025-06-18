@@ -24,6 +24,7 @@ import { useQuote } from '@/hooks/FMP/useQuote';
 import { useFloat } from '@/hooks/FMP/useFloat';
 import { useEarnings } from '@/hooks/FMP/useEarnings';
 import { useBalanceSheet } from '@/hooks/FMP/useBalanceSheet';
+import { useMovingAverageData } from '@/hooks/FMP/useMovingAverage';
 import News from '@/components/ui/(fmp)/News';
 import KeyMetrics from '@/components/ui/(fmp)/KeyMetrics';
 import InsiderActivity from '@/components/ui/(fmp)/InsiderActivity';
@@ -49,6 +50,10 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
   /** RSI Data from FMP */
   const { data: rsiData, isLoading: rsiLoading } = useRSIData(symbol);
   const rsi = rsiData?.rsi;
+
+  /** Moving Averages Data from FMP */
+  const { data: twentyEmaData, isLoading: twentyEmaLoading } = useMovingAverageData(symbol, 'ema', '21', '1day');
+  const twentyEma = twentyEmaData && twentyEmaData.length > 0 ? twentyEmaData[0].ma : null;
 
   /** Float Data from FMP */
   const { data: floatData, isLoading: floatLoading } = useFloat(symbol);
@@ -77,9 +82,9 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
     return calculateRanges(priceHistory, 5);
   }, [priceHistory]);
 
-  const range20Day = React.useMemo(() => {
-    if (!priceHistory || priceHistory.length < 20) return null;
-    return calculateRanges(priceHistory, 20);
+  const range21Day = React.useMemo(() => {
+    if (!priceHistory || priceHistory.length < 21) return null;
+    return calculateRanges(priceHistory, 21);
   }, [priceHistory]);
 
   // Calculate YoY EPS % change for the last quarter
@@ -382,7 +387,9 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                       <div className="flex gap-1.5 mt-1 sm:mt-0">
                         <div className={cn(
                           "inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-medium",
-                          quote.change >= 0 ? "bg-positive/15 text-positive" : "bg-negative/15 text-negative"
+                          quote.change >= 0 
+                            ? "bg-emerald-500/10 text-emerald-500 dark:bg-emerald-500/20 dark:text-emerald-400" 
+                            : "bg-rose-500/10 text-rose-500 dark:bg-rose-500/20 dark:text-rose-400"
                         )}>
                           {quote.change >= 0 ? (
                             <ArrowUp className="h-3.5 w-3.5" />
@@ -393,7 +400,9 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                         </div>
                         <div className={cn(
                           "inline-flex items-center rounded-md px-2 py-1 text-sm font-medium",
-                          quote.changesPercentage >= 0 ? "bg-positive/15 text-positive" : "bg-negative/15 text-negative"
+                          quote.changesPercentage >= 0 
+                            ? "bg-emerald-500/10 text-emerald-500 dark:bg-emerald-500/20 dark:text-emerald-400" 
+                            : "bg-rose-500/10 text-rose-500 dark:bg-rose-500/20 dark:text-rose-400"
                         )}>
                           {quote.changesPercentage ? (
                             `${quote.changesPercentage >= 0 ? '+' : ''}${quote.changesPercentage.toFixed(2)}%`
@@ -429,27 +438,60 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
               <div className="flex items-center gap-6 flex-wrap">
                 {range5Day && (
                   <div>
-                    <div >
+                    <div>
                       {range5Day.averageDailyRange}% / ${safeFormat(range5Day.averageTrueRange)}
                     </div>
                     <div className="text-xs text-muted-foreground">5 Day ADR/ATR</div>
                   </div>
                 )}
                 
-                {range5Day && range20Day && (
+                {range5Day && range21Day && (
                   <div className="mx-1 h-5 w-px bg-border"></div>
                 )}
                 
-                {range20Day && (
+                {range21Day && (
                   <div>
                     <div>
-                      {range20Day.averageDailyRange}% / ${safeFormat(range20Day.averageTrueRange)}
+                      {range21Day.averageDailyRange}% / ${safeFormat(range21Day.averageTrueRange)}
                     </div>
-                    <div className="text-xs text-muted-foreground">20 Day ADR/ATR</div>
+                    <div className="text-xs text-muted-foreground">21 Day ADR/ATR</div>
                   </div>
                 )}
                 
-                {range20Day && lastQuarterEpsChange && (
+                {range21Day && (
+                  <div className="mx-1 h-5 w-px bg-border"></div>
+                )}
+
+                {range21Day && twentyEma && !twentyEmaLoading && (
+                  <div>
+                    <div className={cn(
+                      "flex items-center gap-1",
+                      quote.price > twentyEma ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"
+                    )}>
+                      {((quote.price - twentyEma) / range21Day.averageTrueRange).toFixed(2)}x ATR
+                      <TooltipProvider delayDuration={0}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button className="inline-flex">
+                              <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" sideOffset={5}>
+                            <div className="space-y-1">
+                              <p>Current Price: ${safeFormat(quote.price)}</p>
+                              <p>21 Day EMA: ${safeFormat(twentyEma)}</p>
+                              <p>21 Day ATR: ${safeFormat(range21Day.averageTrueRange)}</p>
+                              <p className="text-xs text-muted-foreground mt-1">Shows how many ATR units the price is away from the 21 Day EMA</p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    <div className="text-xs text-muted-foreground">ATR Units from 21 EMA</div>
+                  </div>
+                )}
+                
+                {range21Day && lastQuarterEpsChange && (
                   <div className="mx-1 h-5 w-px bg-border"></div>
                 )}
                 
@@ -457,15 +499,21 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                   <div>
                     <div className={cn(
                       "flex items-center gap-1",
-                      lastQuarterEpsChange.value > 0 ? "text-positive" : lastQuarterEpsChange.value < 0 ? "text-negative" : ""
+                      lastQuarterEpsChange.value > 0 
+                        ? "text-emerald-500 dark:text-emerald-400" 
+                        : lastQuarterEpsChange.value < 0 
+                          ? "text-rose-500 dark:text-rose-400" 
+                          : ""
                     )}>
                       {lastQuarterEpsChange.value > 0 ? "+" : ""}{lastQuarterEpsChange.value.toFixed(2)}%
-                      <TooltipProvider>
+                      <TooltipProvider delayDuration={0}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <InfoIcon className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                            <button className="inline-flex">
+                              <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                            </button>
                           </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
+                          <TooltipContent side="top" sideOffset={5}>
                             <div className="space-y-1">
                               <p>Current: ${lastQuarterEpsChange.current.toFixed(6)}</p>
                               <p>Previous: ${lastQuarterEpsChange.previous.toFixed(6)}</p>
@@ -489,15 +537,21 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                   <div>
                     <div className={cn(
                       "flex items-center gap-1",
-                      lastQuarterRevenueChange.value > 0 ? "text-positive" : lastQuarterRevenueChange.value < 0 ? "text-negative" : ""
+                      lastQuarterRevenueChange.value > 0 
+                        ? "text-emerald-500 dark:text-emerald-400" 
+                        : lastQuarterRevenueChange.value < 0 
+                          ? "text-rose-500 dark:text-rose-400" 
+                          : ""
                     )}>
                       {lastQuarterRevenueChange.value > 0 ? "+" : ""}{lastQuarterRevenueChange.value.toFixed(2)}%
-                      <TooltipProvider>
+                      <TooltipProvider delayDuration={0}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <InfoIcon className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                            <button className="inline-flex">
+                              <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                            </button>
                           </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
+                          <TooltipContent side="top" sideOffset={5}>
                             <div className="space-y-1">
                               <p>Current: ${(lastQuarterRevenueChange.current / 1000000).toFixed(2)}M</p>
                               <p>Previous: ${(lastQuarterRevenueChange.previous / 1000000).toFixed(2)}M</p>
@@ -521,16 +575,21 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                   <div>
                     <div className={cn(
                       "flex items-center gap-1",
-                      calculatedROE.value > 15 ? "text-positive" : 
-                      calculatedROE.value < 5 ? "text-negative" : ""
+                      calculatedROE.value > 15 
+                        ? "text-emerald-500 dark:text-emerald-400" 
+                        : calculatedROE.value < 5 
+                          ? "text-rose-500 dark:text-rose-400" 
+                          : ""
                     )}>
                       {calculatedROE.value.toFixed(2)}%
-                      <TooltipProvider>
+                      <TooltipProvider delayDuration={0}>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <InfoIcon className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                            <button className="inline-flex">
+                              <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                            </button>
                           </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
+                          <TooltipContent side="top" sideOffset={5}>
                             <div className="space-y-1">
                               <p>Annual Net Income ({calculatedROE.year}): ${(calculatedROE.annualNetIncome / 1000000).toFixed(2)}M</p>
                               <p>Current Equity: ${(calculatedROE.currentEquity / 1000000).toFixed(2)}M</p>
@@ -538,8 +597,8 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                               <p>Average Equity: ${(calculatedROE.averageEquity / 1000000).toFixed(2)}M</p>
                               <p className="text-xs text-muted-foreground mt-1">ROE = (Annual Net Income / Average Equity) × 100</p>
                               <p className="text-xs mt-1">
-                                <span className="text-positive font-medium">Above 15%</span>: Excellent |  
-                                <span className="text-negative font-medium"> Below 5%</span>: Poor
+                                <span className="text-emerald-500 dark:text-emerald-400 font-medium">Above 15%</span>: Excellent |  
+                                <span className="text-rose-500 dark:text-rose-400 font-medium"> Below 5%</span>: Poor
                               </p>
                             </div>
                           </TooltipContent>
@@ -782,8 +841,8 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                     <span className="text-sm text-muted-foreground">RSI (14)</span>
                     <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
                     <span className={cn("font-medium", {
-                      "text-positive": rsi && rsi >= 70,
-                      "text-negative": rsi && rsi <= 30
+                      "text-emerald-500 dark:text-emerald-400": rsi && rsi >= 70,
+                      "text-rose-500 dark:text-rose-400": rsi && rsi <= 30
                     })}>
                       {rsiLoading ? "Loading..." : (rsi ? `${safeFormat(rsi)}` : 'N/A')}
                     </span>
