@@ -1,10 +1,8 @@
 "use client";
 import Link from 'next/link';
 import NavLinks from '@/components/navigation/NavLinks';
-import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
-import { electrolize } from '@/lib/fonts';
 import { useMobileMenu } from '@/lib/context/MobileMenuContext';
 import { useAuth } from '@/lib/context/auth-context';
 import { LogIn, LogOut } from 'lucide-react';
@@ -73,29 +71,6 @@ export default function SideNav() {
             </Tooltip>
           </TooltipProvider>
         </div>
-
-        <Link
-          className="mb-4 flex h-16 md:h-20 items-center rounded-md bg-muted px-4 font-medium hover:bg-accent transition-colors duration-200 justify-start gap-2"
-          href="/"
-        >
-          <div className="relative h-12 w-12 md:h-16 md:w-16 flex-shrink-0">
-            <Image
-              src="/stockF.png"
-              alt="Finance Guy Logo"
-              fill
-              priority={true}
-              className="object-contain transform transition-transform duration-200 rounded-md"
-            />
-          </div>
-
-          <div className={cn(
-            "flex flex-col",
-            electrolize.className
-          )}>
-            <span className="text-lg text-foreground whitespace-nowrap">Finance</span>
-            <span className="text-lg text-foreground whitespace-nowrap">Guy</span>
-          </div>
-        </Link>
         
         <div className="flex flex-col flex-1">
           <NavLinks />
