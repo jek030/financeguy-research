@@ -468,7 +468,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                       "flex items-center gap-1",
                       quote.price > twentyEma ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"
                     )}>
-                      {((quote.price - twentyEma) / range21Day.averageTrueRange).toFixed(2)}x ATR
+                      {((quote.price - twentyEma) / range21Day.averageTrueRange).toFixed(2)}x 21 ATR
                       <TooltipProvider delayDuration={0}>
                         <Tooltip>
                           <TooltipTrigger asChild>

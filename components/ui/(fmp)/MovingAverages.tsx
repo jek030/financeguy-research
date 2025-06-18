@@ -48,16 +48,16 @@ function useMovingAverages(symbol: string, currentPrice: number) {
   };
 
   // Call hooks at the top level
-  const tenEmaData = useMovingAverageData(symbol, 'ema', '10', '1day');
+  const eightEmaData = useMovingAverageData(symbol, 'ema', '8', '1day');
   const twentyOneEmaData = useMovingAverageData(symbol, 'ema', '21', '1day');
   const fiftyEmaData = useMovingAverageData(symbol, 'sma', '50', '1day');
   const twoHundredSmaData = useMovingAverageData(symbol, 'sma', '200', '1day');
   const twentyWeekSmaData = useMovingAverageData(symbol, 'sma', '20', '1week');
 
   const movingAverages = {
-    tenEma: {
-      data: calculateMovingAverageData(getMovingAverageValue(tenEmaData.data)),
-      isLoading: tenEmaData.isLoading
+    eightEma: {
+      data: calculateMovingAverageData(getMovingAverageValue(eightEmaData.data)),
+      isLoading: eightEmaData.isLoading
     },
     twentyOneEma: {
       data: calculateMovingAverageData(getMovingAverageValue(twentyOneEmaData.data)),
@@ -188,7 +188,7 @@ export function MovingAverages({ companyData, symbol }: MovingAveragesProps) {
 }
 
 const LABELS = {
-  tenEma: '10 Day EMA',
+  eightEma: '8 Day EMA',
   twentyOneEma: '21 Day EMA',
   fiftySma: '50 Day SMA',
   twentyWeekSma: '20 Week SMA',
