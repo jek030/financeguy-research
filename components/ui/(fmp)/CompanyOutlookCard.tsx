@@ -200,6 +200,69 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
     };
   }, [annualEarnings, annualBalanceSheet]);
 
+  // Calculate Previous Week's % Change
+  const previousWeekChange = React.useMemo(() => {
+    if (!priceHistory || priceHistory.length < 7) return null;
+
+    // Get today and set to local midnight
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Find last Friday
+    const lastFriday = new Date(today);
+    // If today is Sunday (0) or Saturday (6), go back to previous Friday
+    if (lastFriday.getDay() === 0) {
+      lastFriday.setDate(lastFriday.getDate() - 2);
+    } else if (lastFriday.getDay() === 6) {
+      lastFriday.setDate(lastFriday.getDate() - 1);
+    } else {
+      // For any other day, go back to the previous Friday
+      lastFriday.setDate(lastFriday.getDate() - ((lastFriday.getDay() + 2) % 7));
+    }
+
+    // Find the Monday of that week (4 days before Friday)
+    const lastMonday = new Date(lastFriday);
+    lastMonday.setDate(lastFriday.getDate() - 4);
+
+    // Format dates to match the API date format (YYYY-MM-DD)
+    const formatDate = (date: Date) => {
+      return date.toISOString().split('T')[0];
+    };
+
+    const mondayStr = formatDate(lastMonday);
+    const fridayStr = formatDate(lastFriday);
+
+    // Sort price history by date to ensure chronological order
+    const sortedHistory = [...priceHistory].sort((a, b) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    // Find Monday's data (or next trading day)
+    const mondayData = sortedHistory.find(p => p.date >= mondayStr);
+    
+    // Find Friday's data (or last trading day of the week)
+    const fridayData = sortedHistory.reverse().find(p => p.date <= fridayStr);
+
+    if (!mondayData || !fridayData) return null;
+
+    const percentChange = ((fridayData.close - mondayData.open) / mondayData.open) * 100;
+
+    // Adjust dates for timezone offset
+    const adjustDate = (dateStr: string) => {
+      const date = new Date(dateStr);
+      const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+      return new Date(date.getTime() + userTimezoneOffset);
+    };
+
+    return {
+      value: percentChange,
+      startDate: adjustDate(mondayData.date),
+      endDate: adjustDate(fridayData.date),
+      startPrice: mondayData.open,
+      endPrice: fridayData.close
+    };
+  }, [priceHistory]);
+
   if (isLoading || quoteLoading) {
     return (
       <div>
@@ -607,6 +670,46 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                     </div>
                     <div className="text-xs text-muted-foreground">
                       ROE ({calculatedROE.year})
+                    </div>
+                  </div>
+                )}
+
+                {calculatedROE && previousWeekChange && (
+                  <div className="mx-1 h-5 w-px bg-border self-center"></div>
+                )}
+                
+                {previousWeekChange && (
+                  <div>
+                    <div className={cn(
+                      "flex items-center gap-1",
+                      previousWeekChange.value > 0 
+                        ? "text-emerald-500 dark:text-emerald-400" 
+                        : previousWeekChange.value < 0 
+                          ? "text-rose-500 dark:text-rose-400" 
+                          : ""
+                    )}>
+                      {previousWeekChange.value > 0 ? "+" : ""}{previousWeekChange.value.toFixed(2)}%
+                      <TooltipProvider delayDuration={0}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button className="inline-flex">
+                              <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" sideOffset={5}>
+                            <div className="space-y-1">
+                              <p>Start Date: {previousWeekChange.startDate.toLocaleDateString()}</p>
+                              <p>Opening Price: ${previousWeekChange.startPrice.toFixed(2)}</p>
+                              <p>End Date: {previousWeekChange.endDate.toLocaleDateString()}</p>
+                              <p>Closing Price: ${previousWeekChange.endPrice.toFixed(2)}</p>
+                              <p className="text-xs text-muted-foreground mt-1">Calculated from Monday&apos;s open to Friday&apos;s close of the previous week. If market was closed, uses the next/previous trading day.</p>
+                            </div>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Previous Week % Change
                     </div>
                   </div>
                 )}
