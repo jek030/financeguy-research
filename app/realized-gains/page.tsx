@@ -2,6 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { TradeRecord, CSVFileData } from '@/lib/types/trading';
+import { Alert } from '@/components/ui/Alert';
+import { CheckCircle } from 'lucide-react';
 import { 
   calculateTradeSummary, 
   calculateTickerPerformance, 
@@ -19,6 +21,7 @@ import TradeTable from '@/components/ui/(realized-gains)/TradeTable';
 
 export default function RealizedGainsPage() {
   const [csvData, setCsvData] = useState<CSVFileData>({ summary: '', trades: [] });
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Calculate all derived data
   const tradeSummary = useMemo(() => calculateTradeSummary(csvData.trades), [csvData.trades]);
@@ -30,6 +33,12 @@ export default function RealizedGainsPage() {
     setCsvData(data);
     // Optional: Save to localStorage for persistence
     localStorage.setItem('realizedTrades', JSON.stringify(data));
+  };
+
+  const handleSuccess = (message: string) => {
+    setSuccessMessage(message);
+    // Clear success message after 5 seconds
+    setTimeout(() => setSuccessMessage(null), 5000);
   };
 
   // Load from localStorage on component mount
@@ -58,19 +67,35 @@ export default function RealizedGainsPage() {
       </div>
 
       {/* CSV Upload */}
-      <CsvUploader onDataLoaded={handleDataLoaded} />
+      <CsvUploader onDataLoaded={handleDataLoaded} onSuccess={handleSuccess} hasData={hasData} />
 
-      {/* Content - only show if we have data */}
-      {hasData && (
-        <>
+      {/* Success Message and File Summary */}
+      {(successMessage || (hasData && csvData.summary)) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Success Message */}
+          {successMessage && (
+            <Alert>
+              <CheckCircle className="h-4 w-4" />
+              <div>
+                <h4 className="font-semibold">Upload Successful</h4>
+                <p className="text-sm">{successMessage}</p>
+              </div>
+            </Alert>
+          )}
+          
           {/* File Summary */}
-          {csvData.summary && (
+          {hasData && csvData.summary && (
             <div className="bg-muted/50 rounded-lg p-4">
               <h3 className="text-lg font-semibold mb-2">File Summary</h3>
               <p className="text-sm text-muted-foreground">{csvData.summary}</p>
             </div>
           )}
-          
+        </div>
+      )}
+
+      {/* Content - only show if we have data */}
+      {hasData && (
+        <>
           {/* Summary Cards */}
           <SummaryCards summary={tradeSummary} />
 
@@ -102,16 +127,8 @@ export default function RealizedGainsPage() {
           <div className="max-w-md mx-auto space-y-4">
             <h3 className="text-lg font-semibold text-muted-foreground">No Data Available</h3>
             <p className="text-sm text-muted-foreground">
-              Upload a CSV file containing your trading data to begin analyzing your realized gains.
+              Upload a CSV file containing your trading data to begin analyzing your realized gains. Log into Charles Schwab, view the Realized Gains tab, and download the Export Details Only file.
             </p>
-            <div className="text-xs text-muted-foreground space-y-1">
-              <p>Your CSV should have the following format:</p>
-              <ul className="list-disc list-inside text-left space-y-1">
-                <li>Row 1: Summary text describing the report</li>
-                <li>Row 2: Column headers</li>
-                <li>Row 3+: Trade data with Symbol, Opened Date, Closed Date, Quantity, Proceeds, Cost Basis, Gain/Loss, Term, etc.</li>
-              </ul>
-            </div>
           </div>
         </div>
       )}

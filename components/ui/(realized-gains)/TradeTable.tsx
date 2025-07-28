@@ -128,6 +128,44 @@ export default function TradeTable({ data, className }: TradeTableProps) {
       ),
       cell: info => info.getValue().toLocaleString(),
     }),
+    columnHelper.accessor('costPerShare', {
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          className="p-0 h-auto font-semibold"
+        >
+          Cost Per Share
+          {column.getIsSorted() === 'asc' ? (
+            <ArrowUp className="ml-2 h-4 w-4" />
+          ) : column.getIsSorted() === 'desc' ? (
+            <ArrowDown className="ml-2 h-4 w-4" />
+          ) : (
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          )}
+        </Button>
+      ),
+      cell: info => formatCurrency(info.getValue()),
+    }),
+    columnHelper.accessor('proceedsPerShare', {
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          className="p-0 h-auto font-semibold"
+        >
+          Proceeds Per Share
+          {column.getIsSorted() === 'asc' ? (
+            <ArrowUp className="ml-2 h-4 w-4" />
+          ) : column.getIsSorted() === 'desc' ? (
+            <ArrowDown className="ml-2 h-4 w-4" />
+          ) : (
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          )}
+        </Button>
+      ),
+      cell: info => formatCurrency(info.getValue()),
+    }),
     columnHelper.accessor('proceeds', {
       header: ({ column }) => (
         <Button
@@ -249,7 +287,7 @@ export default function TradeTable({ data, className }: TradeTableProps) {
 
   const exportToCSV = () => {
     const filteredData = table.getFilteredRowModel().rows.map(row => row.original);
-    const headers = ['Symbol', 'Name', 'Opened Date', 'Closed Date', 'Quantity', 'Proceeds', 'Cost Basis', 'Gain/Loss', 'Term'];
+    const headers = ['Symbol', 'Name', 'Opened Date', 'Closed Date', 'Quantity', 'Cost Per Share', 'Proceeds Per Share', 'Proceeds', 'Cost Basis', 'Gain/Loss', 'Term'];
     const csvContent = [
       headers.join(','),
       ...filteredData.map(trade => [
@@ -258,6 +296,8 @@ export default function TradeTable({ data, className }: TradeTableProps) {
         trade.openedDate,
         trade.closedDate,
         trade.quantity,
+        trade.costPerShare,
+        trade.proceedsPerShare,
         trade.proceeds,
         trade.costBasis,
         trade.gainLoss,

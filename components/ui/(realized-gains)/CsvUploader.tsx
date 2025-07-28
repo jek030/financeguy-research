@@ -12,13 +12,14 @@ import { cn } from '@/lib/utils';
 
 interface CsvUploaderProps {
   onDataLoaded: (data: CSVFileData) => void;
+  onSuccess?: (message: string) => void;
   className?: string;
+  hasData?: boolean;
 }
 
-export default function CsvUploader({ onDataLoaded, className }: CsvUploaderProps) {
+export default function CsvUploader({ onDataLoaded, onSuccess, className, hasData = false }: CsvUploaderProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -26,14 +27,13 @@ export default function CsvUploader({ onDataLoaded, className }: CsvUploaderProp
 
     setIsLoading(true);
     setError(null);
-    setSuccess(null);
 
     try {
       const result = await parseTradesCSV(file);
       
       if (result.success) {
         onDataLoaded(result.data);
-        setSuccess(`Successfully loaded ${result.data.trades.length} trade records`);
+        onSuccess?.(`Successfully loaded ${result.data.trades.length} trade records`);
       } else {
         setError(result.error || 'Failed to parse CSV file');
       }
@@ -66,7 +66,10 @@ export default function CsvUploader({ onDataLoaded, className }: CsvUploaderProp
         )}
       >
         <input {...getInputProps()} />
-        <CardContent className="flex flex-col items-center justify-center py-12 px-6 text-center">
+        <CardContent className={cn(
+          "flex flex-col items-center justify-center px-6 text-center",
+          hasData ? "py-6" : "py-12"
+        )}>
           {isLoading ? (
             <>
               <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full mb-4" />
@@ -74,37 +77,50 @@ export default function CsvUploader({ onDataLoaded, className }: CsvUploaderProp
             </>
           ) : (
             <>
-              <div className="flex items-center justify-center w-16 h-16 bg-muted rounded-full mb-4">
+              <div className={cn(
+                "flex items-center justify-center bg-muted rounded-full mb-4",
+                hasData ? "w-12 h-12" : "w-16 h-16"
+              )}>
                 {isDragActive ? (
-                  <Upload className="h-8 w-8 text-primary" />
+                  <Upload className={cn(hasData ? "h-6 w-6" : "h-8 w-8", "text-primary")} />
                 ) : (
-                  <FileText className="h-8 w-8 text-muted-foreground" />
+                  <FileText className={cn(hasData ? "h-6 w-6" : "h-8 w-8", "text-muted-foreground")} />
                 )}
               </div>
               
-              <h3 className="text-lg font-semibold mb-2">
+              <h3 className={cn(
+                "font-semibold mb-2",
+                hasData ? "text-base" : "text-lg"
+              )}>
                 {isDragActive 
                   ? "Drop your CSV file here" 
-                  : "Upload Trading CSV"
+                  : hasData 
+                    ? "Upload New CSV"
+                    : "Upload Trading CSV"
                 }
               </h3>
               
-              <p className="text-sm text-muted-foreground mb-4">
-                Drag and drop your realized trades CSV file here, or click to browse
-              </p>
-              
-              <div className="text-xs text-muted-foreground space-y-1">
-                <p>Expected format: Summary row, header row, then data rows</p>
-                <p>Key columns: Symbol, Opened Date, Closed Date, Quantity, Proceeds, Cost Basis, Gain/Loss, Term</p>
-                <p>Supported formats: .csv files only</p>
-              </div>
+              {!hasData && (
+                <>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Drag and drop your realized trades CSV file here, or click to browse
+                  </p>
+                  
+                  <div className="text-xs text-muted-foreground space-y-1">
+                    <p>Expected format: Summary row, header row, then data rows</p>
+                    <p>Key columns: Symbol, Opened Date, Closed Date, Quantity, Proceeds, Cost Basis, Gain/Loss, Term</p>
+                    <p>Supported formats: .csv files only</p>
+                  </div>
+                </>
+              )}
               
               <Button 
                 variant="outline" 
-                className="mt-4"
+                className={cn(hasData ? "mt-2" : "mt-4")}
                 disabled={isLoading}
+                size={hasData ? "sm" : "default"}
               >
-                Select CSV File
+                {hasData ? "Replace CSV" : "Select CSV File"}
               </Button>
             </>
           )}
@@ -121,15 +137,7 @@ export default function CsvUploader({ onDataLoaded, className }: CsvUploaderProp
         </Alert>
       )}
 
-      {success && (
-        <Alert>
-          <CheckCircle className="h-4 w-4" />
-          <div>
-            <h4 className="font-semibold">Upload Successful</h4>
-            <p className="text-sm">{success}</p>
-          </div>
-        </Alert>
-      )}
+
     </div>
   );
 } 

@@ -112,9 +112,9 @@ export default function CumulativeGainsChart({ data, className }: CumulativeGain
                 type="monotone" 
                 dataKey="cumulativeGain" 
                 stroke={lineColor}
-                strokeWidth={2}
-                dot={{ fill: lineColor, strokeWidth: 2, r: 3 }}
-                activeDot={{ r: 5, stroke: lineColor }}
+                strokeWidth={3}
+                dot={false}
+                activeDot={{ r: 4, stroke: lineColor, strokeWidth: 2, fill: lineColor }}
               />
             </LineChart>
           </ResponsiveContainer>
