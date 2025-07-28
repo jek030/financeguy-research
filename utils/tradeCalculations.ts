@@ -1,4 +1,5 @@
 import { TradeRecord, TradeSummary, TickerPerformance, CumulativeGainData, TermDistribution } from '@/lib/types/trading';
+import { parseTradeDate } from './aggregateByPeriod';
 
 export function calculateTradeSummary(trades: TradeRecord[]): TradeSummary {
   if (trades.length === 0) {
@@ -56,9 +57,16 @@ export function calculateTickerPerformance(trades: TradeRecord[]): TickerPerform
 
 export function calculateCumulativeGains(trades: TradeRecord[]): CumulativeGainData[] {
   // Sort trades by close date
-  const sortedTrades = [...trades].sort((a, b) => 
-    new Date(a.closedDate).getTime() - new Date(b.closedDate).getTime()
-  );
+  const sortedTrades = [...trades].sort((a, b) => {
+    try {
+      const dateA = parseTradeDate(a.closedDate);
+      const dateB = parseTradeDate(b.closedDate);
+      return dateA.getTime() - dateB.getTime();
+    } catch (error) {
+      // If date parsing fails, maintain original order
+      return 0;
+    }
+  });
 
   let cumulativeGain = 0;
   const cumulativeData: CumulativeGainData[] = [];

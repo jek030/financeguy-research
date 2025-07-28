@@ -12,6 +12,13 @@ import {
   calculateCumulativeGains, 
   calculateTermDistribution 
 } from '@/utils/tradeCalculations';
+import { 
+  aggregateTradesByMonth, 
+  aggregateTradesByWeek, 
+  getPeriodTrades,
+  parseTradeDate,
+  type PeriodStats 
+} from '@/utils/aggregateByPeriod';
 
 // Components
 import CsvUploader from '@/components/ui/(realized-gains)/CsvUploader';
@@ -23,6 +30,9 @@ import TradeTable from '@/components/ui/(realized-gains)/TradeTable';
 import TickerDetailModal from '@/components/ui/(realized-gains)/TickerDetailModal';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import PnlBarChart from '@/components/ui/(realized-gains)/PnlBarChart';
+import TimePeriodStatsTable from '@/components/ui/(realized-gains)/TimePeriodStatsTable';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 
 export default function RealizedGainsPage() {
   const [csvData, setCsvData] = useState<CSVFileData>({ summary: '', trades: [] });
@@ -30,6 +40,9 @@ export default function RealizedGainsPage() {
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date } | null>(null);
+  const [periodView, setPeriodView] = useState<'monthly' | 'weekly'>('monthly');
+  const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
+  const [periodFilteredTrades, setPeriodFilteredTrades] = useState<TradeRecord[]>([]);
 
   // Filter trades based on date range
   const filteredTrades = useMemo(() => {
@@ -37,7 +50,8 @@ export default function RealizedGainsPage() {
     
     return csvData.trades.filter(trade => {
       try {
-        const closeDate = new Date(trade.closedDate);
+        // Use the same parsing logic as aggregation functions
+        const closeDate = parseTradeDate(trade.closedDate);
         return closeDate >= dateRange.from && closeDate <= dateRange.to;
       } catch (error) {
         console.warn('Invalid date format in trade:', trade.closedDate);
@@ -46,11 +60,20 @@ export default function RealizedGainsPage() {
     });
   }, [csvData.trades, dateRange]);
 
-  // Calculate all derived data using filtered trades
-  const tradeSummary = useMemo(() => calculateTradeSummary(filteredTrades), [filteredTrades]);
-  const tickerPerformance = useMemo(() => calculateTickerPerformance(filteredTrades), [filteredTrades]);
-  const cumulativeGains = useMemo(() => calculateCumulativeGains(filteredTrades), [filteredTrades]);
-  const termDistribution = useMemo(() => calculateTermDistribution(filteredTrades), [filteredTrades]);
+  // Determine final filtered trades (date range + period filters)
+  const finalFilteredTrades = useMemo(() => {
+    return selectedPeriod && periodFilteredTrades.length > 0 ? periodFilteredTrades : filteredTrades;
+  }, [filteredTrades, selectedPeriod, periodFilteredTrades]);
+
+  // Calculate period aggregations from date-filtered trades
+  const monthlyAggregation = useMemo(() => aggregateTradesByMonth(filteredTrades), [filteredTrades]);
+  const weeklyAggregation = useMemo(() => aggregateTradesByWeek(filteredTrades), [filteredTrades]);
+
+  // Calculate all derived data using final filtered trades
+  const tradeSummary = useMemo(() => calculateTradeSummary(finalFilteredTrades), [finalFilteredTrades]);
+  const tickerPerformance = useMemo(() => calculateTickerPerformance(finalFilteredTrades), [finalFilteredTrades]);
+  const cumulativeGains = useMemo(() => calculateCumulativeGains(finalFilteredTrades), [finalFilteredTrades]);
+  const termDistribution = useMemo(() => calculateTermDistribution(finalFilteredTrades), [finalFilteredTrades]);
 
   const handleDataLoaded = (data: CSVFileData) => {
     setCsvData(data);
@@ -59,7 +82,14 @@ export default function RealizedGainsPage() {
     
     // Set initial date range to include all trades
     if (data.trades.length > 0) {
-      const dates = data.trades.map(trade => new Date(trade.closedDate)).filter(date => !isNaN(date.getTime()));
+      const dates = data.trades.map(trade => {
+        try {
+          return parseTradeDate(trade.closedDate);
+        } catch {
+          return null;
+        }
+      }).filter((date): date is Date => date !== null && !isNaN(date.getTime()));
+      
       if (dates.length > 0) {
         const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
         const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
@@ -82,6 +112,24 @@ export default function RealizedGainsPage() {
     setSelectedTicker(null);
   };
 
+  const handlePeriodClick = (periodKey: string) => {
+    if (selectedPeriod === periodKey) {
+      // Clicking the same period clears the filter
+      setSelectedPeriod(null);
+      setPeriodFilteredTrades([]);
+    } else {
+      // Filter trades for the selected period
+      const trades = getPeriodTrades(filteredTrades, periodKey, periodView);
+      setSelectedPeriod(periodKey);
+      setPeriodFilteredTrades(trades);
+    }
+  };
+
+  const clearPeriodFilter = () => {
+    setSelectedPeriod(null);
+    setPeriodFilteredTrades([]);
+  };
+
   // Load from localStorage on component mount
   React.useEffect(() => {
     const saved = localStorage.getItem('realizedTrades');
@@ -93,12 +141,10 @@ export default function RealizedGainsPage() {
           if (trade.daysInTrade === undefined) {
             let daysInTrade = 0;
             try {
-              const openDate = new Date(trade.openedDate);
-              const closeDate = new Date(trade.closedDate);
-              if (!isNaN(openDate.getTime()) && !isNaN(closeDate.getTime())) {
-                const timeDiff = closeDate.getTime() - openDate.getTime();
-                daysInTrade = Math.round(timeDiff / (1000 * 3600 * 24));
-              }
+              const openDate = parseTradeDate(trade.openedDate);
+              const closeDate = parseTradeDate(trade.closedDate);
+              const timeDiff = closeDate.getTime() - openDate.getTime();
+              daysInTrade = Math.round(timeDiff / (1000 * 3600 * 24));
             } catch (error) {
               console.warn('Could not calculate days in trade for existing data');
             }
@@ -115,6 +161,7 @@ export default function RealizedGainsPage() {
 
   const hasData = csvData.trades.length > 0;
   const hasFilteredData = filteredTrades.length > 0;
+  const hasFinalData = finalFilteredTrades.length > 0;
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8 max-w-none">
@@ -187,14 +234,23 @@ export default function RealizedGainsPage() {
               onRangeChange={setDateRange}
             />
             
-            {!hasFilteredData && dateRange && (
-              <Alert variant="destructive">
-                <div>
-                  <h4 className="font-semibold">No trades in selected range</h4>
-                  <p className="text-sm">Try adjusting your date range to include more trades.</p>
-                </div>
-              </Alert>
-            )}
+                      {!hasFilteredData && dateRange && (
+            <Alert variant="destructive">
+              <div>
+                <h4 className="font-semibold">No trades in selected date range</h4>
+                <p className="text-sm">Try adjusting your date range to include more trades.</p>
+              </div>
+            </Alert>
+          )}
+          
+          {hasFilteredData && !hasFinalData && selectedPeriod && (
+            <Alert variant="destructive">
+              <div>
+                <h4 className="font-semibold">No trades in selected period</h4>
+                <p className="text-sm">Try selecting a different {periodView.slice(0, -2)} period or clearing the period filter.</p>
+              </div>
+            </Alert>
+          )}
           </CardContent>
         </Card>
       )}
@@ -204,38 +260,112 @@ export default function RealizedGainsPage() {
         <>
           {/* Summary Cards */}
           <div className="space-y-4">
-            {dateRange && (
-              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                <p className="text-sm text-blue-700 dark:text-blue-300">
-                  <strong>Date Filter Active:</strong> Showing {filteredTrades.length} of {csvData.trades.length} trades 
-                  ({format(dateRange.from, 'MMM dd, yyyy')} - {format(dateRange.to, 'MMM dd, yyyy')})
-                </p>
-              </div>
-            )}
-            <SummaryCards summary={tradeSummary} />
-          </div>
-
-          {/* Charts Section */}
-          <div className="space-y-8">
-            <h2 className="text-2xl font-semibold">Performance Analysis</h2>
-            
-            {/* Cumulative Gains Chart - Full Width */}
-            <CumulativeGainsChart data={cumulativeGains} />
-
-            {/* Side by Side Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <TickerPerformanceChart 
-                data={tickerPerformance} 
-                onTickerClick={handleTickerClick}
-              />
-              <TermDistributionChart data={termDistribution} />
+            {/* Filter Status Indicators */}
+            <div className="space-y-2">
+              {dateRange && (
+                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    <strong>Date Filter Active:</strong> Showing {filteredTrades.length} of {csvData.trades.length} trades 
+                    ({format(dateRange.from, 'MMM dd, yyyy')} - {format(dateRange.to, 'MMM dd, yyyy')})
+                  </p>
+                </div>
+              )}
+              {selectedPeriod && (
+                <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
+                  <p className="text-sm text-purple-700 dark:text-purple-300">
+                    <strong>Period Filter Active:</strong> Showing {finalFilteredTrades.length} trades from selected {periodView.slice(0, -2)} period
+                  </p>
+                </div>
+              )}
             </div>
+            {hasFinalData && <SummaryCards summary={tradeSummary} />}
           </div>
 
-          {/* Trade Table */}
-          <div className="w-full">
-            <TradeTable data={filteredTrades} />
+          {/* Charts Section - only show if we have final data */}
+          {hasFinalData && (
+            <div className="space-y-8">
+              <h2 className="text-2xl font-semibold">Performance Analysis</h2>
+              
+              {/* Cumulative Gains Chart - Full Width */}
+              <CumulativeGainsChart data={cumulativeGains} />
+
+              {/* Side by Side Charts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <TickerPerformanceChart 
+                  data={tickerPerformance} 
+                  onTickerClick={handleTickerClick}
+                />
+                <TermDistributionChart data={termDistribution} />
+              </div>
+            </div>
+          )}
+
+          {/* Performance Over Time Section */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-semibold">Performance Over Time</h2>
+              {selectedPeriod && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearPeriodFilter}
+                  className="text-sm"
+                >
+                  <X className="h-4 w-4 mr-2" />
+                  Clear Period Filter ({finalFilteredTrades.length} trades)
+                </Button>
+              )}
+            </div>
+
+            <Tabs value={periodView} onValueChange={(value) => {
+              setPeriodView(value as 'monthly' | 'weekly');
+              // Clear period filter when switching views
+              setSelectedPeriod(null);
+              setPeriodFilteredTrades([]);
+            }}>
+              <TabsList className="grid w-full max-w-[200px] grid-cols-2">
+                <TabsTrigger value="monthly">Monthly</TabsTrigger>
+                <TabsTrigger value="weekly">Weekly</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="monthly" className="space-y-6">
+                <PnlBarChart
+                  data={monthlyAggregation.periods}
+                  type="monthly"
+                  onPeriodClick={handlePeriodClick}
+                  selectedPeriod={selectedPeriod || undefined}
+                />
+                <TimePeriodStatsTable
+                  data={monthlyAggregation.periods}
+                  type="monthly"
+                  onPeriodClick={handlePeriodClick}
+                  selectedPeriod={selectedPeriod || undefined}
+                />
+              </TabsContent>
+
+              <TabsContent value="weekly" className="space-y-6">
+                <PnlBarChart
+                  data={weeklyAggregation.periods}
+                  type="weekly"
+                  onPeriodClick={handlePeriodClick}
+                  selectedPeriod={selectedPeriod || undefined}
+                />
+                <TimePeriodStatsTable
+                  data={weeklyAggregation.periods}
+                  type="weekly"
+                  onPeriodClick={handlePeriodClick}
+                  selectedPeriod={selectedPeriod || undefined}
+                />
+              </TabsContent>
+            </Tabs>
           </div>
+
+          {/* Trade Table - only show if we have final data */}
+          {hasFinalData && (
+            <div className="w-full">
+              <TradeTable data={finalFilteredTrades} />
+            </div>
+          )}
         </>
       )}
 
@@ -257,7 +387,7 @@ export default function RealizedGainsPage() {
           isOpen={isModalOpen}
           onClose={handleModalClose}
           ticker={selectedTicker}
-          trades={filteredTrades}
+          trades={finalFilteredTrades}
         />
       )}
     </div>

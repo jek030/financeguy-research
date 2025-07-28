@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 import { TradeRecord, CSVFileData } from '@/lib/types/trading';
+import { parseTradeDate } from './aggregateByPeriod';
 
 export interface CSVParseResult {
   success: boolean;
@@ -84,14 +85,12 @@ export function parseTradesCSV(file: File): Promise<CSVParseResult> {
               // Calculate days in trade
               let daysInTrade = 0;
               try {
-                const openDate = new Date(openedDate);
-                const closeDate = new Date(closedDate);
-                if (!isNaN(openDate.getTime()) && !isNaN(closeDate.getTime())) {
-                  const timeDiff = closeDate.getTime() - openDate.getTime();
-                  daysInTrade = Math.round(timeDiff / (1000 * 3600 * 24));
-                }
+                const openDate = parseTradeDate(openedDate);
+                const closeDate = parseTradeDate(closedDate);
+                const timeDiff = closeDate.getTime() - openDate.getTime();
+                daysInTrade = Math.round(timeDiff / (1000 * 3600 * 24));
               } catch (error) {
-                console.warn(`Could not calculate days in trade for row ${i + 1}`);
+                console.warn(`Could not calculate days in trade for row ${i + 1}:`, error);
               }
 
               const trade: TradeRecord = {
