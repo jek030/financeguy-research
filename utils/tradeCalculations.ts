@@ -10,6 +10,7 @@ export function calculateTradeSummary(trades: TradeRecord[]): TradeSummary {
       winRate: 0,
       averageWin: 0,
       averageLoss: 0,
+      averageDaysInTrade: 0,
     };
   }
 
@@ -19,6 +20,7 @@ export function calculateTradeSummary(trades: TradeRecord[]): TradeSummary {
 
   const totalWins = winningTrades.reduce((sum, trade) => sum + trade.gainLoss, 0);
   const totalLosses = Math.abs(losingTrades.reduce((sum, trade) => sum + trade.gainLoss, 0));
+  const totalDaysInTrade = trades.reduce((sum, trade) => sum + (trade.daysInTrade || 0), 0);
 
   return {
     totalGainLoss,
@@ -28,6 +30,7 @@ export function calculateTradeSummary(trades: TradeRecord[]): TradeSummary {
     winRate: trades.length > 0 ? (winningTrades.length / trades.length) * 100 : 0,
     averageWin: winningTrades.length > 0 ? totalWins / winningTrades.length : 0,
     averageLoss: losingTrades.length > 0 ? totalLosses / losingTrades.length : 0,
+    averageDaysInTrade: trades.length > 0 ? totalDaysInTrade / trades.length : 0,
   };
 }
 

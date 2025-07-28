@@ -235,6 +235,32 @@ export default function TickerDetailModal({ isOpen, onClose, ticker, trades }: T
         );
       },
     }),
+    columnHelper.accessor('daysInTrade', {
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          className="p-0 h-auto font-semibold"
+        >
+          Days in Trade
+          {column.getIsSorted() === 'asc' ? (
+            <ArrowUp className="ml-2 h-4 w-4" />
+          ) : column.getIsSorted() === 'desc' ? (
+            <ArrowDown className="ml-2 h-4 w-4" />
+          ) : (
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          )}
+        </Button>
+      ),
+      cell: info => {
+        const days = info.getValue();
+        return (
+          <span className="font-medium">
+            {days == null ? 'N/A' : days === 0 ? '0' : days.toLocaleString()}
+          </span>
+        );
+      },
+    }),
     columnHelper.accessor('term', {
       header: ({ column }) => (
         <Button

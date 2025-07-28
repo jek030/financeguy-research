@@ -233,6 +233,32 @@ export default function TradeTable({ data, className }: TradeTableProps) {
         );
       },
     }),
+    columnHelper.accessor('daysInTrade', {
+      header: ({ column }) => (
+        <Button
+          variant="ghost"
+          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
+          className="p-0 h-auto font-semibold"
+        >
+          Days in Trade
+          {column.getIsSorted() === 'asc' ? (
+            <ArrowUp className="ml-2 h-4 w-4" />
+          ) : column.getIsSorted() === 'desc' ? (
+            <ArrowDown className="ml-2 h-4 w-4" />
+          ) : (
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          )}
+        </Button>
+      ),
+      cell: info => {
+        const days = info.getValue();
+        return (
+          <span className="font-medium">
+            {days == null ? 'N/A' : days === 0 ? '0' : days.toLocaleString()}
+          </span>
+        );
+      },
+    }),
     columnHelper.accessor('term', {
       header: ({ column }) => (
         <Button
@@ -287,7 +313,7 @@ export default function TradeTable({ data, className }: TradeTableProps) {
 
   const exportToCSV = () => {
     const filteredData = table.getFilteredRowModel().rows.map(row => row.original);
-    const headers = ['Symbol', 'Name', 'Opened Date', 'Closed Date', 'Quantity', 'Cost Per Share', 'Proceeds Per Share', 'Proceeds', 'Cost Basis', 'Gain/Loss', 'Term'];
+    const headers = ['Symbol', 'Name', 'Opened Date', 'Closed Date', 'Quantity', 'Cost Per Share', 'Proceeds Per Share', 'Proceeds', 'Cost Basis', 'Gain/Loss', 'Days in Trade', 'Term'];
     const csvContent = [
       headers.join(','),
       ...filteredData.map(trade => [
@@ -301,6 +327,7 @@ export default function TradeTable({ data, className }: TradeTableProps) {
         trade.proceeds,
         trade.costBasis,
         trade.gainLoss,
+        trade.daysInTrade || 0,
         trade.term,
       ].join(','))
     ].join('\n');
@@ -315,7 +342,7 @@ export default function TradeTable({ data, className }: TradeTableProps) {
   };
 
   return (
-    <Card className={className}>
+    <Card className={cn("w-full", className)}>
       <CardHeader>
         <CardTitle>Trade Details</CardTitle>
         <div className="flex flex-col sm:flex-row gap-4">
@@ -353,20 +380,20 @@ export default function TradeTable({ data, className }: TradeTableProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border">
-          <Table>
+        <div className="rounded-md border overflow-x-auto">
+          <Table className="min-w-full">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id}>
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
+                                         <TableHead key={header.id} className="px-2 py-3 text-xs font-semibold whitespace-nowrap">
+                       {header.isPlaceholder
+                         ? null
+                         : flexRender(
+                             header.column.columnDef.header,
+                             header.getContext()
+                           )}
+                     </TableHead>
                   ))}
                 </TableRow>
               ))}
@@ -378,11 +405,11 @@ export default function TradeTable({ data, className }: TradeTableProps) {
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
                   >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </TableCell>
-                    ))}
+                                           {row.getVisibleCells().map((cell) => (
+                         <TableCell key={cell.id} className="px-2 py-2 text-xs whitespace-nowrap">
+                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                         </TableCell>
+                       ))}
                   </TableRow>
                 ))
               ) : (

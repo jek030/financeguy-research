@@ -78,11 +78,27 @@ export function parseTradesCSV(file: File): Promise<CSVParseResult> {
             }
             
             try {
+              const openedDate = String(row[3] || '').trim();
+              const closedDate = String(row[2] || '').trim();
+              
+              // Calculate days in trade
+              let daysInTrade = 0;
+              try {
+                const openDate = new Date(openedDate);
+                const closeDate = new Date(closedDate);
+                if (!isNaN(openDate.getTime()) && !isNaN(closeDate.getTime())) {
+                  const timeDiff = closeDate.getTime() - openDate.getTime();
+                  daysInTrade = Math.round(timeDiff / (1000 * 3600 * 24));
+                }
+              } catch (error) {
+                console.warn(`Could not calculate days in trade for row ${i + 1}`);
+              }
+
               const trade: TradeRecord = {
                 symbol: String(row[0] || '').toUpperCase().trim(),
                 name: String(row[1] || '').trim(),
-                closedDate: String(row[2] || '').trim(),
-                openedDate: String(row[3] || '').trim(),
+                closedDate,
+                openedDate,
                 quantity: parseQuantity(row[4] || '0'),
                 proceedsPerShare: parseNumericValue(row[5] || '0'),
                 costPerShare: parseNumericValue(row[6] || '0'),
@@ -104,6 +120,7 @@ export function parseTradesCSV(file: File): Promise<CSVParseResult> {
                 ltTransactionGainLossPercent: parseNumericValue(row[22] || '0'),
                 stTransactionGainLoss: parseNumericValue(row[23] || '0'),
                 stTransactionGainLossPercent: parseNumericValue(row[24] || '0'),
+                daysInTrade,
               };
 
               // Validate required fields

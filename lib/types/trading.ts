@@ -24,6 +24,7 @@ export interface TradeRecord {
   ltTransactionGainLossPercent: number;
   stTransactionGainLoss: number;
   stTransactionGainLossPercent: number;
+  daysInTrade: number;
 }
 
 export interface TradeSummary {
@@ -34,6 +35,7 @@ export interface TradeSummary {
   winRate: number;
   averageWin: number;
   averageLoss: number;
+  averageDaysInTrade: number;
 }
 
 export interface TickerPerformance {
