@@ -6,6 +6,7 @@ import {
   CurrencyDollarIcon,
   BookmarkIcon,
   MapIcon,
+  ChartBarIcon,
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -36,6 +37,11 @@ const mainLinks = [
     name: 'Market Scans',
     href: '/scans',
     icon: MapIcon,
+  },
+  {
+    name: 'Realized Gains',
+    href: '/realized-gains',
+    icon: ChartBarIcon,
   },
 ];
 
