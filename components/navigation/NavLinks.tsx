@@ -84,11 +84,15 @@ export default function NavLinks() {
         variant={pathname === link.href ? "secondary" : "ghost"}
         className={cn(
           "w-full transition-all duration-200 justify-start",
-          electrolize.className
+          electrolize.className,
+          pathname === link.href ? "text-lg font-bold" : "text-sm"
         )}
       >
         <Link href={link.href} onClick={isMobile ? handleClick : undefined}>
-          <LinkIcon className="h-4 w-4 flex-shrink-0" />
+          <LinkIcon className={cn(
+            "flex-shrink-0",
+            pathname === link.href ? "h-5 w-5" : "h-4 w-4"
+          )} />
           <span className="ml-2 whitespace-nowrap">
             {link.name}
           </span>

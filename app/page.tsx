@@ -274,11 +274,6 @@ export default function Home() {
               <SectorReturns />
             </div>
           </div>
-
-          {/* Right Panel - Watchlist */}
-          <div className="hidden lg:block w-48 flex-shrink-0 border-l border-border">
-            <CompactWatchlist />
-          </div>
         </div>
       </main>
     </div>
