@@ -18,10 +18,13 @@ import TickerPerformanceChart from '@/components/ui/(realized-gains)/TickerPerfo
 import CumulativeGainsChart from '@/components/ui/(realized-gains)/CumulativeGainsChart';
 import TermDistributionChart from '@/components/ui/(realized-gains)/TermDistributionChart';
 import TradeTable from '@/components/ui/(realized-gains)/TradeTable';
+import TickerDetailModal from '@/components/ui/(realized-gains)/TickerDetailModal';
 
 export default function RealizedGainsPage() {
   const [csvData, setCsvData] = useState<CSVFileData>({ summary: '', trades: [] });
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Calculate all derived data
   const tradeSummary = useMemo(() => calculateTradeSummary(csvData.trades), [csvData.trades]);
@@ -37,8 +40,16 @@ export default function RealizedGainsPage() {
 
   const handleSuccess = (message: string) => {
     setSuccessMessage(message);
-    // Clear success message after 5 seconds
-    setTimeout(() => setSuccessMessage(null), 5000);
+  };
+
+  const handleTickerClick = (ticker: string) => {
+    setSelectedTicker(ticker);
+    setIsModalOpen(true);
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setSelectedTicker(null);
   };
 
   // Load from localStorage on component mount
@@ -108,7 +119,10 @@ export default function RealizedGainsPage() {
 
             {/* Side by Side Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <TickerPerformanceChart data={tickerPerformance} />
+              <TickerPerformanceChart 
+                data={tickerPerformance} 
+                onTickerClick={handleTickerClick}
+              />
               <TermDistributionChart data={termDistribution} />
             </div>
           </div>
@@ -131,6 +145,16 @@ export default function RealizedGainsPage() {
             </p>
           </div>
         </div>
+      )}
+
+      {/* Ticker Detail Modal */}
+      {selectedTicker && (
+        <TickerDetailModal
+          isOpen={isModalOpen}
+          onClose={handleModalClose}
+          ticker={selectedTicker}
+          trades={csvData.trades}
+        />
       )}
     </div>
   );

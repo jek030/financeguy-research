@@ -108,7 +108,6 @@ export default function CsvUploader({ onDataLoaded, onSuccess, className, hasDat
                   
                   <div className="text-xs text-muted-foreground space-y-1">
                     <p>Expected format: Summary row, header row, then data rows</p>
-                    <p>Key columns: Symbol, Opened Date, Closed Date, Quantity, Proceeds, Cost Basis, Gain/Loss, Term</p>
                     <p>Supported formats: .csv files only</p>
                   </div>
                 </>

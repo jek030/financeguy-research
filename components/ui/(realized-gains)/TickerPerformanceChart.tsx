@@ -1,19 +1,36 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import { TickerPerformance } from '@/lib/types/trading';
 import { formatCurrency } from '@/utils/tradeCalculations';
 
 interface TickerPerformanceChartProps {
   data: TickerPerformance[];
+  onTickerClick?: (ticker: string) => void;
   className?: string;
 }
 
-export default function TickerPerformanceChart({ data, className }: TickerPerformanceChartProps) {
-  // Take top 20 tickers to avoid overcrowding
-  const chartData = data.slice(0, 20);
+export default function TickerPerformanceChart({ data, onTickerClick, className }: TickerPerformanceChartProps) {
+  const [viewType, setViewType] = useState<'gains' | 'losses'>('gains');
+  
+  // Sort and filter data based on view type
+  const sortedData = [...data].sort((a, b) => {
+    if (viewType === 'gains') {
+      return b.totalGainLoss - a.totalGainLoss; // Highest gains first
+    } else {
+      return a.totalGainLoss - b.totalGainLoss; // Lowest losses first
+    }
+  });
+  
+  // Filter for gains or losses and take top 20
+  const filteredData = sortedData.filter(item => 
+    viewType === 'gains' ? item.totalGainLoss > 0 : item.totalGainLoss < 0
+  );
+  
+  const chartData = filteredData.slice(0, 20);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -46,26 +63,75 @@ export default function TickerPerformanceChart({ data, className }: TickerPerfor
     return (
       <Card className={className}>
         <CardHeader>
-          <CardTitle>Performance by Ticker</CardTitle>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Performance by Ticker</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                No {viewType} available
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant={viewType === 'gains' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewType('gains')}
+              >
+                Top Gains
+              </Button>
+              <Button
+                variant={viewType === 'losses' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewType('losses')}
+              >
+                Top Losses
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-64 text-muted-foreground">
-            No data available
+            No {viewType} to display
           </div>
         </CardContent>
       </Card>
     );
   }
 
+  const handleBarClick = (data: any) => {
+    if (onTickerClick && data?.activePayload?.[0]?.payload?.ticker) {
+      onTickerClick(data.activePayload[0].payload.ticker);
+    }
+  };
+
   return (
     <Card className={className}>
       <CardHeader>
-        <CardTitle>Performance by Ticker</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          {chartData.length < data.length && 
-            `Showing top ${chartData.length} of ${data.length} tickers`
-          }
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Performance by Ticker</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {chartData.length < filteredData.length && 
+                `Showing top ${chartData.length} of ${filteredData.length} ${viewType}`
+              }
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant={viewType === 'gains' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewType('gains')}
+            >
+              Top Gains
+            </Button>
+            <Button
+              variant={viewType === 'losses' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewType('losses')}
+            >
+              Top Losses
+            </Button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="h-80">
@@ -78,6 +144,8 @@ export default function TickerPerformanceChart({ data, className }: TickerPerfor
                 left: 20,
                 bottom: 5,
               }}
+              onClick={handleBarClick}
+              style={{ cursor: onTickerClick ? 'pointer' : 'default' }}
             >
               <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
               <XAxis 
@@ -93,11 +161,17 @@ export default function TickerPerformanceChart({ data, className }: TickerPerfor
                 tickFormatter={(value) => formatCurrency(value)}
               />
               <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="totalGainLoss" radius={[2, 2, 0, 0]}>
+              <Bar 
+                dataKey="totalGainLoss" 
+                radius={[2, 2, 0, 0]}
+                style={{ cursor: onTickerClick ? 'pointer' : 'default' }}
+                maxBarSize={60}
+              >
                 {chartData.map((entry, index) => (
                   <Cell 
                     key={`cell-${index}`} 
-                    fill={getBarColor(entry.totalGainLoss)} 
+                    fill={getBarColor(entry.totalGainLoss)}
+                    style={{ cursor: onTickerClick ? 'pointer' : 'default' }}
                   />
                 ))}
               </Bar>
