@@ -60,6 +60,26 @@ export default function SummaryCards({ summary, className }: SummaryCardsProps) 
       value: summary.averageDaysInTrade.toFixed(1) + ' days',
       isNegative: false,
     },
+    {
+      label: 'Largest Win $',
+      value: formatCurrency(summary.largestWinDollar),
+      isNegative: false,
+    },
+    {
+      label: 'Largest Win %',
+      value: formatPercentage(summary.largestWinPercent),
+      isNegative: false,
+    },
+    {
+      label: 'Largest Loss $',
+      value: formatCurrency(summary.largestLossDollar),
+      isNegative: true,
+    },
+    {
+      label: 'Largest Loss %',
+      value: formatPercentage(summary.largestLossPercent),
+      isNegative: true,
+    },
   ];
 
   return (
@@ -105,7 +125,7 @@ export default function SummaryCards({ summary, className }: SummaryCardsProps) 
           <CardTitle className="text-lg">Additional Metrics</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {additionalMetrics.map((metric, index) => (
               <div key={index} className="flex justify-between items-center">
                 <span className="text-sm text-muted-foreground">{metric.label}:</span>

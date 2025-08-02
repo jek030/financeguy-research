@@ -12,6 +12,10 @@ export function calculateTradeSummary(trades: TradeRecord[]): TradeSummary {
       averageWin: 0,
       averageLoss: 0,
       averageDaysInTrade: 0,
+      largestWinDollar: 0,
+      largestWinPercent: 0,
+      largestLossDollar: 0,
+      largestLossPercent: 0,
     };
   }
 
@@ -23,6 +27,12 @@ export function calculateTradeSummary(trades: TradeRecord[]): TradeSummary {
   const totalLosses = Math.abs(losingTrades.reduce((sum, trade) => sum + trade.gainLoss, 0));
   const totalDaysInTrade = trades.reduce((sum, trade) => sum + (trade.daysInTrade || 0), 0);
 
+  // Calculate largest wins and losses
+  const largestWinDollar = winningTrades.length > 0 ? Math.max(...winningTrades.map(trade => trade.gainLoss)) : 0;
+  const largestWinPercent = winningTrades.length > 0 ? Math.max(...winningTrades.map(trade => trade.gainLossPercent)) : 0;
+  const largestLossDollar = losingTrades.length > 0 ? Math.abs(Math.min(...losingTrades.map(trade => trade.gainLoss))) : 0;
+  const largestLossPercent = losingTrades.length > 0 ? Math.abs(Math.min(...losingTrades.map(trade => trade.gainLossPercent))) : 0;
+
   return {
     totalGainLoss,
     totalTrades: trades.length,
@@ -32,6 +42,10 @@ export function calculateTradeSummary(trades: TradeRecord[]): TradeSummary {
     averageWin: winningTrades.length > 0 ? totalWins / winningTrades.length : 0,
     averageLoss: losingTrades.length > 0 ? totalLosses / losingTrades.length : 0,
     averageDaysInTrade: trades.length > 0 ? totalDaysInTrade / trades.length : 0,
+    largestWinDollar,
+    largestWinPercent,
+    largestLossDollar,
+    largestLossPercent,
   };
 }
 

@@ -36,6 +36,10 @@ export interface TradeSummary {
   averageWin: number;
   averageLoss: number;
   averageDaysInTrade: number;
+  largestWinDollar: number;
+  largestWinPercent: number;
+  largestLossDollar: number;
+  largestLossPercent: number;
 }
 
 export interface TickerPerformance {
