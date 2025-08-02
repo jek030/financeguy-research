@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 import { TradeRecord, CSVFileData } from '@/lib/types/trading';
 import { Alert } from '@/components/ui/Alert';
-import { CheckCircle, Calendar, X } from 'lucide-react';
+import { CheckCircle, Calendar, X, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { 
   calculateTradeSummary, 
@@ -78,7 +78,11 @@ export default function RealizedGainsPage() {
   const handleDataLoaded = (data: CSVFileData) => {
     setCsvData(data);
     // Optional: Save to localStorage for persistence
-    localStorage.setItem('realizedTrades', JSON.stringify(data));
+    try {
+      localStorage.setItem('realized-gains-csv-data', JSON.stringify(data));
+    } catch (error) {
+      console.warn('Could not save to localStorage:', error);
+    }
     
     // Set initial date range to include all trades
     if (data.trades.length > 0) {
@@ -130,9 +134,27 @@ export default function RealizedGainsPage() {
     setPeriodFilteredTrades([]);
   };
 
+  const clearAllData = () => {
+    setCsvData({ summary: '', trades: [] });
+    setSuccessMessage(null);
+    setSelectedTicker(null);
+    setIsModalOpen(false);
+    setDateRange(null);
+    setPeriodView('monthly');
+    setSelectedPeriod(null);
+    setPeriodFilteredTrades([]);
+    
+    // Clear localStorage
+    try {
+      localStorage.removeItem('realized-gains-csv-data');
+    } catch (error) {
+      console.warn('Could not clear localStorage:', error);
+    }
+  };
+
   // Load from localStorage on component mount
   React.useEffect(() => {
-    const saved = localStorage.getItem('realizedTrades');
+    const saved = localStorage.getItem('realized-gains-csv-data');
     if (saved) {
       try {
         const parsedData = JSON.parse(saved) as CSVFileData;
@@ -167,10 +189,24 @@ export default function RealizedGainsPage() {
     <div className="container mx-auto px-4 py-8 space-y-8 max-w-none">
       {/* Header */}
       <div className="space-y-4">
-        <h1 className="text-3xl font-bold tracking-tight">Realized Gains Analysis</h1>
-        <p className="text-muted-foreground">
-          Upload your trading CSV to analyze your realized gains and trading performance.
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Realized Gains Analysis</h1>
+            <p className="text-muted-foreground">
+              Upload your trading CSV to analyze your realized gains and trading performance.
+            </p>
+          </div>
+          {hasData && (
+            <Button
+              variant="outline"
+              onClick={clearAllData}
+              className="flex items-center gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950"
+            >
+              <Trash2 className="h-4 w-4" />
+              Clear Data
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* CSV Upload and Status */}
