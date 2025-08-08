@@ -21,34 +21,35 @@ export default function PnlBarChart({
   selectedPeriod,
   className 
 }: PnlBarChartProps) {
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload?: PeriodStats }>; label?: string }) => {
     if (active && payload && payload.length) {
-      const data = payload[0].payload as PeriodStats;
+      const data = payload[0].payload;
+      if (!data) return null;
       return (
         <div className="bg-background border border-border rounded-lg shadow-lg p-4 max-w-xs">
           <p className="font-semibold text-sm mb-2">{data.period}</p>
           <div className="space-y-1 text-xs">
             <p>
               <span className="text-muted-foreground">Net P&L: </span>
-              <span className={data.netGainLoss >= 0 ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
-                {formatCurrency(data.netGainLoss)}
+              <span className={(data.netGainLoss ?? 0) >= 0 ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
+                {formatCurrency(data.netGainLoss ?? 0)}
               </span>
             </p>
             <p>
               <span className="text-muted-foreground">Trades: </span>
-              <span className="font-medium">{data.tradeCount}</span>
+              <span className="font-medium">{data.tradeCount ?? 0}</span>
             </p>
             <p>
               <span className="text-muted-foreground">Win Rate: </span>
-              <span className="font-medium">{data.winRate.toFixed(1)}%</span>
+              <span className="font-medium">{(data.winRate ?? 0).toFixed(1)}%</span>
             </p>
             <p>
               <span className="text-muted-foreground">Avg Gain: </span>
-              <span className="text-green-600 font-medium">{formatCurrency(data.averageGain)}</span>
+              <span className="text-green-600 font-medium">{formatCurrency(data.averageGain ?? 0)}</span>
             </p>
             <p>
               <span className="text-muted-foreground">Avg Loss: </span>
-              <span className="text-red-600 font-medium">{formatCurrency(data.averageLoss)}</span>
+              <span className="text-red-600 font-medium">{formatCurrency(data.averageLoss ?? 0)}</span>
             </p>
           </div>
           {onPeriodClick && (
@@ -69,7 +70,7 @@ export default function PnlBarChart({
     return period.netGainLoss >= 0 ? 'hsl(142, 71%, 45%)' : 'hsl(0, 84%, 60%)'; // Standard colors
   };
 
-  const handleBarClick = (data: any) => {
+  const handleBarClick = (data: { activePayload?: Array<{ payload?: { periodKey?: string } }> }) => {
     if (onPeriodClick && data?.activePayload?.[0]?.payload?.periodKey) {
       onPeriodClick(data.activePayload[0].payload.periodKey);
     }

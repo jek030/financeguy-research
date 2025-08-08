@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import { useMovingAverageData } from '@/hooks/FMP/useMovingAverage';
 import type { Ticker } from "@/lib/types";
 import SectorReturns from "@/components/SectorReturns";
-import { CompactWatchlist } from "@/components/watchlist/CompactWatchlist";
 
 interface MovingAverageData {
   ma: number;

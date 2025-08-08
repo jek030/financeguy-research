@@ -32,21 +32,22 @@ export default function TickerPerformanceChart({ data, onTickerClick, className 
   
   const chartData = filteredData.slice(0, 20);
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ payload?: { totalGainLoss?: number; tradeCount?: number } }>; label?: string }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
+      if (!data) return null;
       return (
         <div className="bg-background border border-border rounded-lg shadow-lg p-3">
           <p className="font-semibold">{label}</p>
           <p className="text-sm">
             <span className="text-muted-foreground">Gain/Loss: </span>
-            <span className={data.totalGainLoss >= 0 ? "text-green-600" : "text-red-600"}>
-              {formatCurrency(data.totalGainLoss)}
+            <span className={(data.totalGainLoss ?? 0) >= 0 ? "text-green-600" : "text-red-600"}>
+              {formatCurrency(data.totalGainLoss ?? 0)}
             </span>
           </p>
           <p className="text-sm">
             <span className="text-muted-foreground">Trades: </span>
-            {data.tradeCount}
+            {data.tradeCount ?? 0}
           </p>
         </div>
       );
@@ -97,7 +98,7 @@ export default function TickerPerformanceChart({ data, onTickerClick, className 
     );
   }
 
-  const handleBarClick = (data: any) => {
+  const handleBarClick = (data: { activePayload?: Array<{ payload?: { ticker?: string } }> }) => {
     if (onTickerClick && data?.activePayload?.[0]?.payload?.ticker) {
       onTickerClick(data.activePayload[0].payload.ticker);
     }

@@ -2,12 +2,12 @@
 
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { Upload, FileText, AlertCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
 import { parseTradesCSV } from '@/utils/csvParser';
-import { TradeRecord, CSVFileData } from '@/lib/types/trading';
+import { CSVFileData } from '@/lib/types/trading';
 import { cn } from '@/lib/utils';
 
 interface CsvUploaderProps {
@@ -42,7 +42,7 @@ export default function CsvUploader({ onDataLoaded, onSuccess, className, hasDat
     } finally {
       setIsLoading(false);
     }
-  }, [onDataLoaded]);
+  }, [onDataLoaded, onSuccess]);
 
   const { getRootProps, getInputProps, isDragActive, isDragReject } = useDropzone({
     onDrop,

@@ -16,8 +16,7 @@ import {
   aggregateTradesByMonth, 
   aggregateTradesByWeek, 
   getPeriodTrades,
-  parseTradeDate,
-  type PeriodStats 
+  parseTradeDate
 } from '@/utils/aggregateByPeriod';
 
 // Components
@@ -53,7 +52,7 @@ export default function RealizedGainsPage() {
         // Use the same parsing logic as aggregation functions
         const closeDate = parseTradeDate(trade.closedDate);
         return closeDate >= dateRange.from && closeDate <= dateRange.to;
-      } catch (error) {
+      } catch {
         console.warn('Invalid date format in trade:', trade.closedDate);
         return true; // Include trades with invalid dates
       }
@@ -95,8 +94,9 @@ export default function RealizedGainsPage() {
       }).filter((date): date is Date => date !== null && !isNaN(date.getTime()));
       
       if (dates.length > 0) {
-        const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
-        const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+        // Calculate date range for potential future use
+        // const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+        // const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
         setDateRange(null); // Start with no filter to show all trades
       }
     }
@@ -167,7 +167,7 @@ export default function RealizedGainsPage() {
               const closeDate = parseTradeDate(trade.closedDate);
               const timeDiff = closeDate.getTime() - openDate.getTime();
               daysInTrade = Math.round(timeDiff / (1000 * 3600 * 24));
-            } catch (error) {
+            } catch {
               console.warn('Could not calculate days in trade for existing data');
             }
             return { ...trade, daysInTrade };

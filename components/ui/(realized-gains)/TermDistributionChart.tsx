@@ -18,21 +18,22 @@ export default function TermDistributionChart({ data, className }: TermDistribut
     'Long': 'hsl(142, 71%, 45%)',  // Green
   };
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload?: { term?: string; gainLoss?: number; count?: number } }> }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
+      if (!data) return null;
       return (
         <div className="bg-background border border-border rounded-lg shadow-lg p-3">
           <p className="font-semibold">{data.term} Term</p>
           <p className="text-sm">
             <span className="text-muted-foreground">Gain/Loss: </span>
-            <span className={data.gainLoss >= 0 ? "text-green-600" : "text-red-600"}>
-              {formatCurrency(data.gainLoss)}
+            <span className={(data.gainLoss ?? 0) >= 0 ? "text-green-600" : "text-red-600"}>
+              {formatCurrency(data.gainLoss ?? 0)}
             </span>
           </p>
           <p className="text-sm">
             <span className="text-muted-foreground">Trades: </span>
-            {data.count}
+            {data.count ?? 0}
           </p>
         </div>
       );
@@ -40,7 +41,9 @@ export default function TermDistributionChart({ data, className }: TermDistribut
     return null;
   };
 
-  const CustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, value }: any) => {
+  const CustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: { cx?: number; cy?: number; midAngle?: number; innerRadius?: number; outerRadius?: number; percent?: number; value?: number }) => {
+    if (!cx || !cy || !midAngle || !innerRadius || !outerRadius || !percent) return null;
+    
     const RADIAN = Math.PI / 180;
     const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
     const x = cx + radius * Math.cos(-midAngle * RADIAN);
@@ -109,11 +112,14 @@ export default function TermDistributionChart({ data, className }: TermDistribut
               <Legend 
                 verticalAlign="bottom" 
                 height={36}
-                formatter={(value, entry: any) => (
-                  <span style={{ color: entry.color }}>
-                    {value} ({entry.payload.count} trades)
-                  </span>
-                )}
+                formatter={(value, entry) => {
+                  const data = entry.payload as { count?: number };
+                  return (
+                    <span style={{ color: entry.color }}>
+                      {value} ({data?.count ?? 0} trades)
+                    </span>
+                  );
+                }}
               />
             </PieChart>
           </ResponsiveContainer>

@@ -29,16 +29,17 @@ export default function CumulativeGainsChart({ data, className }: CumulativeGain
     })(),
   }));
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload?: { cumulativeGain?: number; formattedDate?: string } }>; label?: string }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
+      if (!data) return null;
       return (
         <div className="bg-background border border-border rounded-lg shadow-lg p-3">
           <p className="font-semibold">{data.formattedDate}</p>
           <p className="text-sm">
             <span className="text-muted-foreground">Cumulative Gain: </span>
-            <span className={data.cumulativeGain >= 0 ? "text-green-600" : "text-red-600"}>
-              {formatCurrency(data.cumulativeGain)}
+            <span className={(data.cumulativeGain ?? 0) >= 0 ? "text-green-600" : "text-red-600"}>
+              {formatCurrency(data.cumulativeGain ?? 0)}
             </span>
           </p>
         </div>

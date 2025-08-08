@@ -72,7 +72,7 @@ export default function TimePeriodStatsTable({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {data.map((period, index) => (
+              {data.map((period) => (
                 <TableRow
                   key={period.periodKey}
                   className={cn(
