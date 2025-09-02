@@ -112,7 +112,12 @@ function clearOldCacheEntries(): void {
 
 // Helper function to find the closest available price data
 function findClosestPrice(historical: DailyPriceData[], targetDate: string): DailyPriceData | null {
-  if (!historical || historical.length === 0) return null;
+  console.log('Finding closest price for target date:', targetDate, 'in', historical.length, 'records');
+  
+  if (!historical || historical.length === 0) {
+    console.log('No historical data available');
+    return null;
+  }
   
   const target = new Date(targetDate);
   let closest = historical[0];
@@ -125,6 +130,12 @@ function findClosestPrice(historical: DailyPriceData[], targetDate: string): Dai
       closest = price;
     }
   }
+  
+  console.log('Found closest price:', {
+    targetDate,
+    closestDate: closest.date,
+    daysOff: Math.round(minDiff / (1000 * 60 * 60 * 24))
+  });
   
   return closest;
 }
@@ -143,13 +154,32 @@ async function fetchPriceChanges(symbol: string): Promise<PriceChangesResult> {
   );
 
   if (!response.ok) {
+    console.error(`API call failed for ${symbol}:`, response.status, response.statusText);
     throw new Error('Failed to fetch price change data');
   }
 
-  const data: DailyPriceResponse = await response.json();
-  const historical = data.historical;
+  const data = await response.json();
+  console.log('Raw API Response for', symbol, ':', data);
   
-  if (!historical || historical.length === 0) {
+  // Handle both array response and object response with historical property
+  let historical: any[] = [];
+  if (Array.isArray(data)) {
+    historical = data;
+  } else if (data && data.historical && Array.isArray(data.historical)) {
+    historical = data.historical;
+  } else {
+    console.error('Unexpected API response format:', data);
+    return {
+      oneYear: null,
+      threeYear: null,
+      fiveYear: null,
+    };
+  }
+  
+  console.log('Processed historical data for', symbol, ':', historical.length, 'records');
+  
+  if (historical.length === 0) {
+    console.warn('No historical data available for', symbol);
     return {
       oneYear: null,
       threeYear: null,
@@ -158,7 +188,7 @@ async function fetchPriceChanges(symbol: string): Promise<PriceChangesResult> {
   }
 
   // Sort by date descending (most recent first)
-  const sortedHistorical = historical.sort((a, b) => 
+  const sortedHistorical = historical.sort((a: DailyPriceData, b: DailyPriceData) => 
     new Date(b.date).getTime() - new Date(a.date).getTime()
   );
 
@@ -180,11 +210,22 @@ async function fetchPriceChanges(symbol: string): Promise<PriceChangesResult> {
     period: '1Y' | '3Y' | '5Y',
     historicalData: DailyPriceData | null
   ): PriceChangeData | null => {
-    if (!historicalData || !currentData) return null;
+    console.log(`Creating price change data for ${period}:`, {
+      historicalData,
+      currentData
+    });
+    
+    if (!historicalData || !currentData) {
+      console.log(`Missing data for ${period}:`, {
+        hasHistoricalData: !!historicalData,
+        hasCurrentData: !!currentData
+      });
+      return null;
+    }
     
     const changePercent = ((currentData.close - historicalData.close) / historicalData.close) * 100;
     
-    return {
+    const result = {
       period,
       changePercent,
       currentPrice: currentData.close,
@@ -192,6 +233,9 @@ async function fetchPriceChanges(symbol: string): Promise<PriceChangesResult> {
       currentDate: currentData.date,
       historicalDate: historicalData.date,
     };
+    
+    //console.log(`Price change data for ${period}:`, result);
+    return result;
   };
 
   const result = {
@@ -199,6 +243,8 @@ async function fetchPriceChanges(symbol: string): Promise<PriceChangesResult> {
     threeYear: createPriceChangeData('3Y', threeYearData),
     fiveYear: createPriceChangeData('5Y', fiveYearData),
   };
+
+  console.log(`Final price changes result for ${symbol}:`, result);
 
   // Cache the result for future requests on the same day
   setCachedPriceChanges(symbol, result);
@@ -229,11 +275,7 @@ export function usePriceChanges({ symbol, enabled = true }: UsePriceChangesProps
     gcTime: 7 * 24 * 60 * 60 * 1000, // Keep unused data in cache for 7 days
     refetchOnMount: false, // Don't refetch when component mounts
     refetchOnWindowFocus: false, // Don't refetch when window gains focus
-    initialData: cachedData, // Use cached data as initial data
-    initialDataUpdatedAt: cachedData ? () => {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return today.getTime();
-    } : undefined,
+    // Remove initialData and initialDataUpdatedAt to let React Query handle caching
+    placeholderData: cachedData || undefined, // Use placeholderData instead
   });
 }

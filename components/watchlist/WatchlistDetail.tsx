@@ -32,6 +32,41 @@ function getTodayDate(): string {
   return new Date().toISOString().split('T')[0];
 }
 
+// Helper function to calculate business days ago
+function getBusinessDateAgo(years: number): string {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - years);
+  
+  // If it's a weekend, move to previous Friday
+  const dayOfWeek = date.getDay();
+  if (dayOfWeek === 0) { // Sunday
+    date.setDate(date.getDate() - 2);
+  } else if (dayOfWeek === 6) { // Saturday
+    date.setDate(date.getDate() - 1);
+  }
+  
+  return date.toISOString().split('T')[0];
+}
+
+// Helper function to find the closest available price data
+function findClosestPrice(historical: Array<{ date: string; close: number }>, targetDate: string): { date: string; close: number } | null {
+  if (!historical || historical.length === 0) return null;
+  
+  const target = new Date(targetDate);
+  let closest = historical[0];
+  let minDiff = Math.abs(new Date(closest.date).getTime() - target.getTime());
+  
+  for (const price of historical) {
+    const diff = Math.abs(new Date(price.date).getTime() - target.getTime());
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = price;
+    }
+  }
+  
+  return closest;
+}
+
 // Add a function to format date
 function formatEarningsDate(dateString: string): string {
   if (!dateString) return '-';
@@ -52,6 +87,8 @@ interface PriceChangeCellProps {
 function PriceChangeCell({ symbol, period }: PriceChangeCellProps) {
   const { data: priceChanges, isLoading } = usePriceChanges({ symbol });
   
+  console.log(`PriceChangeCell ${symbol} ${period}:`, { isLoading, priceChanges });
+  
   if (isLoading) {
     return <Skeleton className="h-4 w-16" />;
   }
@@ -59,6 +96,8 @@ function PriceChangeCell({ symbol, period }: PriceChangeCellProps) {
   const periodData = period === '1Y' ? priceChanges?.oneYear : 
                     period === '3Y' ? priceChanges?.threeYear : 
                     priceChanges?.fiveYear;
+  
+  console.log(`PriceChangeCell ${symbol} ${period} periodData:`, periodData);
   
   if (!periodData) return <span className="text-muted-foreground">-</span>;
   
@@ -251,18 +290,65 @@ async function fetchPriceChanges(symbol: string): Promise<{
   }
 
   const today = getTodayDate();
-  const fiveYearsAgo = new Date();
-  fiveYearsAgo.setFullYear(fiveYearsAgo.getFullYear() - 5);
-  const fiveYearsAgoStr = fiveYearsAgo.toISOString().split('T')[0];
+  const fiveYearsAgo = getBusinessDateAgo(5);
 
-  const response = await fetch(`/api/fmp/dailyprices?symbol=${symbol}&from=${fiveYearsAgoStr}&to=${today}`);
+  const response = await fetch(`/api/fmp/dailyprices?symbol=${symbol}&from=${fiveYearsAgo}&to=${today}`);
 
   if (!response.ok) {
     throw new Error('Failed to fetch price changes data');
   }
 
   const data = await response.json();
-  return data;
+  const historical = data.historical;
+
+  if (!historical || historical.length === 0) {
+    return {
+      oneYear: undefined,
+      threeYear: undefined,
+      fiveYear: undefined
+    };
+  }
+
+  // Sort by date descending (most recent first)
+  const sortedHistorical = historical.sort((a: { date: string }, b: { date: string }) => 
+    new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  // Get current price (most recent available)
+  const currentData = sortedHistorical[0];
+  
+  // Calculate target dates
+  const oneYearAgo = getBusinessDateAgo(1);
+  const threeYearsAgo = getBusinessDateAgo(3);
+  const fiveYearsAgoTarget = getBusinessDateAgo(5);
+  
+  // Find closest prices for each period
+  const oneYearData = findClosestPrice(sortedHistorical, oneYearAgo);
+  const threeYearData = findClosestPrice(sortedHistorical, threeYearsAgo);
+  const fiveYearData = findClosestPrice(sortedHistorical, fiveYearsAgoTarget);
+  
+  // Calculate percentage changes
+  const createPriceChangeData = (
+    historicalData: typeof currentData | null
+  ) => {
+    if (!historicalData || !currentData) return undefined;
+    
+    const changePercent = ((currentData.close - historicalData.close) / historicalData.close) * 100;
+    
+    return {
+      changePercent,
+      currentPrice: currentData.close,
+      historicalPrice: historicalData.close,
+      currentDate: currentData.date,
+      historicalDate: historicalData.date,
+    };
+  };
+
+  return {
+    oneYear: createPriceChangeData(oneYearData),
+    threeYear: createPriceChangeData(threeYearData),
+    fiveYear: createPriceChangeData(fiveYearData),
+  };
 }
 
 function ExportButton({ watchlist }: ExportButtonProps) {
