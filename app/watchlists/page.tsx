@@ -167,18 +167,8 @@ export default function WatchlistPage() {
     value: watchlist.id
   }));
 
-  // Authentication loading state
-  if (isAuthLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        <span className="ml-2 text-lg">Loading...</span>
-      </div>
-    );
-  }
-
   // User not logged in
-  if (!user) {
+  if (!user && !isAuthLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <h1 className="text-2xl font-bold">You need to be logged in to view watchlists</h1>
@@ -190,18 +180,8 @@ export default function WatchlistPage() {
     );
   }
 
-  // Watchlist loading state
-  if (isWatchlistLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        <span className="ml-2 text-lg">Loading watchlists...</span>
-      </div>
-    );
-  }
-
   // Error state
-  if (error) {
+  if (error && !isWatchlistLoading) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4">
         <h1 className="text-2xl font-bold text-destructive">Error loading watchlists</h1>
@@ -225,11 +205,21 @@ export default function WatchlistPage() {
               <h1 className="text-2xl sm:text-3xl font-bold mb-2 md:mb-0">Watchlists</h1>
               <div className="flex items-center gap-2 sm:gap-3 w-full md:w-auto">              
                 <Select
-                  value={selectedWatchlist || undefined }
+                  value={selectedWatchlist || undefined}
                   onValueChange={setSelectedWatchlist}
+                  disabled={isWatchlistLoading}
                 >
                   <SelectTrigger className="w-full md:w-[280px]">
-                    <SelectValue placeholder="Select a watchlist" />
+                    <SelectValue>
+                      {isWatchlistLoading ? (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Loading watchlists...</span>
+                        </div>
+                      ) : (
+                        <span>Select a watchlist</span>
+                      )}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
                     {watchlistOptions.map((watchlist) => (
