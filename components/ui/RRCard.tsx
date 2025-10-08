@@ -16,13 +16,14 @@ interface CalculationResult {
 
 interface RRCalculationCardProps {
   price: number;
+  dayLow: number;
 }
 
-const RRCard: React.FC<RRCalculationCardProps> = ({ price }) => {
+const RRCard: React.FC<RRCalculationCardProps> = ({ price, dayLow }) => {
   const [values, setValues] = useState<FormValues>({
     value1: '',
     value2: price.toString(),
-    value3: ''
+    value3: dayLow.toString()
   });
   const [result, setResult] = useState<CalculationResult | null>(null);
   const [error, setError] = useState<string>('');
@@ -30,9 +31,10 @@ const RRCard: React.FC<RRCalculationCardProps> = ({ price }) => {
   useEffect(() => {
     setValues(prev => ({
       ...prev,
-      value2: price.toString()
+      value2: price.toString(),
+      value3: dayLow.toString()
     }));
-  }, [price]);
+  }, [price, dayLow]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>): void => {
     const { name, value } = e.target;
@@ -74,6 +76,29 @@ const RRCard: React.FC<RRCalculationCardProps> = ({ price }) => {
       return `${percentDiff.toFixed(2)}%`;
     }
     return '';
+  };
+
+  // Calculate 2R and 5R values based on current Price and Stop Loss
+  const calculate2R = (): number | null => {
+    const currentPrice = parseFloat(values.value2);
+    const stopLoss = parseFloat(values.value3);
+    
+    if (!isNaN(currentPrice) && !isNaN(stopLoss) && currentPrice > stopLoss) {
+      const risk = currentPrice - stopLoss;
+      return currentPrice + (2 * risk);
+    }
+    return null;
+  };
+
+  const calculate5R = (): number | null => {
+    const currentPrice = parseFloat(values.value2);
+    const stopLoss = parseFloat(values.value3);
+    
+    if (!isNaN(currentPrice) && !isNaN(stopLoss) && currentPrice > stopLoss) {
+      const risk = currentPrice - stopLoss;
+      return currentPrice + (5 * risk);
+    }
+    return null;
   };
 
   return (
@@ -156,6 +181,23 @@ const RRCard: React.FC<RRCalculationCardProps> = ({ price }) => {
             {result !== null ? result.value.toFixed(1) + "R" : '—'}
           </span>
         </div>
+        
+        {/* 2R and 5R Display */}
+        <div className="w-full space-y-2">
+          <div className="flex justify-between items-center">
+            <label className="text-sm font-medium text-muted-foreground">2R Target:</label>
+            <span className="text-sm font-medium text-foreground">
+              {calculate2R() !== null ? `$${calculate2R()!.toFixed(2)}` : '—'}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <label className="text-sm font-medium text-muted-foreground">5R Target:</label>
+            <span className="text-sm font-medium text-foreground">
+              {calculate5R() !== null ? `$${calculate5R()!.toFixed(2)}` : '—'}
+            </span>
+          </div>
+        </div>
+        
         {error && (
           <p className="text-sm text-negative">{error}</p>
         )}

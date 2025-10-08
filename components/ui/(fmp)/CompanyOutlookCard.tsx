@@ -963,7 +963,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
             <MovingAverages companyData={companyData} symbol={companyData.profile.symbol} />
             
             {/* Risk Calculator Card */}
-            <RRCard price={quote.price || 0} />
+            <RRCard price={quote.price || 0} dayLow={quote.dayLow || 0} />
           </div>
 
           <IntradayChart symbol={symbol} />
