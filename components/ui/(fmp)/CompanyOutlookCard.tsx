@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { PriceChange, PercentageChange } from "@/components/ui/PriceIndicator";
 import { MetricDisplay, MetricRow, SectionDivider } from "@/components/ui/MetricDisplay";
 import { CompanyHeader, CompanyInfoSection } from "@/components/ui/CompanyHeader";
+import { FetchErrorDisplay, InvalidSymbolDisplay } from "@/components/ui/ErrorDisplay";
 
 //FMP Hooks
 import { useCompanyOutlook } from '@/hooks/FMP/useCompanyOutlook';
@@ -432,21 +433,19 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
 
   if (error) {
     console.error('CompanyOutlookCard: Error state:', error);
-    return <div>Error: {error.message}</div>;
+    
+    // Check if it's a fetch error
+    if (error.message.includes('Failed to fetch') || error.message.includes('fetch')) {
+      return <FetchErrorDisplay symbol={symbol} onRetry={() => window.location.reload()} />;
+    }
+    
+    // For other errors, show invalid symbol display
+    return <InvalidSymbolDisplay symbol={symbol} onRetry={() => window.location.reload()} />;
   }
 
   if (!companyData || !quote) {
     console.log('CompanyOutlookCard: No data available');
-    return (
-      <div>
-        <div className="bg-secondary/60 p-6">
-          <h2 className="text-xl font-bold">Invalid Symbol</h2>
-          <p className="text-muted-foreground mt-2">
-            Unable to load data for symbol: {symbol}. Please enter a valid stock or crypto symbol. For example: AAPL, BTCUSD, etc.
-          </p>
-        </div>
-      </div>
-    );
+    return <InvalidSymbolDisplay symbol={symbol} onRetry={() => window.location.reload()} />;
   }
 
   /*Format Market Cap*/
