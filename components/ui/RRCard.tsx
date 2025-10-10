@@ -3,6 +3,7 @@ import React, { useState, ChangeEvent, FormEvent, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import { PercentageChange } from '@/components/ui/PriceIndicator';
 
 interface FormValues {
   value1: string;
@@ -67,17 +68,6 @@ const RRCard: React.FC<RRCalculationCardProps> = ({ price, dayLow }) => {
     setResult({ value: calculation });
   };
 
-  const calculatePercentageDiff = (value: string, baseValue: string): string => {
-    const val = parseFloat(value);
-    const base = parseFloat(baseValue);
-    
-    if (!isNaN(val) && !isNaN(base) && base !== 0) {
-      const percentDiff = ((val - base) / base) * 100;
-      return `${percentDiff.toFixed(2)}%`;
-    }
-    return '';
-  };
-
   // Calculate 2R and 5R values based on current Price and Stop Loss
   const calculate2R = (): number | null => {
     const currentPrice = parseFloat(values.value2);
@@ -126,9 +116,10 @@ const RRCard: React.FC<RRCalculationCardProps> = ({ price, dayLow }) => {
                 className="bg-background"
               />
               {values.value1 && values.value2 && (
-                <span className={`text-sm font-medium ${parseFloat(values.value1) > parseFloat(values.value2) ? 'text-positive' : 'text-negative'}`}>
-                  {calculatePercentageDiff(values.value1, values.value2)}
-                </span>
+                <PercentageChange 
+                  value={((parseFloat(values.value1) - parseFloat(values.value2)) / parseFloat(values.value2)) * 100}
+                  size="sm"
+                />
               )}
             </div>
           </div>
@@ -163,9 +154,10 @@ const RRCard: React.FC<RRCalculationCardProps> = ({ price, dayLow }) => {
                 className="bg-background"
               />
               {values.value3 && values.value2 && (
-                <span className={`text-sm font-medium ${parseFloat(values.value3) < parseFloat(values.value2) ? 'text-negative' : 'text-positive'}`}>
-                  {calculatePercentageDiff(values.value3, values.value2)}
-                </span>
+                <PercentageChange 
+                  value={((parseFloat(values.value3) - parseFloat(values.value2)) / parseFloat(values.value2)) * 100}
+                  size="sm"
+                />
               )}
             </div>
           </div>
@@ -186,12 +178,14 @@ const RRCard: React.FC<RRCalculationCardProps> = ({ price, dayLow }) => {
         <div className="w-full space-y-2">
           <div className="flex justify-between items-center">
             <label className="text-sm font-medium text-muted-foreground">2R Target:</label>
+            <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
             <span className="text-sm font-medium text-foreground">
               {calculate2R() !== null ? `$${calculate2R()!.toFixed(2)}` : '—'}
             </span>
           </div>
           <div className="flex justify-between items-center">
             <label className="text-sm font-medium text-muted-foreground">5R Target:</label>
+            <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
             <span className="text-sm font-medium text-foreground">
               {calculate5R() !== null ? `$${calculate5R()!.toFixed(2)}` : '—'}
             </span>

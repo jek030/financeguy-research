@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from "@/components/ui/Skeleton";
 import RRCard from '@/components/ui/RRCard';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/Tooltip";
+import { PriceChange, PercentageChange } from "@/components/ui/PriceIndicator";
 
 //FMP Hooks
 import { useCompanyOutlook } from '@/hooks/FMP/useCompanyOutlook';
@@ -25,6 +26,7 @@ import { useFloat } from '@/hooks/FMP/useFloat';
 import { useEarnings } from '@/hooks/FMP/useEarnings';
 import { useBalanceSheet } from '@/hooks/FMP/useBalanceSheet';
 import { useMovingAverageData } from '@/hooks/FMP/useMovingAverage';
+import { useAftermarketTrade } from '@/hooks/FMP/useAftermarketTrade';
 import News from '@/components/ui/(fmp)/News';
 import KeyMetrics from '@/components/ui/(fmp)/KeyMetrics';
 import InsiderActivity from '@/components/ui/(fmp)/InsiderActivity';
@@ -46,6 +48,9 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
 
   /** Quote Data from FMP */
   const { data: quote, isLoading: quoteLoading } = useQuote(symbol);
+  
+  /** Aftermarket Trade Data from FMP */
+  const { data: aftermarketTrade, isLoading: aftermarketLoading } = useAftermarketTrade(symbol);
   
   /** RSI Data from FMP */
   const { data: rsiData, isLoading: rsiLoading } = useRSIData(symbol);
@@ -263,6 +268,21 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
     };
   }, [priceHistory]);
 
+  // Calculate aftermarket price change and percentage change
+  const aftermarketChange = React.useMemo(() => {
+    if (!aftermarketTrade || !quote) return null;
+    
+    const change = aftermarketTrade.price - quote.price;
+    const changePercentage = (change / quote.price) * 100;
+    
+    return {
+      change,
+      changePercentage,
+      price: aftermarketTrade.price,
+      timestamp: aftermarketTrade.timestamp
+    };
+  }, [aftermarketTrade, quote]);
+
   if (isLoading || quoteLoading) {
     return (
       <div>
@@ -447,30 +467,21 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                     </div>
                     
                     {quote?.change && (
-                      <div className="flex gap-1.5 mt-1 sm:mt-0">
-                        <div className={cn(
-                          "inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-medium",
-                          quote.change >= 0 
-                            ? "bg-emerald-500/10 text-emerald-500 dark:bg-emerald-500/20 dark:text-emerald-400" 
-                            : "bg-rose-500/10 text-rose-500 dark:bg-rose-500/20 dark:text-rose-400"
-                        )}>
-                          {quote.change >= 0 ? (
-                            <ArrowUp className="h-3.5 w-3.5" />
-                          ) : (
-                            <ArrowDown className="h-3.5 w-3.5" />
-                          )}
-                          ${Math.abs(quote.change).toFixed(2)}
-                        </div>
-                        <div className={cn(
-                          "inline-flex items-center rounded-md px-2 py-1 text-sm font-medium",
-                          quote.changesPercentage >= 0 
-                            ? "bg-emerald-500/10 text-emerald-500 dark:bg-emerald-500/20 dark:text-emerald-400" 
-                            : "bg-rose-500/10 text-rose-500 dark:bg-rose-500/20 dark:text-rose-400"
-                        )}>
-                          {quote.changesPercentage ? (
-                            `${quote.changesPercentage >= 0 ? '+' : ''}${quote.changesPercentage.toFixed(2)}%`
-                          ) : 'N/A'}
-                        </div>
+                      <div className="flex gap-1.5 mt-1 sm:mt-0 flex-wrap">
+                        <PriceChange value={quote.change} />
+                        <PercentageChange value={quote.changesPercentage || 0} />
+                        
+                        {/* After Hours Price Change */}
+                        {aftermarketChange && (
+                          <>
+                            <div className="text-xs text-muted-foreground self-center px-1">After Hours:</div>
+                            <div className="inline-flex items-center rounded-md px-2 py-1 text-sm font-medium border bg-muted/50 text-foreground border-border">
+                              ${aftermarketChange.price.toFixed(2)}
+                            </div>
+                            <PriceChange value={aftermarketChange.change} />
+                            <PercentageChange value={aftermarketChange.changePercentage} />
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
@@ -480,6 +491,12 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                       <>
                         <span className="mx-2">•</span>
                         <span className="text-xs">Updated: {new Date(quote.timestamp * 1000).toLocaleString()}</span>
+                      </>
+                    )}
+                    {aftermarketChange && (
+                      <>
+                        <span className="mx-2">•</span>
+                        <span className="text-xs">After Hours: {new Date(aftermarketChange.timestamp).toLocaleString()}</span>
                       </>
                     )}
                   </div>
@@ -918,12 +935,12 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                     <span className="text-sm text-muted-foreground">52 Week Low</span>
                     <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
                     <div className="text-right">
-                      <span className="font-medium">${safeFormat(quote.yearLow)}</span>
-                      <div className={cn(
-                        "text-xs font-medium px-1.5 py-0.5 rounded-full inline-block mt-1",
-                        "bg-positive/10 text-positive"
-                      )}>
-                        +{((quote.price - quote.yearLow) / quote.yearLow * 100).toFixed(2)}%
+                      <div className="font-medium">${safeFormat(quote.yearLow)}</div>
+                      <div className="mt-1">
+                        <PercentageChange 
+                          value={((quote.price - quote.yearLow) / quote.yearLow * 100)} 
+                          size="sm"
+                        />
                       </div>
                     </div>
                   </div>
@@ -931,12 +948,12 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                     <span className="text-sm text-muted-foreground">52 Week High</span>
                     <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
                     <div className="text-right">
-                      <span className="font-medium">${safeFormat(quote.yearHigh)}</span>
-                      <div className={cn(
-                        "text-xs font-medium px-1.5 py-0.5 rounded-full inline-block mt-1",
-                        "bg-negative/10 text-negative"
-                      )}>
-                        {((quote.price - quote.yearHigh) / quote.yearHigh * 100).toFixed(2)}%
+                      <div className="font-medium">${safeFormat(quote.yearHigh)}</div>
+                      <div className="mt-1">
+                        <PercentageChange 
+                          value={((quote.price - quote.yearHigh) / quote.yearHigh * 100)} 
+                          size="sm"
+                        />
                       </div>
                     </div>
                   </div>
