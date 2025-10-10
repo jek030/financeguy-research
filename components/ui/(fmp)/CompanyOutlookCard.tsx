@@ -1,8 +1,7 @@
 "use client"
 import React, { useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import {Building2, Users, DollarSign, PieChart, Activity, ChevronDown, ChevronUp, Calculator, ArrowUp, ArrowDown, InfoIcon} from 'lucide-react';
+
+import {Building2, Users, DollarSign, PieChart, Activity, ChevronDown, ChevronUp, Calculator} from 'lucide-react';
 import { addYears } from 'date-fns';
 
 //UI Components
@@ -12,8 +11,7 @@ import { Financials } from '@/components/ui/(fmp)/Financials';
 import { cn } from '@/lib/utils';
 import { Skeleton } from "@/components/ui/Skeleton";
 import RRCard from '@/components/ui/RRCard';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/Tooltip";
-import { PriceChange, PercentageChange } from "@/components/ui/PriceIndicator";
+import {  PercentageChange } from "@/components/ui/PriceIndicator";
 import { MetricDisplay, MetricRow, SectionDivider } from "@/components/ui/MetricDisplay";
 import { CompanyHeader, CompanyInfoSection } from "@/components/ui/CompanyHeader";
 import { FetchErrorDisplay, InvalidSymbolDisplay } from "@/components/ui/ErrorDisplay";
@@ -53,7 +51,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
   const { data: quote, isLoading: quoteLoading } = useQuote(symbol);
   
   /** Aftermarket Trade Data from FMP */
-  const { data: aftermarketTrade, isLoading: aftermarketLoading } = useAftermarketTrade(symbol);
+  const { data: aftermarketTrade } = useAftermarketTrade(symbol);
   
   /** RSI Data from FMP */
   const { data: rsiData, isLoading: rsiLoading } = useRSIData(symbol);
@@ -602,7 +600,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                     <p>Opening Price: ${previousWeekChange.startPrice.toFixed(2)}</p>
                     <p>End Date: {previousWeekChange.endDate.toLocaleDateString()}</p>
                     <p>Closing Price: ${previousWeekChange.endPrice.toFixed(2)}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Calculated from Monday's open to Friday's close of the previous week. If market was closed, uses the next/previous trading day.</p>
+                    <p className="text-xs text-muted-foreground mt-1">Calculated from Monday&apos;s open to Friday&apos;s close of the previous week. If market was closed, uses the next/previous trading day.</p>
                   </div>
                 }
               />

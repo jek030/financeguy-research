@@ -18,7 +18,7 @@ interface ErrorDisplayProps {
 
 export function ErrorDisplay({
   title = "Unable to Load Data",
-  message = "We're having trouble fetching the latest information. This could be due to network issues or the symbol may not be available.",
+  message = "We&apos;re having trouble fetching the latest information. This could be due to network issues or the symbol may not be available.",
   symbol,
   onRetry,
   showSuggestions = true,
@@ -99,7 +99,7 @@ export function ErrorDisplay({
                     <ul className="text-sm text-muted-foreground space-y-1">
                       <li>• Verify the ticker symbol is correct</li>
                       <li>• Try searching for the company name</li>
-                      <li>• Check if it's a valid stock or crypto symbol</li>
+                      <li>• Check if it is a valid stock or crypto symbol</li>
                     </ul>
                   </div>
                   <div className="space-y-2">

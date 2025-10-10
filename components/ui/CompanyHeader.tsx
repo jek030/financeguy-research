@@ -3,8 +3,6 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { ArrowUp, ArrowDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { PriceChange, PercentageChange } from '@/components/ui/PriceIndicator';
 import { safeFormat } from '@/lib/formatters';
 import type { Ticker } from '@/lib/types';

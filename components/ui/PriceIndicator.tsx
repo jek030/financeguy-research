@@ -12,7 +12,6 @@ interface PriceIndicatorProps {
   prefix?: string;
   suffix?: string;
   size?: 'sm' | 'md' | 'lg';
-  variant?: 'default' | 'subtle';
   className?: string;
   children?: React.ReactNode;
 }
@@ -25,7 +24,6 @@ export function PriceIndicator({
   prefix = '',
   suffix = '',
   size = 'md',
-  variant = 'default',
   className,
   children
 }: PriceIndicatorProps) {
