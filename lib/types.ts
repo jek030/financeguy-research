@@ -404,6 +404,13 @@ export interface Ticker {
     timestamp: number;
 }
 
+export interface AftermarketTrade {
+    symbol: string;
+    price: number;
+    tradeSize: number;
+    timestamp: number;
+}
+
 export interface EarningsCalendar {
   date: string;
   symbol: string;

@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/Tooltip"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { Badge } from '@/components/ui/Badge';
+import { StatusIndicator } from '@/components/ui/PriceIndicator';
 
 import { useMovingAverageData } from '@/hooks/FMP/useMovingAverage';
 
@@ -128,9 +129,7 @@ export function MovingAverages({ companyData, symbol }: MovingAveragesProps) {
                               Loading
                             </Badge>
                           ) : (
-                            <Badge variant={isAbove ? "positive" : "destructive"} className="font-medium text-xs py-0">
-                              {isAbove ? 'Above' : 'Below'}
-                            </Badge>
+                            <StatusIndicator isPositive={isAbove} />
                           )}
                         </TableCell>
                         <TableCell className="text-muted-foreground whitespace-nowrap text-xs p-2 !sm:text-xs">
