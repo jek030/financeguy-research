@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
@@ -9,31 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/Calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
-import { CalendarIcon, InfoIcon } from 'lucide-react';
+import { CalendarIcon, InfoIcon, X, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { PercentageChange } from '@/components/ui/PriceIndicator';
 import { useQuote } from '@/hooks/FMP/useQuote';
+import { usePortfolio, type StockPosition } from '@/hooks/usePortfolio';
+import { useAuth } from '@/lib/context/auth-context';
+import Link from 'next/link';
 import type { Ticker } from '@/lib/types';
-
-interface StockPosition {
-  id: string;
-  symbol: string;
-  cost: number;
-  quantity: number;
-  netCost: number;
-  initialStopLoss: number;
-  stopLoss: number;
-  type: 'Long' | 'Short';
-  openDate: Date;
-  closedDate?: Date | null;
-  priceTarget2R: number;
-  priceTarget2RShares: number;
-  priceTarget5R: number;
-  priceTarget5RShares: number;
-  priceTarget21Day: number;
-  currentPrice?: number;
-}
 
 // Helper function to format currency
 const formatCurrency = (value: number) => {
@@ -219,6 +203,18 @@ function PortfolioPercentCell({
 }
 
 export default function Portfolio() {
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const {
+    portfolio,
+    positions,
+    isLoading: isPortfolioLoading,
+    error: portfolioError,
+    addPosition,
+    updatePosition,
+    deletePosition,
+    updatePortfolioValue,
+  } = usePortfolio();
+
   const [portfolioValue, setPortfolioValue] = useState<string>('');
   const [symbol, setSymbol] = useState<string>('');
   const [cost, setCost] = useState<string>('');
@@ -226,7 +222,6 @@ export default function Portfolio() {
   const [initialStopLoss, setInitialStopLoss] = useState<string>('');
   const [type, setType] = useState<'Long' | 'Short'>('Long');
   const [openDate, setOpenDate] = useState<Date>(new Date());
-  const [positions, setPositions] = useState<StockPosition[]>([]);
   
   // Edit state
   const [editingPosition, setEditingPosition] = useState<StockPosition | null>(null);
@@ -243,7 +238,14 @@ export default function Portfolio() {
   const [editPriceTarget5RShares, setEditPriceTarget5RShares] = useState<string>('');
   const [editPriceTarget21Day, setEditPriceTarget21Day] = useState<string>('');
 
-  const handleAddStock = () => {
+  // Initialize portfolio value from database
+  useEffect(() => {
+    if (portfolio) {
+      setPortfolioValue(portfolio.portfolio_value.toString());
+    }
+  }, [portfolio]);
+
+  const handleAddStock = async () => {
     if (!symbol.trim() || !cost.trim() || !quantity.trim() || !initialStopLoss.trim()) {
       return;
     }
@@ -256,8 +258,7 @@ export default function Portfolio() {
     // Calculate R-based price targets
     const rTargets = calculateRPriceTargets(costValue, stopLossValue, type);
 
-    const newPosition: StockPosition = {
-      id: Date.now().toString(),
+    const newPosition: Omit<StockPosition, 'id'> = {
       symbol: symbol.trim().toUpperCase(),
       cost: costValue,
       quantity: quantityValue,
@@ -272,15 +273,23 @@ export default function Portfolio() {
       priceTarget5R: rTargets.priceTarget5R,
       priceTarget5RShares: 0, // Initialize to 0
       priceTarget21Day: 0,
+      remainingShares: quantityValue, // Initialize to full quantity (no shares trimmed yet)
     };
 
-    setPositions([...positions, newPosition]);
-    setSymbol('');
-    setCost('');
-    setQuantity('');
-    setInitialStopLoss('');
-    setType('Long');
-    setOpenDate(new Date());
+    try {
+      await addPosition(newPosition);
+      
+      // Clear form
+      setSymbol('');
+      setCost('');
+      setQuantity('');
+      setInitialStopLoss('');
+      setType('Long');
+      setOpenDate(new Date());
+    } catch (error) {
+      console.error('Failed to add position:', error);
+      // You could add a toast notification here
+    }
   };
 
   const isAddButtonDisabled = !symbol.trim() || !cost.trim() || !quantity.trim() || !initialStopLoss.trim();
@@ -298,7 +307,7 @@ export default function Portfolio() {
   
   // Calculate exposure percentage
   const calculateExposure = () => {
-    const portfolioValueNum = parseFloat(portfolioValue) || 0;
+    const portfolioValueNum = portfolio?.portfolio_value || 0;
     if (portfolioValueNum === 0) {
       return positions.length === 0 ? 0 : 100; // If no portfolio value set, show 100% if there are positions
     }
@@ -342,7 +351,7 @@ export default function Portfolio() {
     setEditPriceTarget21Day(position.priceTarget21Day.toString());
   };
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!editingPosition || !editSymbol.trim() || !editCost.trim() || !editQuantity.trim()) {
       return;
     }
@@ -359,8 +368,7 @@ export default function Portfolio() {
     const priceTarget5RSharesValue = parseInt(editPriceTarget5RShares) || 0;
     const priceTarget21DayValue = parseFloat(editPriceTarget21Day) || 0;
 
-    const updatedPosition: StockPosition = {
-      ...editingPosition,
+    const updates: Partial<StockPosition> = {
       symbol: editSymbol.trim().toUpperCase(),
       cost: costValue,
       quantity: quantityValue,
@@ -376,12 +384,37 @@ export default function Portfolio() {
       priceTarget21Day: priceTarget21DayValue,
     };
 
-    setPositions(positions.map(p => p.id === editingPosition.id ? updatedPosition : p));
-    setEditingPosition(null);
+    try {
+      await updatePosition(editingPosition.id, updates);
+      setEditingPosition(null);
+    } catch (error) {
+      console.error('Failed to update position:', error);
+      // You could add a toast notification here
+    }
   };
 
   const handleCancelEdit = () => {
     setEditingPosition(null);
+  };
+
+  const handleDeletePosition = async (position: StockPosition) => {
+    try {
+      await deletePosition(position.id);
+    } catch (error) {
+      console.error('Failed to delete position:', error);
+      // You could add a toast notification here
+    }
+  };
+
+  const handlePortfolioValueChange = async (value: string) => {
+    setPortfolioValue(value);
+    const numValue = parseFloat(value) || 0;
+    try {
+      await updatePortfolioValue(numValue);
+    } catch (error) {
+      console.error('Failed to update portfolio value:', error);
+      // You could add a toast notification here
+    }
   };
 
   // Helper function to recalculate R targets in edit mode
@@ -394,6 +427,56 @@ export default function Portfolio() {
     setEditPriceTarget2R(rTargets.priceTarget2R.toString());
     setEditPriceTarget5R(rTargets.priceTarget5R.toString());
   };
+
+  // Show loading state
+  if (isAuthLoading || isPortfolioLoading) {
+    return (
+      <div className="w-full p-4 sm:p-6">
+        <div className="flex items-center justify-center h-64">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <span>Loading portfolio...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login prompt if not authenticated
+  if (!user) {
+    return (
+      <div className="w-full p-4 sm:p-6">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground">Portfolio</h1>
+        </div>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="text-lg text-muted-foreground mb-4">Please log in to view your portfolio</p>
+            <Link href="/login">
+              <Button>Go to Login</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (portfolioError) {
+    return (
+      <div className="w-full p-4 sm:p-6">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground">Portfolio</h1>
+        </div>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <p className="text-lg text-red-600 mb-4">Error loading portfolio: {portfolioError}</p>
+            <Button onClick={() => window.location.reload()}>Retry</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full p-4 sm:p-6">
@@ -420,8 +503,8 @@ export default function Portfolio() {
                     type="number"
                     step="0.01"
                     placeholder="0.00"
-                    value={portfolioValue}
-                    onChange={(e) => setPortfolioValue(e.target.value)}
+                    value={portfolio?.portfolio_value?.toString() || portfolioValue}
+                    onChange={(e) => handlePortfolioValueChange(e.target.value)}
                     className="text-lg"
                   />
                 </div>
@@ -573,6 +656,7 @@ export default function Portfolio() {
                       <TableHead className="border-r font-bold">Type</TableHead>
                       <TableHead className="border-r font-bold">Cost</TableHead>
                       <TableHead className="border-r font-bold">Quantity</TableHead>
+                      <TableHead className="border-r font-bold">Remaining Shares</TableHead>
                       <TableHead className="border-r font-bold">Net Cost</TableHead>
                       <TableHead className="border-r font-bold">Equity</TableHead>
                       <TableHead className="border-r font-bold">Gain/Loss $</TableHead>
@@ -748,11 +832,16 @@ export default function Portfolio() {
                                 className="w-20"
                               />
                             </TableCell>
+                            <TableCell className="border-r">
+                              <div className="text-center font-medium">
+                                {parseInt(editQuantity) - parseInt(editPriceTarget2RShares) - parseInt(editPriceTarget5RShares)}
+                              </div>
+                            </TableCell>
                             <TableCell className="font-medium border-r">
                               {formatCurrency(parseFloat(editCost) * parseInt(editQuantity))}
                             </TableCell>
                             <TableCell className="border-r">
-                              <EquityCell symbol={editSymbol} quantity={parseInt(editQuantity) || 0} />
+                              <EquityCell symbol={editSymbol} quantity={parseInt(editQuantity) - parseInt(editPriceTarget2RShares) - parseInt(editPriceTarget5RShares) || 0} />
                             </TableCell>
                             <TableCell className="border-r">
                               <div className="flex items-center gap-2">
@@ -947,6 +1036,14 @@ export default function Portfolio() {
                                 <Button size="sm" variant="outline" onClick={handleCancelEdit}>
                                   Cancel
                                 </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  onClick={() => handleDeletePosition(editingPosition!)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
                               </div>
                             </TableCell>
                           </>
@@ -969,9 +1066,14 @@ export default function Portfolio() {
                             </TableCell>
                             <TableCell className="border-r">{formatCurrency(position.cost)}</TableCell>
                             <TableCell className="border-r">{position.quantity}</TableCell>
+                            <TableCell className="border-r">
+                              <div className="text-center font-medium">
+                                {position.remainingShares}
+                              </div>
+                            </TableCell>
                             <TableCell className="font-medium border-r">{formatCurrency(position.netCost)}</TableCell>
                             <TableCell className="border-r">
-                              <EquityCell symbol={position.symbol} quantity={position.quantity} />
+                              <EquityCell symbol={position.symbol} quantity={position.remainingShares} />
                             </TableCell>
                             <TableCell className="border-r">
                               <GainLossCell 
@@ -1080,9 +1182,19 @@ export default function Portfolio() {
                               </span>
                             </TableCell>
                             <TableCell>
-                              <Button size="sm" variant="outline" onClick={() => handleEditPosition(position)}>
-                                Edit
-                              </Button>
+                              <div className="flex gap-1">
+                                <Button size="sm" variant="outline" onClick={() => handleEditPosition(position)}>
+                                  Edit
+                                </Button>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  onClick={() => handleDeletePosition(position)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </TableCell>
                           </>
                         )}
