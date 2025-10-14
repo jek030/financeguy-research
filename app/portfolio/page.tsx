@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/Calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { CalendarIcon, InfoIcon, X, Loader2, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -123,6 +124,66 @@ function GainLossCell({
         size="sm"
       />
     </div>
+  );
+}
+
+// Component to display total gain/loss for all positions
+function TotalGainDisplay({ positions }: { positions: StockPosition[] }) {
+  const [totalGain, setTotalGain] = useState<number | null>(null);
+  const [isCalculating, setIsCalculating] = useState(true);
+
+  useEffect(() => {
+    const calculateTotalGain = async () => {
+      setIsCalculating(true);
+      let total = 0;
+      let hasError = false;
+
+      for (const position of positions) {
+        try {
+          const response = await fetch(`/api/fmp/quote?symbol=${position.symbol}`);
+          if (!response.ok) {
+            hasError = true;
+            continue;
+          }
+          const data = await response.json();
+          if (data && data[0]?.price) {
+            const gainLoss = calculateGainLoss(data[0].price, position.cost, position.quantity, position.type);
+            total += gainLoss;
+          }
+        } catch (error) {
+          hasError = true;
+        }
+      }
+
+      setTotalGain(total);
+      setIsCalculating(false);
+    };
+
+    if (positions.length > 0) {
+      calculateTotalGain();
+    } else {
+      setTotalGain(0);
+      setIsCalculating(false);
+    }
+  }, [positions]);
+
+  if (isCalculating) {
+    return (
+      <div className="h-8 w-24 bg-muted animate-pulse rounded"></div>
+    );
+  }
+
+  if (totalGain === null) {
+    return <span className="text-muted-foreground">N/A</span>;
+  }
+
+  return (
+    <span className={cn(
+      "font-medium",
+      totalGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+    )}>
+      {formatCurrency(totalGain)}
+    </span>
   );
 }
 
@@ -253,6 +314,10 @@ export default function Portfolio() {
   // Sorting state
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
+  // Delete confirmation state
+  const [positionToDelete, setPositionToDelete] = useState<StockPosition | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
   // Edit state
   const [editingPosition, setEditingPosition] = useState<StockPosition | null>(null);
@@ -429,13 +494,27 @@ export default function Portfolio() {
     setEditingPosition(null);
   };
 
-  const handleDeletePosition = async (position: StockPosition) => {
+  const handleDeletePosition = (position: StockPosition) => {
+    setPositionToDelete(position);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeletePosition = async () => {
+    if (!positionToDelete) return;
+    
     try {
-      await deletePosition(position.id);
+      await deletePosition(positionToDelete.id);
+      setShowDeleteDialog(false);
+      setPositionToDelete(null);
     } catch (error) {
       console.error('Failed to delete position:', error);
       // You could add a toast notification here
     }
+  };
+
+  const cancelDeletePosition = () => {
+    setShowDeleteDialog(false);
+    setPositionToDelete(null);
   };
 
   const handlePortfolioValueChange = async (value: string) => {
@@ -777,6 +856,14 @@ export default function Portfolio() {
                          exposure > 100 ? "Over-leveraged (margin)" :
                          exposure > 80 ? "High exposure" : "Normal exposure"}
                       </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Total Gain $
+                      </label>
+                      <div className="text-lg font-medium px-3 py-2 rounded-md border bg-muted/30">
+                        <TotalGainDisplay positions={positions} />
+                      </div>
                     </div>
                   </>
                 )}
@@ -1505,6 +1592,26 @@ export default function Portfolio() {
           </Card>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Position</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this position for {positionToDelete?.symbol}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelDeletePosition}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDeletePosition}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
