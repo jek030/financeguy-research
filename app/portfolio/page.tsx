@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/Calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
-import { CalendarIcon, InfoIcon, X, Loader2, Pencil, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { CalendarIcon, InfoIcon, X, Loader2, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { PercentageChange } from '@/components/ui/PriceIndicator';
@@ -64,7 +64,7 @@ function PriceCell({ symbol }: { symbol: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-0.5">
       <span className="font-medium">{formatCurrency(quote.price)}</span>
       <PercentageChange 
         value={quote.changesPercentage} 
@@ -111,7 +111,7 @@ function GainLossCell({
   const displayPercent = type === 'Short' ? -gainLossPercent : gainLossPercent;
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-col gap-0.5">
       <span className={cn(
         "font-medium",
         gainLoss >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
@@ -170,25 +170,12 @@ interface SortableHeaderProps {
 }
 
 function SortableHeader({ column, label, sortColumn, sortDirection, onSort, className }: SortableHeaderProps) {
-  const isActive = sortColumn === column;
-  
   return (
     <TableHead 
       className={cn("cursor-pointer select-none hover:bg-muted/50", className)}
       onClick={() => onSort(column)}
     >
-      <div className="flex items-center gap-1">
-        {label}
-        {isActive ? (
-          sortDirection === 'asc' ? (
-            <ArrowUp className="h-3.5 w-3.5" />
-          ) : (
-            <ArrowDown className="h-3.5 w-3.5" />
-          )
-        ) : (
-          <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />
-        )}
-      </div>
+      {label}
     </TableHead>
   );
 }
@@ -667,7 +654,7 @@ export default function Portfolio() {
         {/* Portfolio Overview and Add Stock Position side by side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Portfolio Overview */}
-          <Card>
+          <Card className="max-w-md w-full">
             <CardHeader>
               <div className="flex justify-between items-center">
                 <CardTitle>Portfolio Overview</CardTitle>
@@ -798,7 +785,7 @@ export default function Portfolio() {
           </Card>
 
           {/* Add Stock Form */}
-          <Card>
+          <Card className="max-w-md w-full">
             <CardHeader>
               <CardTitle>Add Stock Position</CardTitle>
             </CardHeader>
@@ -914,7 +901,7 @@ export default function Portfolio() {
               <CardTitle>Portfolio Positions</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
                 <Table>
                   <TableHeader>
                     <TableRow className="border-b-2">
@@ -1215,7 +1202,7 @@ export default function Portfolio() {
                               </span>
                             </TableCell>
                             <TableCell className="border-r">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-col gap-1">
                                 <Input
                                   type="number"
                                   step="0.01"
@@ -1241,7 +1228,7 @@ export default function Portfolio() {
                               />
                             </TableCell>
                             <TableCell className="border-r">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-col gap-1">
                                 <Input
                                   type="number"
                                   step="0.01"
@@ -1267,7 +1254,7 @@ export default function Portfolio() {
                               />
                             </TableCell>
                             <TableCell className="border-r">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-col gap-1">
                                 <Input
                                   type="number"
                                   step="0.01"
@@ -1440,7 +1427,7 @@ export default function Portfolio() {
                               </span>
                             </TableCell>
                             <TableCell className="border-r">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-col gap-0.5">
                                 <span>{position.priceTarget2R > 0 ? formatCurrency(position.priceTarget2R) : '-'}</span>
                                 {position.priceTarget2R > 0 && (
                                   <PercentageChange 
@@ -1454,7 +1441,7 @@ export default function Portfolio() {
                               <span className="font-medium">{position.priceTarget2RShares || 0}</span>
                             </TableCell>
                             <TableCell className="border-r">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-col gap-0.5">
                                 <span>{position.priceTarget5R > 0 ? formatCurrency(position.priceTarget5R) : '-'}</span>
                                 {position.priceTarget5R > 0 && (
                                   <PercentageChange 
@@ -1468,7 +1455,7 @@ export default function Portfolio() {
                               <span className="font-medium">{position.priceTarget5RShares || 0}</span>
                             </TableCell>
                             <TableCell className="border-r">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-col gap-0.5">
                                 <span>{position.priceTarget21Day > 0 ? formatCurrency(position.priceTarget21Day) : '-'}</span>
                                 {position.priceTarget21Day > 0 && (
                                   <PercentageChange 
@@ -1478,9 +1465,9 @@ export default function Portfolio() {
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="border-r">{format(position.openDate, "MMM dd, yyyy")}</TableCell>
+                            <TableCell className="border-r">{format(position.openDate, "MM/dd/yy")}</TableCell>
                             <TableCell className="border-r">
-                              {position.closedDate ? format(position.closedDate, "MMM dd, yyyy") : <span className="text-muted-foreground">-</span>}
+                              {position.closedDate ? format(position.closedDate, "MM/dd/yy") : <span className="text-muted-foreground">-</span>}
                             </TableCell>
                             <TableCell className="border-r">
                               <span className="font-medium">
