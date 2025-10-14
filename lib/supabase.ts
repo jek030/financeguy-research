@@ -44,7 +44,6 @@ export interface SupabasePortfolioPosition {
   quantity: number;
   net_cost: number;
   equity: number;
-  unrealized_gain_loss: number;
   percent_of_portfolio: number;
   initial_stop_loss: number;
   open_risk: number;

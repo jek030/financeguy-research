@@ -74,16 +74,14 @@ export function usePortfolio() {
     const equity = position.cost * remainingShares; // Calculate equity based on remaining shares
     const portfolioPercent = portfolioValue > 0 ? (equity / portfolioValue) * 100 : 0;
 
-    return {
+    const baseData = {
       portfolio_key: portfolioKey,
-      trade_key: tradeKey || 0, // Will be auto-generated if not provided
       symbol: position.symbol,
       type: position.type,
       cost: position.cost,
       quantity: position.quantity,
       net_cost: position.netCost,
       equity: equity, // Will be updated with live price
-      unrealized_gain_loss: 0, // Will be calculated with live price
       percent_of_portfolio: portfolioPercent, // Store the % Portfolio percentage value
       initial_stop_loss: position.initialStopLoss,
       open_risk: openRiskPercentage, // Store the Open Risk % percentage value
@@ -98,6 +96,14 @@ export function usePortfolio() {
       close_date: position.closedDate ? position.closedDate.toISOString().split('T')[0] : null,
       days_in_trade: diffDays,
     };
+
+    // Only include trade_key if it's explicitly provided (for updates)
+    // For inserts, omit trade_key so the database auto-generates it
+    if (tradeKey !== undefined) {
+      return { ...baseData, trade_key: tradeKey };
+    }
+
+    return baseData;
   };
 
   // Fetch portfolio and positions

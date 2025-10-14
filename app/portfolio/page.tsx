@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/Calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
-import { CalendarIcon, InfoIcon, X, Loader2, Pencil } from 'lucide-react';
+import { CalendarIcon, InfoIcon, X, Loader2, Pencil, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { PercentageChange } from '@/components/ui/PriceIndicator';
@@ -159,6 +159,40 @@ function EquityCell({
   );
 }
 
+// Sortable table header component
+interface SortableHeaderProps {
+  column: string;
+  label: string | React.ReactNode;
+  sortColumn: string | null;
+  sortDirection: 'asc' | 'desc';
+  onSort: (column: string) => void;
+  className?: string;
+}
+
+function SortableHeader({ column, label, sortColumn, sortDirection, onSort, className }: SortableHeaderProps) {
+  const isActive = sortColumn === column;
+  
+  return (
+    <TableHead 
+      className={cn("cursor-pointer select-none hover:bg-muted/50", className)}
+      onClick={() => onSort(column)}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        {isActive ? (
+          sortDirection === 'asc' ? (
+            <ArrowUp className="h-3.5 w-3.5" />
+          ) : (
+            <ArrowDown className="h-3.5 w-3.5" />
+          )
+        ) : (
+          <ArrowUpDown className="h-3.5 w-3.5 opacity-30" />
+        )}
+      </div>
+    </TableHead>
+  );
+}
+
 // Component to display portfolio percentage
 function PortfolioPercentCell({ 
   symbol, 
@@ -228,6 +262,10 @@ export default function Portfolio() {
   const [isEditingPortfolio, setIsEditingPortfolio] = useState(false);
   const [tempPortfolioName, setTempPortfolioName] = useState<string>('');
   const [tempPortfolioValue, setTempPortfolioValue] = useState<string>('');
+  
+  // Sorting state
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
   // Edit state
   const [editingPosition, setEditingPosition] = useState<StockPosition | null>(null);
@@ -447,6 +485,137 @@ export default function Portfolio() {
     setTempPortfolioName(portfolioName);
     setTempPortfolioValue(portfolioValue);
   };
+
+  // Sorting handler
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sort positions
+  const sortedPositions = [...positions].sort((a, b) => {
+    if (!sortColumn) return 0;
+
+    let aValue: any;
+    let bValue: any;
+
+    switch (sortColumn) {
+      case 'symbol':
+        aValue = a.symbol;
+        bValue = b.symbol;
+        break;
+      case 'price':
+        aValue = a.currentPrice || 0;
+        bValue = b.currentPrice || 0;
+        break;
+      case 'type':
+        aValue = a.type;
+        bValue = b.type;
+        break;
+      case 'cost':
+        aValue = a.cost;
+        bValue = b.cost;
+        break;
+      case 'quantity':
+        aValue = a.quantity;
+        bValue = b.quantity;
+        break;
+      case 'remainingShares':
+        aValue = a.remainingShares;
+        bValue = b.remainingShares;
+        break;
+      case 'netCost':
+        aValue = a.netCost;
+        bValue = b.netCost;
+        break;
+      case 'equity':
+        aValue = (a.currentPrice || a.cost) * a.remainingShares;
+        bValue = (b.currentPrice || b.cost) * b.remainingShares;
+        break;
+      case 'gainLoss':
+        aValue = ((a.currentPrice || a.cost) - a.cost) * a.remainingShares;
+        bValue = ((b.currentPrice || b.cost) - b.cost) * b.remainingShares;
+        break;
+      case 'portfolioPercent':
+        const aEquity = (a.currentPrice || a.cost) * a.remainingShares;
+        const bEquity = (b.currentPrice || b.cost) * b.remainingShares;
+        const totalValue = portfolio?.portfolio_value || 1;
+        aValue = (aEquity / totalValue) * 100;
+        bValue = (bEquity / totalValue) * 100;
+        break;
+      case 'initialStopLoss':
+        aValue = a.initialStopLoss;
+        bValue = b.initialStopLoss;
+        break;
+      case 'stopLoss':
+        aValue = a.stopLoss;
+        bValue = b.stopLoss;
+        break;
+      case 'openRisk':
+        aValue = ((a.stopLoss - a.cost) / a.cost) * 100;
+        bValue = ((b.stopLoss - b.cost) / b.cost) * 100;
+        break;
+      case 'openHeat':
+        const aRisk = ((a.stopLoss - a.cost) / a.cost) * 100;
+        const bRisk = ((b.stopLoss - b.cost) / b.cost) * 100;
+        const aPortPercent = ((a.currentPrice || a.cost) * a.remainingShares / (portfolio?.portfolio_value || 1)) * 100;
+        const bPortPercent = ((b.currentPrice || b.cost) * b.remainingShares / (portfolio?.portfolio_value || 1)) * 100;
+        aValue = (aRisk * aPortPercent) / 100;
+        bValue = (bRisk * bPortPercent) / 100;
+        break;
+      case 'priceTarget2R':
+        aValue = a.priceTarget2R;
+        bValue = b.priceTarget2R;
+        break;
+      case 'priceTarget2RShares':
+        aValue = a.priceTarget2RShares;
+        bValue = b.priceTarget2RShares;
+        break;
+      case 'priceTarget5R':
+        aValue = a.priceTarget5R;
+        bValue = b.priceTarget5R;
+        break;
+      case 'priceTarget5RShares':
+        aValue = a.priceTarget5RShares;
+        bValue = b.priceTarget5RShares;
+        break;
+      case 'priceTarget21Day':
+        aValue = a.priceTarget21Day;
+        bValue = b.priceTarget21Day;
+        break;
+      case 'openDate':
+        aValue = a.openDate.getTime();
+        bValue = b.openDate.getTime();
+        break;
+      case 'closedDate':
+        aValue = a.closedDate?.getTime() || 0;
+        bValue = b.closedDate?.getTime() || 0;
+        break;
+      case 'daysInTrade':
+        const now = new Date();
+        const aEndDate = a.closedDate || now;
+        const bEndDate = b.closedDate || now;
+        aValue = Math.ceil((aEndDate.getTime() - a.openDate.getTime()) / (1000 * 60 * 60 * 24));
+        bValue = Math.ceil((bEndDate.getTime() - b.openDate.getTime()) / (1000 * 60 * 60 * 24));
+        break;
+      default:
+        return 0;
+    }
+
+    // Handle string vs number comparison
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return sortDirection === 'asc'
+        ? aValue.localeCompare(bValue)
+        : bValue.localeCompare(aValue);
+    }
+
+    // Numeric comparison
+    return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+  });
 
   // Show loading state
   if (isAuthLoading || isPortfolioLoading) {
@@ -749,127 +918,171 @@ export default function Portfolio() {
                 <Table>
                   <TableHeader>
                     <TableRow className="border-b-2">
-                      <TableHead className="border-r font-bold">Symbol</TableHead>
-                      <TableHead className="border-r font-bold">Price</TableHead>
-                      <TableHead className="border-r font-bold">Type</TableHead>
-                      <TableHead className="border-r font-bold">Cost</TableHead>
-                      <TableHead className="border-r font-bold">Quantity</TableHead>
-                      <TableHead className="border-r font-bold">Remaining Shares</TableHead>
-                      <TableHead className="border-r font-bold">Net Cost</TableHead>
-                      <TableHead className="border-r font-bold">Equity</TableHead>
-                      <TableHead className="border-r font-bold">Gain/Loss $</TableHead>
-                      <TableHead className="border-r font-bold">% Portfolio</TableHead>
-                      <TableHead className="border-r font-bold">Initial Stop Loss</TableHead>
-                      <TableHead className="border-r font-bold">Stop Loss</TableHead>
-                      <TableHead className="border-r font-bold">
-                        <div className="flex items-center gap-1">
-                          <span>Open Risk %</span>
-                          <TooltipProvider delayDuration={0}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button className="inline-flex">
-                                  <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" sideOffset={5}>
-                                <p>% change from current price to stop loss</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      </TableHead>
-                      <TableHead className="border-r font-bold">
-                        <div className="flex items-center gap-1">
-                          <span>Open Heat %</span>
-                          <TooltipProvider delayDuration={0}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button className="inline-flex">
-                                  <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" sideOffset={5}>
-                                <p>% of portfolio risked if stop loss is hit</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      </TableHead>
-                      <TableHead className="border-r font-bold">
-                        <div className="flex items-center gap-1">
-                          <span>PT 1</span>
-                          <TooltipProvider delayDuration={0}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button className="inline-flex">
-                                  <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" sideOffset={5}>
-                                <p>2R Price Target</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      </TableHead>
-                      <TableHead className="border-r font-bold">
-                        <div className="flex items-center gap-1">
-                          <span>PT 1 #</span>
-                           <TooltipProvider delayDuration={0}>
+                      <SortableHeader column="symbol" label="Symbol" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
+                      <SortableHeader column="price" label="Price" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
+                      <SortableHeader column="type" label="Type" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
+                      <SortableHeader column="cost" label="Cost" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
+                      <SortableHeader column="quantity" label="Quantity" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
+                      <SortableHeader column="remainingShares" label="Remaining Shares" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
+                      <SortableHeader column="netCost" label="Net Cost" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
+                      <SortableHeader column="equity" label="Equity" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
+                      <SortableHeader column="gainLoss" label="Gain/Loss $" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
+                      <SortableHeader column="portfolioPercent" label="% Portfolio" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
+                      <SortableHeader column="initialStopLoss" label="Initial Stop Loss" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
+                      <SortableHeader column="stopLoss" label="Stop Loss" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
+                      <SortableHeader 
+                        column="openRisk" 
+                        label={
+                          <>
+                            <span>Open Risk %</span>
+                            <TooltipProvider delayDuration={0}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                <button className="inline-flex">
-                                  <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                                </button>
-                               </TooltipTrigger>
-                               <TooltipContent side="top" sideOffset={5}>
+                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                    <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" sideOffset={5}>
+                                  <p>% change from current price to stop loss</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </>
+                        }
+                        sortColumn={sortColumn} 
+                        sortDirection={sortDirection} 
+                        onSort={handleSort} 
+                        className="border-r font-bold" 
+                      />
+                      <SortableHeader 
+                        column="openHeat" 
+                        label={
+                          <>
+                            <span>Open Heat %</span>
+                            <TooltipProvider delayDuration={0}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                    <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" sideOffset={5}>
+                                  <p>% of portfolio risked if stop loss is hit</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </>
+                        }
+                        sortColumn={sortColumn} 
+                        sortDirection={sortDirection} 
+                        onSort={handleSort} 
+                        className="border-r font-bold" 
+                      />
+                      <SortableHeader 
+                        column="priceTarget2R" 
+                        label={
+                          <>
+                            <span>PT 1</span>
+                            <TooltipProvider delayDuration={0}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                    <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" sideOffset={5}>
+                                  <p>2R Price Target</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </>
+                        }
+                        sortColumn={sortColumn} 
+                        sortDirection={sortDirection} 
+                        onSort={handleSort} 
+                        className="border-r font-bold" 
+                      />
+                      <SortableHeader 
+                        column="priceTarget2RShares" 
+                        label={
+                          <>
+                            <span>PT 1 #</span>
+                            <TooltipProvider delayDuration={0}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                    <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" sideOffset={5}>
                                   <p>Number of shares sold at PT 1</p>
-                               </TooltipContent>
+                                </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
-                          </div>
-                      </TableHead>
-                      <TableHead className="border-r font-bold">
-                        <div className="flex items-center gap-1">
-                          <span>PT 2</span>
-                          <TooltipProvider delayDuration={0}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button className="inline-flex">
-                                  <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" sideOffset={5}>
-                                <p>5R Price Target</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      </TableHead>
-                      <TableHead className="border-r font-bold"><div className="flex items-center gap-1">
-                          <span>PT 2 #</span>
-                           <TooltipProvider delayDuration={0}>
+                          </>
+                        }
+                        sortColumn={sortColumn} 
+                        sortDirection={sortDirection} 
+                        onSort={handleSort} 
+                        className="border-r font-bold" 
+                      />
+                      <SortableHeader 
+                        column="priceTarget5R" 
+                        label={
+                          <>
+                            <span>PT 2</span>
+                            <TooltipProvider delayDuration={0}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                <button className="inline-flex">
-                                  <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                                </button>
-                               </TooltipTrigger>
-                               <TooltipContent side="top" sideOffset={5}>
-                                  <p>Number of shares sold at PT 2</p>
-                               </TooltipContent>
+                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                    <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" sideOffset={5}>
+                                  <p>5R Price Target</p>
+                                </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
-                          </div></TableHead>
-                      <TableHead className="border-r font-bold">21 Day Trail</TableHead>
-                      <TableHead className="border-r font-bold">Open Date</TableHead>
-                      <TableHead className="border-r font-bold">Closed Date</TableHead>
-                      <TableHead className="border-r font-bold">Days in Trade</TableHead>
+                          </>
+                        }
+                        sortColumn={sortColumn} 
+                        sortDirection={sortDirection} 
+                        onSort={handleSort} 
+                        className="border-r font-bold" 
+                      />
+                      <SortableHeader 
+                        column="priceTarget5RShares" 
+                        label={
+                          <>
+                            <span>PT 2 #</span>
+                            <TooltipProvider delayDuration={0}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                    <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" sideOffset={5}>
+                                  <p>Number of shares sold at PT 2</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </>
+                        }
+                        sortColumn={sortColumn} 
+                        sortDirection={sortDirection} 
+                        onSort={handleSort} 
+                        className="border-r font-bold" 
+                      />
+                      <SortableHeader column="priceTarget21Day" label="21 Day Trail" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
+                      <SortableHeader column="openDate" label="Open Date" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
+                      <SortableHeader column="closedDate" label="Closed Date" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
+                      <SortableHeader column="daysInTrade" label="Days in Trade" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
                       <TableHead>Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {positions.map((position) => (
+                    {sortedPositions.map((position) => (
                       <TableRow key={position.id} className="border-b hover:bg-muted/50">
                         {editingPosition?.id === position.id ? (
                           // Edit mode
