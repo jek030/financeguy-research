@@ -31,6 +31,7 @@ export interface SupabasePortfolio {
   user_id: string;
   user_email: string;
   portfolio_value: number;
+  portfolio_name: string;
 }
 
 export interface SupabasePortfolioPosition {

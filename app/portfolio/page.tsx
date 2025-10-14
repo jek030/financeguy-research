@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Calendar } from '@/components/ui/Calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
-import { CalendarIcon, InfoIcon, X, Loader2 } from 'lucide-react';
+import { CalendarIcon, InfoIcon, X, Loader2, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { PercentageChange } from '@/components/ui/PriceIndicator';
@@ -17,7 +17,6 @@ import { useQuote } from '@/hooks/FMP/useQuote';
 import { usePortfolio, type StockPosition } from '@/hooks/usePortfolio';
 import { useAuth } from '@/lib/context/auth-context';
 import Link from 'next/link';
-import type { Ticker } from '@/lib/types';
 
 // Helper function to format currency
 const formatCurrency = (value: number) => {
@@ -213,15 +212,22 @@ export default function Portfolio() {
     updatePosition,
     deletePosition,
     updatePortfolioValue,
+    updatePortfolio,
   } = usePortfolio();
 
   const [portfolioValue, setPortfolioValue] = useState<string>('');
+  const [portfolioName, setPortfolioName] = useState<string>('My Portfolio');
   const [symbol, setSymbol] = useState<string>('');
   const [cost, setCost] = useState<string>('');
   const [quantity, setQuantity] = useState<string>('');
   const [initialStopLoss, setInitialStopLoss] = useState<string>('');
   const [type, setType] = useState<'Long' | 'Short'>('Long');
   const [openDate, setOpenDate] = useState<Date>(new Date());
+  
+  // Portfolio overview edit state
+  const [isEditingPortfolio, setIsEditingPortfolio] = useState(false);
+  const [tempPortfolioName, setTempPortfolioName] = useState<string>('');
+  const [tempPortfolioValue, setTempPortfolioValue] = useState<string>('');
   
   // Edit state
   const [editingPosition, setEditingPosition] = useState<StockPosition | null>(null);
@@ -238,10 +244,11 @@ export default function Portfolio() {
   const [editPriceTarget5RShares, setEditPriceTarget5RShares] = useState<string>('');
   const [editPriceTarget21Day, setEditPriceTarget21Day] = useState<string>('');
 
-  // Initialize portfolio value from database
+  // Initialize portfolio value and name from database
   useEffect(() => {
     if (portfolio) {
       setPortfolioValue(portfolio.portfolio_value.toString());
+      setPortfolioName(portfolio.portfolio_name || 'My Portfolio');
     }
   }, [portfolio]);
 
@@ -417,15 +424,28 @@ export default function Portfolio() {
     }
   };
 
-  // Helper function to recalculate R targets in edit mode
-  const recalculateEditRTargets = () => {
-    if (!editingPosition) return;
-    
-    const costValue = parseFloat(editCost) || editingPosition.cost;
-    const rTargets = calculateRPriceTargets(costValue, editingPosition.initialStopLoss, editType);
-    
-    setEditPriceTarget2R(rTargets.priceTarget2R.toString());
-    setEditPriceTarget5R(rTargets.priceTarget5R.toString());
+  const handleEditPortfolio = () => {
+    setIsEditingPortfolio(true);
+    setTempPortfolioName(portfolioName);
+    setTempPortfolioValue(portfolioValue);
+  };
+
+  const handleSavePortfolio = async () => {
+    setPortfolioName(tempPortfolioName);
+    setPortfolioValue(tempPortfolioValue);
+    const numValue = parseFloat(tempPortfolioValue) || 0;
+    try {
+      await updatePortfolio(tempPortfolioName, numValue);
+      setIsEditingPortfolio(false);
+    } catch (error) {
+      console.error('Failed to update portfolio:', error);
+    }
+  };
+
+  const handleCancelPortfolioEdit = () => {
+    setIsEditingPortfolio(false);
+    setTempPortfolioName(portfolioName);
+    setTempPortfolioValue(portfolioValue);
   };
 
   // Show loading state
@@ -446,9 +466,6 @@ export default function Portfolio() {
   if (!user) {
     return (
       <div className="w-full p-4 sm:p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Portfolio</h1>
-        </div>
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <p className="text-lg text-muted-foreground mb-4">Please log in to view your portfolio</p>
@@ -464,10 +481,7 @@ export default function Portfolio() {
   // Show error state
   if (portfolioError) {
     return (
-      <div className="w-full p-4 sm:p-6">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Portfolio</h1>
-        </div>
+      <div className="w-full p-4 sm:p-6">       
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <p className="text-lg text-red-600 mb-4">Error loading portfolio: {portfolioError}</p>
@@ -479,53 +493,137 @@ export default function Portfolio() {
   }
 
   return (
-    <div className="w-full p-4 sm:p-6">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Portfolio</h1>
-      </div>
-
-      <div className="grid gap-6">
+    <div className="w-full p-4 sm:p-4">
+      <div className="grid gap-4">
         {/* Portfolio Overview and Add Stock Position side by side */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Portfolio Overview */}
           <Card>
             <CardHeader>
-              <CardTitle>Portfolio Overview</CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle>Portfolio Overview</CardTitle>
+                {!isEditingPortfolio && (
+                  <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                    <Button size="sm" variant="outline" onClick={handleEditPortfolio} >
+                    <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
+                  </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Edit Portfolio</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                  
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 gap-6">
-                <div>
-                  <label htmlFor="portfolio-value" className="block text-sm font-medium text-foreground mb-2">
-                    Portfolio 
-                  </label>
-                  <Input
-                    id="portfolio-value"
-                    type="number"
-                    step="0.01"
-                    placeholder="0.00"
-                    value={portfolio?.portfolio_value?.toString() || portfolioValue}
-                    onChange={(e) => handlePortfolioValueChange(e.target.value)}
-                    className="text-lg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Exposure
-                  </label>
-                  <div className={cn(
-                    "text-lg font-medium px-3 py-2 rounded-md border",
-                    exposure > 100 ? "bg-red-50 border-red-200 text-red-700" : 
-                    exposure > 80 ? "bg-yellow-50 border-yellow-200 text-yellow-700" :
-                    "bg-green-50 border-green-200 text-green-700"
-                  )}>
-                    {formatPercentage(exposure)}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {positions.length === 0 ? "No positions" : 
-                     exposure > 100 ? "Over-leveraged (margin)" :
-                     exposure > 80 ? "High exposure" : "Normal exposure"}
-                  </p>
-                </div>
+                {isEditingPortfolio ? (
+                  <>
+                    {/* Edit Mode */}
+                    <div>
+                      <label htmlFor="portfolio-name" className="block text-sm font-medium text-foreground mb-2">
+                        Portfolio Name
+                      </label>
+                      <Input
+                        id="portfolio-name"
+                        type="text"
+                        placeholder="My Portfolio"
+                        value={tempPortfolioName}
+                        onChange={(e) => setTempPortfolioName(e.target.value)}
+                        className="text-lg"
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="portfolio-value-edit" className="block text-sm font-medium text-foreground mb-2">
+                        Portfolio Value
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg text-muted-foreground pointer-events-none">
+                          $
+                        </span>
+                        <Input
+                          id="portfolio-value-edit"
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={tempPortfolioValue}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/[^0-9.]/g, '');
+                            const parts = value.split('.');
+                            const formattedValue = parts.length > 2 
+                              ? parts[0] + '.' + parts.slice(1).join('')
+                              : value;
+                            setTempPortfolioValue(formattedValue);
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value.replace(/[^0-9.]/g, '');
+                            const numValue = parseFloat(value);
+                            if (!isNaN(numValue)) {
+                              setTempPortfolioValue(numValue.toFixed(2));
+                            }
+                          }}
+                          className="text-lg pl-7"
+                          style={{
+                            MozAppearance: 'textfield',
+                          } as React.CSSProperties}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button onClick={handleSavePortfolio}>
+                        Save
+                      </Button>
+                      <Button variant="outline" onClick={handleCancelPortfolioEdit}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* View Mode */}
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Portfolio Name
+                      </label>
+                      <div className="text-lg font-medium px-3 py-2 rounded-md border bg-muted/30">
+                        {portfolioName}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Portfolio Value
+                      </label>
+                      <div className="text-lg font-medium px-3 py-2 rounded-md border bg-muted/30">
+                        ${(() => {
+                          const val = portfolio?.portfolio_value ?? (portfolioValue ? parseFloat(portfolioValue) : 0);
+                          return val.toFixed(2);
+                        })()}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Exposure
+                      </label>
+                      <div className={cn(
+                        "text-lg font-medium px-3 py-2 rounded-md border",
+                        exposure > 100 ? "bg-red-50 border-red-200 text-red-700" : 
+                        exposure > 80 ? "bg-yellow-50 border-yellow-200 text-yellow-700" :
+                        "bg-green-50 border-green-200 text-green-700"
+                      )}>
+                        {formatPercentage(exposure)}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {positions.length === 0 ? "No positions" : 
+                         exposure > 100 ? "Over-leveraged (margin)" :
+                         exposure > 80 ? "High exposure" : "Normal exposure"}
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
