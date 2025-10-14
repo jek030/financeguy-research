@@ -29,6 +29,12 @@ export function usePortfolio() {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
 
+  // Helper function to parse date string as local date (not UTC)
+  const parseLocalDate = (dateString: string): Date => {
+    const [year, month, day] = dateString.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   // Convert Supabase position to our app's format
   const mapSupabaseToPosition = (data: SupabasePortfolioPosition): StockPosition => {
     // The open_risk column stores the percentage value that should be displayed in "Open Risk %" column
@@ -45,8 +51,8 @@ export function usePortfolio() {
       initialStopLoss: data.initial_stop_loss,
       stopLoss: stopLossValue, // Convert the stored percentage back to stop loss value
       type: data.type as 'Long' | 'Short',
-      openDate: new Date(data.open_date),
-      closedDate: data.close_date ? new Date(data.close_date) : null,
+      openDate: parseLocalDate(data.open_date),
+      closedDate: data.close_date ? parseLocalDate(data.close_date) : null,
       priceTarget2R: data.price_target_1,
       priceTarget2RShares: data.price_target_1_quantity,
       priceTarget5R: data.price_target_2,

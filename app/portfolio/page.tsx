@@ -652,7 +652,7 @@ export default function Portfolio() {
     <div className="w-full p-4 sm:p-4">
       <div className="grid gap-4">
         {/* Portfolio Overview and Add Stock Position side by side */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Portfolio Overview */}
           <Card className="max-w-md w-full">
             <CardHeader>
