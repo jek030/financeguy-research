@@ -127,44 +127,64 @@ function GainLossCell({
   );
 }
 
-// Component to display realized gain/loss for closed positions
+// Component to display realized gain/loss from closed positions
 function RealizedGainDisplay({ positions }: { positions: StockPosition[] }) {
   const [realizedGain, setRealizedGain] = useState<number | null>(null);
   const [isCalculating, setIsCalculating] = useState(true);
 
   useEffect(() => {
-    const calculateRealizedGain = async () => {
+    const calculateRealizedGain = () => {
       setIsCalculating(true);
       let total = 0;
 
       for (const position of positions) {
-        // For closed positions, use the sold price (which we'll approximate with current price)
-        // In reality, you'd want to store the actual closing price in the database
-        try {
-          const response = await fetch(`/api/fmp/quote?symbol=${position.symbol}`);
-          if (!response.ok) {
-            continue;
-          }
-          const data = await response.json();
-          if (data && data[0]?.price) {
-            const gainLoss = calculateGainLoss(data[0].price, position.cost, position.quantity, position.type);
-            total += gainLoss;
-          }
-        } catch (error) {
-          // Continue on error
+        // Only include positions that are closed (have a closed date)
+        if (!position.closedDate) continue;
+
+        // Calculate realized gain based on actual exit prices from database
+        let positionGain = 0;
+
+        // PT1 trim gain
+        if (position.priceTarget2RShares > 0 && position.priceTarget2R > 0) {
+          const pt1Gain = position.type === 'Long'
+            ? (position.priceTarget2R - position.cost) * position.priceTarget2RShares
+            : (position.cost - position.priceTarget2R) * position.priceTarget2RShares;
+          positionGain += pt1Gain;
         }
+
+        // PT2 trim gain
+        if (position.priceTarget5RShares > 0 && position.priceTarget5R > 0) {
+          const pt2Gain = position.type === 'Long'
+            ? (position.priceTarget5R - position.cost) * position.priceTarget5RShares
+            : (position.cost - position.priceTarget5R) * position.priceTarget5RShares;
+          positionGain += pt2Gain;
+        }
+
+        // Final exit gain (21 Day Trail or remaining shares)
+        if (position.priceTarget21Day > 0) {
+          const remainingShares = position.quantity - position.priceTarget2RShares - position.priceTarget5RShares;
+          const finalGain = position.type === 'Long'
+            ? (position.priceTarget21Day - position.cost) * remainingShares
+            : (position.cost - position.priceTarget21Day) * remainingShares;
+          positionGain += finalGain;
+        }
+
+        // If no specific exit prices are set, but position is closed, 
+        // we need to use the closed price (this might be stored differently)
+        if (positionGain === 0 && position.closedDate) {
+          // This is a fallback - ideally we'd have the actual exit price stored
+          // For now, we'll skip positions without specific exit prices
+          continue;
+        }
+
+        total += positionGain;
       }
 
       setRealizedGain(total);
       setIsCalculating(false);
     };
 
-    if (positions.length > 0) {
-      calculateRealizedGain();
-    } else {
-      setRealizedGain(0);
-      setIsCalculating(false);
-    }
+    calculateRealizedGain();
   }, [positions]);
 
   if (isCalculating) {
@@ -187,7 +207,7 @@ function RealizedGainDisplay({ positions }: { positions: StockPosition[] }) {
   );
 }
 
-// Component to display total gain/loss for all positions
+// Component to display total unrealized gain/loss for open positions
 function TotalGainDisplay({ positions }: { positions: StockPosition[] }) {
   const [totalGain, setTotalGain] = useState<number | null>(null);
   const [isCalculating, setIsCalculating] = useState(true);
@@ -199,6 +219,12 @@ function TotalGainDisplay({ positions }: { positions: StockPosition[] }) {
       let hasError = false;
 
       for (const position of positions) {
+        // Skip positions that are fully exited
+        if (position.priceTarget21Day > 0) continue;
+        
+        // Only calculate unrealized gain on remaining shares
+        if (position.remainingShares <= 0) continue;
+
         try {
           const response = await fetch(`/api/fmp/quote?symbol=${position.symbol}`);
           if (!response.ok) {
@@ -207,7 +233,8 @@ function TotalGainDisplay({ positions }: { positions: StockPosition[] }) {
           }
           const data = await response.json();
           if (data && data[0]?.price) {
-            const gainLoss = calculateGainLoss(data[0].price, position.cost, position.quantity, position.type);
+            // Calculate gain/loss on REMAINING shares only
+            const gainLoss = calculateGainLoss(data[0].price, position.cost, position.remainingShares, position.type);
             total += gainLoss;
           }
         } catch (error) {
@@ -932,10 +959,10 @@ export default function Portfolio() {
                         Total Gain $
                       </label>
                       <div className="text-lg font-medium px-3 py-2 rounded-md border bg-muted/30">
-                        <TotalGainDisplay positions={openPositions} />
+                        <TotalGainDisplay positions={positions} />
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Open positions only
+                        Unrealized gains on remaining shares
                       </p>
                     </div>
                     <div>
@@ -943,10 +970,10 @@ export default function Portfolio() {
                         Realized Gain $
                       </label>
                       <div className="text-lg font-medium px-3 py-2 rounded-md border bg-muted/30">
-                        <RealizedGainDisplay positions={closedPositions} />
+                        <RealizedGainDisplay positions={positions} />
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Closed positions only
+                        From all realized shares
                       </p>
                     </div>
                   </>
@@ -1350,37 +1377,45 @@ export default function Portfolio() {
                             <TableCell className="border-r">
                               <span className={cn(
                                 "font-medium",
-                                calculatePercentageChange(parseFloat(editStopLoss) || position.stopLoss, parseFloat(editCost) || position.cost) < 0
-                                  ? "text-red-600 dark:text-red-400" 
-                                  : "text-green-600 dark:text-green-400"
+                                position.closedDate ? "" : (
+                                  calculatePercentageChange(parseFloat(editStopLoss) || position.stopLoss, parseFloat(editCost) || position.cost) < 0
+                                    ? "text-red-600 dark:text-red-400" 
+                                    : "text-green-600 dark:text-green-400"
+                                )
                               )}>
-                                {calculatePercentageChange(parseFloat(editStopLoss) || position.stopLoss, parseFloat(editCost) || position.cost) >= 0 ? '+' : ''}{calculatePercentageChange(parseFloat(editStopLoss) || position.stopLoss, parseFloat(editCost) || position.cost).toFixed(2)}%
+                                {position.closedDate ? "0.00%" : (
+                                  `${calculatePercentageChange(parseFloat(editStopLoss) || position.stopLoss, parseFloat(editCost) || position.cost) >= 0 ? '+' : ''}${calculatePercentageChange(parseFloat(editStopLoss) || position.stopLoss, parseFloat(editCost) || position.cost).toFixed(2)}%`
+                                )}
                               </span>
                             </TableCell>
                             <TableCell className="border-r">
                               <span className={cn(
                                 "font-medium",
-                                (() => {
-                                  const portfolioValueNum = parseFloat(portfolioValue) || 0;
-                                  if (portfolioValueNum === 0) return "";
-                                  const costValue = parseFloat(editCost) || position.cost;
-                                  const stopLossValue = parseFloat(editStopLoss) || position.stopLoss;
-                                  const riskPerShare = Math.abs(costValue - stopLossValue);
-                                  const totalRisk = riskPerShare * (parseFloat(editQuantity) || position.quantity);
-                                  const heatPercent = (totalRisk / portfolioValueNum) * 100;
-                                  return heatPercent > 2 ? "text-red-600 dark:text-red-400" : heatPercent > 1 ? "text-orange-600 dark:text-orange-400" : "";
-                                })()
+                                position.closedDate ? "" : (
+                                  (() => {
+                                    const portfolioValueNum = parseFloat(portfolioValue) || 0;
+                                    if (portfolioValueNum === 0) return "";
+                                    const costValue = parseFloat(editCost) || position.cost;
+                                    const stopLossValue = parseFloat(editStopLoss) || position.stopLoss;
+                                    const riskPerShare = Math.abs(costValue - stopLossValue);
+                                    const totalRisk = riskPerShare * (parseFloat(editQuantity) || position.quantity);
+                                    const heatPercent = (totalRisk / portfolioValueNum) * 100;
+                                    return heatPercent > 2 ? "text-red-600 dark:text-red-400" : heatPercent > 1 ? "text-orange-600 dark:text-orange-400" : "";
+                                  })()
+                                )
                               )}>
-                                {(() => {
-                                  const portfolioValueNum = parseFloat(portfolioValue) || 0;
-                                  if (portfolioValueNum === 0) return "N/A";
-                                  const costValue = parseFloat(editCost) || position.cost;
-                                  const stopLossValue = parseFloat(editStopLoss) || position.stopLoss;
-                                  const riskPerShare = Math.abs(costValue - stopLossValue);
-                                  const totalRisk = riskPerShare * (parseFloat(editQuantity) || position.quantity);
-                                  const heatPercent = (totalRisk / portfolioValueNum) * 100;
-                                  return `${heatPercent.toFixed(2)}%`;
-                                })()}
+                                {position.closedDate ? "0.00%" : (
+                                  (() => {
+                                    const portfolioValueNum = parseFloat(portfolioValue) || 0;
+                                    if (portfolioValueNum === 0) return "N/A";
+                                    const costValue = parseFloat(editCost) || position.cost;
+                                    const stopLossValue = parseFloat(editStopLoss) || position.stopLoss;
+                                    const riskPerShare = Math.abs(costValue - stopLossValue);
+                                    const totalRisk = riskPerShare * (parseFloat(editQuantity) || position.quantity);
+                                    const heatPercent = (totalRisk / portfolioValueNum) * 100;
+                                    return `${heatPercent.toFixed(2)}%`;
+                                  })()
+                                )}
                               </span>
                             </TableCell>
                             <TableCell className="border-r">
@@ -1550,25 +1585,65 @@ export default function Portfolio() {
                             <TableCell className="border-r">{position.quantity.toFixed(2)}</TableCell>
                             <TableCell className="border-r">
                               <div className="text-center font-medium">
-                                {position.remainingShares.toFixed(2)}
+                                {position.priceTarget21Day > 0 ? '0.00' : position.remainingShares.toFixed(2)}
                               </div>
                             </TableCell>
                             <TableCell className="font-medium border-r">{formatCurrency(position.netCost)}</TableCell>
                             <TableCell className="border-r">
-                              <EquityCell symbol={position.symbol} quantity={position.remainingShares} />
+                              <EquityCell symbol={position.symbol} quantity={position.priceTarget21Day > 0 ? 0 : position.remainingShares} />
                             </TableCell>
                             <TableCell className="border-r">
-                              <GainLossCell 
-                                symbol={position.symbol}
-                                cost={position.cost}
-                                quantity={position.quantity}
-                                type={position.type}
-                              />
+                              {position.priceTarget21Day > 0 ? (
+                                // Position fully exited - show total realized gain/loss
+                                (() => {
+                                  let totalGain = 0;
+                                  
+                                  // PT1 gain
+                                  if (position.priceTarget2RShares > 0 && position.priceTarget2R > 0) {
+                                    const pt1Gain = position.type === 'Long'
+                                      ? (position.priceTarget2R - position.cost) * position.priceTarget2RShares
+                                      : (position.cost - position.priceTarget2R) * position.priceTarget2RShares;
+                                    totalGain += pt1Gain;
+                                  }
+                                  
+                                  // PT2 gain
+                                  if (position.priceTarget5RShares > 0 && position.priceTarget5R > 0) {
+                                    const pt2Gain = position.type === 'Long'
+                                      ? (position.priceTarget5R - position.cost) * position.priceTarget5RShares
+                                      : (position.cost - position.priceTarget5R) * position.priceTarget5RShares;
+                                    totalGain += pt2Gain;
+                                  }
+                                  
+                                  // 21 Day Trail gain
+                                  const remainingShares = position.quantity - position.priceTarget2RShares - position.priceTarget5RShares;
+                                  const finalGain = position.type === 'Long'
+                                    ? (position.priceTarget21Day - position.cost) * remainingShares
+                                    : (position.cost - position.priceTarget21Day) * remainingShares;
+                                  totalGain += finalGain;
+                                  
+                                  return (
+                                    <span className={cn(
+                                      "font-medium",
+                                      totalGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                                    )}>
+                                      {formatCurrency(totalGain)}
+                                    </span>
+                                  );
+                                })()
+                              ) : (
+                                // Position still open - show unrealized gain/loss
+                                <GainLossCell 
+                                  symbol={position.symbol}
+                                  cost={position.cost}
+                                  quantity={position.remainingShares}
+                                  type={position.type}
+                                />
+                              )}
                             </TableCell>
                             <TableCell className="border-r">
                               <PortfolioPercentCell 
                                 symbol={position.symbol} 
-                                quantity={position.quantity}
+                                quantity={position.priceTarget21Day > 0 ? 0 : position.remainingShares}
                                 portfolioValue={parseFloat(portfolioValue) || 0}
                               />
                             </TableCell>
@@ -1581,33 +1656,41 @@ export default function Portfolio() {
                             <TableCell className="border-r">
                               <span className={cn(
                                 "font-medium",
-                                calculatePercentageChange(position.stopLoss, position.cost) < 0
-                                  ? "text-red-600 dark:text-red-400" 
-                                  : "text-green-600 dark:text-green-400"
+                                position.closedDate ? "" : (
+                                  calculatePercentageChange(position.stopLoss, position.cost) < 0
+                                    ? "text-red-600 dark:text-red-400" 
+                                    : "text-green-600 dark:text-green-400"
+                                )
                               )}>
-                                {calculatePercentageChange(position.stopLoss, position.cost) >= 0 ? '+' : ''}{calculatePercentageChange(position.stopLoss, position.cost).toFixed(2)}%
+                                {position.closedDate ? "0.00%" : (
+                                  `${calculatePercentageChange(position.stopLoss, position.cost) >= 0 ? '+' : ''}${calculatePercentageChange(position.stopLoss, position.cost).toFixed(2)}%`
+                                )}
                               </span>
                             </TableCell>
                             <TableCell className="border-r">
                               <span className={cn(
                                 "font-medium",
-                                (() => {
-                                  const portfolioValueNum = parseFloat(portfolioValue) || 0;
-                                  if (portfolioValueNum === 0) return "";
-                                  const riskPerShare = Math.abs(position.cost - position.stopLoss);
-                                  const totalRisk = riskPerShare * position.quantity;
-                                  const heatPercent = (totalRisk / portfolioValueNum) * 100;
-                                  return heatPercent > 2 ? "text-red-600 dark:text-red-400" : heatPercent > 1 ? "text-orange-600 dark:text-orange-400" : "";
-                                })()
+                                position.closedDate ? "" : (
+                                  (() => {
+                                    const portfolioValueNum = parseFloat(portfolioValue) || 0;
+                                    if (portfolioValueNum === 0) return "";
+                                    const riskPerShare = Math.abs(position.cost - position.stopLoss);
+                                    const totalRisk = riskPerShare * position.quantity;
+                                    const heatPercent = (totalRisk / portfolioValueNum) * 100;
+                                    return heatPercent > 2 ? "text-red-600 dark:text-red-400" : heatPercent > 1 ? "text-orange-600 dark:text-orange-400" : "";
+                                  })()
+                                )
                               )}>
-                                {(() => {
-                                  const portfolioValueNum = parseFloat(portfolioValue) || 0;
-                                  if (portfolioValueNum === 0) return "N/A";
-                                  const riskPerShare = Math.abs(position.cost - position.stopLoss);
-                                  const totalRisk = riskPerShare * position.quantity;
-                                  const heatPercent = (totalRisk / portfolioValueNum) * 100;
-                                  return `${heatPercent.toFixed(2)}%`;
-                                })()}
+                                {position.closedDate ? "0.00%" : (
+                                  (() => {
+                                    const portfolioValueNum = parseFloat(portfolioValue) || 0;
+                                    if (portfolioValueNum === 0) return "N/A";
+                                    const riskPerShare = Math.abs(position.cost - position.stopLoss);
+                                    const totalRisk = riskPerShare * position.quantity;
+                                    const heatPercent = (totalRisk / portfolioValueNum) * 100;
+                                    return `${heatPercent.toFixed(2)}%`;
+                                  })()
+                                )}
                               </span>
                             </TableCell>
                             <TableCell className="border-r">
