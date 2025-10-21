@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
@@ -124,6 +124,66 @@ function GainLossCell({
         size="sm"
       />
     </div>
+  );
+}
+
+// Component to display realized gain/loss for closed positions
+function RealizedGainDisplay({ positions }: { positions: StockPosition[] }) {
+  const [realizedGain, setRealizedGain] = useState<number | null>(null);
+  const [isCalculating, setIsCalculating] = useState(true);
+
+  useEffect(() => {
+    const calculateRealizedGain = async () => {
+      setIsCalculating(true);
+      let total = 0;
+
+      for (const position of positions) {
+        // For closed positions, use the sold price (which we'll approximate with current price)
+        // In reality, you'd want to store the actual closing price in the database
+        try {
+          const response = await fetch(`/api/fmp/quote?symbol=${position.symbol}`);
+          if (!response.ok) {
+            continue;
+          }
+          const data = await response.json();
+          if (data && data[0]?.price) {
+            const gainLoss = calculateGainLoss(data[0].price, position.cost, position.quantity, position.type);
+            total += gainLoss;
+          }
+        } catch (error) {
+          // Continue on error
+        }
+      }
+
+      setRealizedGain(total);
+      setIsCalculating(false);
+    };
+
+    if (positions.length > 0) {
+      calculateRealizedGain();
+    } else {
+      setRealizedGain(0);
+      setIsCalculating(false);
+    }
+  }, [positions]);
+
+  if (isCalculating) {
+    return (
+      <div className="h-8 w-24 bg-muted animate-pulse rounded"></div>
+    );
+  }
+
+  if (realizedGain === null) {
+    return <span className="text-muted-foreground">N/A</span>;
+  }
+
+  return (
+    <span className={cn(
+      "font-medium",
+      realizedGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+    )}>
+      {formatCurrency(realizedGain)}
+    </span>
   );
 }
 
@@ -319,6 +379,9 @@ export default function Portfolio() {
   const [positionToDelete, setPositionToDelete] = useState<StockPosition | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
+  // Filter state
+  const [showClosedPositions, setShowClosedPositions] = useState(true);
+  
   // Edit state
   const [editingPosition, setEditingPosition] = useState<StockPosition | null>(null);
   const [editSymbol, setEditSymbol] = useState<string>('');
@@ -348,7 +411,7 @@ export default function Portfolio() {
     }
 
     const costValue = parseFloat(cost);
-    const quantityValue = parseInt(quantity);
+    const quantityValue = parseFloat(quantity);
     const stopLossValue = parseFloat(initialStopLoss);
     const netCost = costValue * quantityValue;
 
@@ -400,13 +463,13 @@ export default function Portfolio() {
   };
 
   // Calculate total net cost from all positions
-  const totalNetCost = positions.reduce((sum, position) => sum + position.netCost, 0);
-  
-  // Calculate exposure percentage
+  // Calculate exposure percentage (only for open positions)
   const calculateExposure = () => {
+    const openPos = positions.filter(pos => !pos.closedDate);
+    const totalNetCost = openPos.reduce((sum, position) => sum + position.netCost, 0);
     const portfolioValueNum = portfolio?.portfolio_value || 0;
     if (portfolioValueNum === 0) {
-      return positions.length === 0 ? 0 : 100; // If no portfolio value set, show 100% if there are positions
+      return openPos.length === 0 ? 0 : 100; // If no portfolio value set, show 100% if there are open positions
     }
     return (totalNetCost / portfolioValueNum) * 100;
   };
@@ -454,15 +517,15 @@ export default function Portfolio() {
     }
 
     const costValue = parseFloat(editCost);
-    const quantityValue = parseInt(editQuantity);
+    const quantityValue = parseFloat(editQuantity);
     const netCost = costValue * quantityValue;
     const stopLossValue = parseFloat(editStopLoss) || editingPosition.stopLoss;
     
     // Use user-entered values for price targets
     const priceTarget2RValue = parseFloat(editPriceTarget2R) || 0;
-    const priceTarget2RSharesValue = parseInt(editPriceTarget2RShares) || 0;
+    const priceTarget2RSharesValue = parseFloat(editPriceTarget2RShares) || 0;
     const priceTarget5RValue = parseFloat(editPriceTarget5R) || 0;
-    const priceTarget5RSharesValue = parseInt(editPriceTarget5RShares) || 0;
+    const priceTarget5RSharesValue = parseFloat(editPriceTarget5RShares) || 0;
     const priceTarget21DayValue = parseFloat(editPriceTarget21Day) || 0;
 
     const updates: Partial<StockPosition> = {
@@ -683,6 +746,13 @@ export default function Portfolio() {
     return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
   });
 
+  // Filter positions based on closed status (memoized to prevent unnecessary recalculations)
+  const openPositions = useMemo(() => positions.filter(pos => !pos.closedDate), [positions]);
+  const closedPositions = useMemo(() => positions.filter(pos => pos.closedDate), [positions]);
+  
+  // Apply filter to sorted positions for display
+  const displayedPositions = showClosedPositions ? sortedPositions : sortedPositions.filter(pos => !pos.closedDate);
+
   // Show loading state
   if (isAuthLoading || isPortfolioLoading) {
     return (
@@ -862,8 +932,22 @@ export default function Portfolio() {
                         Total Gain $
                       </label>
                       <div className="text-lg font-medium px-3 py-2 rounded-md border bg-muted/30">
-                        <TotalGainDisplay positions={positions} />
+                        <TotalGainDisplay positions={openPositions} />
                       </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Open positions only
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Realized Gain $
+                      </label>
+                      <div className="text-lg font-medium px-3 py-2 rounded-md border bg-muted/30">
+                        <RealizedGainDisplay positions={closedPositions} />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Closed positions only
+                      </p>
                     </div>
                   </>
                 )}
@@ -910,6 +994,7 @@ export default function Portfolio() {
                   <Input
                     id="quantity"
                     type="number"
+                    step="0.01"
                     placeholder="e.g., 100"
                     value={quantity}
                     onChange={(e) => setQuantity(e.target.value)}
@@ -985,7 +1070,16 @@ export default function Portfolio() {
         {positions.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle>Portfolio Positions</CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle>Portfolio Positions</CardTitle>
+                <Button 
+                  size="sm" 
+                  variant={showClosedPositions ? "default" : "outline"}
+                  onClick={() => setShowClosedPositions(!showClosedPositions)}
+                >
+                  {showClosedPositions ? "Hide" : "Show"} Closed ({closedPositions.length})
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
@@ -1156,7 +1250,7 @@ export default function Portfolio() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sortedPositions.map((position) => (
+                    {displayedPositions.map((position) => (
                       <TableRow key={position.id} className="border-b hover:bg-muted/50">
                         {editingPosition?.id === position.id ? (
                           // Edit mode
@@ -1212,6 +1306,7 @@ export default function Portfolio() {
                             <TableCell className="border-r">
                               <Input
                                 type="number"
+                                step="0.01"
                                 value={editQuantity}
                                 onChange={(e) => setEditQuantity(e.target.value)}
                                 className="w-20"
@@ -1219,14 +1314,14 @@ export default function Portfolio() {
                             </TableCell>
                             <TableCell className="border-r">
                               <div className="text-center font-medium">
-                                {parseInt(editQuantity) - parseInt(editPriceTarget2RShares) - parseInt(editPriceTarget5RShares)}
+                                {(parseFloat(editQuantity) - parseFloat(editPriceTarget2RShares) - parseFloat(editPriceTarget5RShares)).toFixed(2)}
                               </div>
                             </TableCell>
                             <TableCell className="font-medium border-r">
-                              {formatCurrency(parseFloat(editCost) * parseInt(editQuantity))}
+                              {formatCurrency(parseFloat(editCost) * parseFloat(editQuantity))}
                             </TableCell>
                             <TableCell className="border-r">
-                              <EquityCell symbol={editSymbol} quantity={parseInt(editQuantity) - parseInt(editPriceTarget2RShares) - parseInt(editPriceTarget5RShares) || 0} />
+                              <EquityCell symbol={editSymbol} quantity={parseFloat(editQuantity) - parseFloat(editPriceTarget2RShares) - parseFloat(editPriceTarget5RShares) || 0} />
                             </TableCell>
                             <TableCell className="border-r">
                               <div className="flex items-center gap-2">
@@ -1236,7 +1331,7 @@ export default function Portfolio() {
                             <TableCell className="border-r">
                               <PortfolioPercentCell 
                                 symbol={editSymbol} 
-                                quantity={parseInt(editQuantity) || 0}
+                                quantity={parseFloat(editQuantity) || 0}
                                 portfolioValue={parseFloat(portfolioValue) || 0}
                               />
                             </TableCell>
@@ -1271,7 +1366,7 @@ export default function Portfolio() {
                                   const costValue = parseFloat(editCost) || position.cost;
                                   const stopLossValue = parseFloat(editStopLoss) || position.stopLoss;
                                   const riskPerShare = Math.abs(costValue - stopLossValue);
-                                  const totalRisk = riskPerShare * (parseInt(editQuantity) || position.quantity);
+                                  const totalRisk = riskPerShare * (parseFloat(editQuantity) || position.quantity);
                                   const heatPercent = (totalRisk / portfolioValueNum) * 100;
                                   return heatPercent > 2 ? "text-red-600 dark:text-red-400" : heatPercent > 1 ? "text-orange-600 dark:text-orange-400" : "";
                                 })()
@@ -1282,7 +1377,7 @@ export default function Portfolio() {
                                   const costValue = parseFloat(editCost) || position.cost;
                                   const stopLossValue = parseFloat(editStopLoss) || position.stopLoss;
                                   const riskPerShare = Math.abs(costValue - stopLossValue);
-                                  const totalRisk = riskPerShare * (parseInt(editQuantity) || position.quantity);
+                                  const totalRisk = riskPerShare * (parseFloat(editQuantity) || position.quantity);
                                   const heatPercent = (totalRisk / portfolioValueNum) * 100;
                                   return `${heatPercent.toFixed(2)}%`;
                                 })()}
@@ -1308,6 +1403,7 @@ export default function Portfolio() {
                             <TableCell className="border-r">
                               <Input
                                 type="number"
+                                step="0.01"
                                 value={editPriceTarget2RShares}
                                 onChange={(e) => setEditPriceTarget2RShares(e.target.value)}
                                 className="w-20"
@@ -1334,6 +1430,7 @@ export default function Portfolio() {
                             <TableCell className="border-r">
                               <Input
                                 type="number"
+                                step="0.01"
                                 value={editPriceTarget5RShares}
                                 onChange={(e) => setEditPriceTarget5RShares(e.target.value)}
                                 className="w-20"
@@ -1450,10 +1547,10 @@ export default function Portfolio() {
                               </span>
                             </TableCell>
                             <TableCell className="border-r">{formatCurrency(position.cost)}</TableCell>
-                            <TableCell className="border-r">{position.quantity}</TableCell>
+                            <TableCell className="border-r">{position.quantity.toFixed(2)}</TableCell>
                             <TableCell className="border-r">
                               <div className="text-center font-medium">
-                                {position.remainingShares}
+                                {position.remainingShares.toFixed(2)}
                               </div>
                             </TableCell>
                             <TableCell className="font-medium border-r">{formatCurrency(position.netCost)}</TableCell>
@@ -1525,7 +1622,7 @@ export default function Portfolio() {
                               </div>
                             </TableCell>
                             <TableCell className="border-r">
-                              <span className="font-medium">{position.priceTarget2RShares || 0}</span>
+                              <span className="font-medium">{(position.priceTarget2RShares || 0).toFixed(2)}</span>
                             </TableCell>
                             <TableCell className="border-r">
                               <div className="flex flex-col gap-0.5">
@@ -1539,7 +1636,7 @@ export default function Portfolio() {
                               </div>
                             </TableCell>
                             <TableCell className="border-r">
-                              <span className="font-medium">{position.priceTarget5RShares || 0}</span>
+                              <span className="font-medium">{(position.priceTarget5RShares || 0).toFixed(2)}</span>
                             </TableCell>
                             <TableCell className="border-r">
                               <div className="flex flex-col gap-0.5">
