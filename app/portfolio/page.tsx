@@ -423,6 +423,9 @@ export default function Portfolio() {
   const [editPriceTarget5R, setEditPriceTarget5R] = useState<string>('');
   const [editPriceTarget5RShares, setEditPriceTarget5RShares] = useState<string>('');
   const [editPriceTarget21Day, setEditPriceTarget21Day] = useState<string>('');
+  
+  // Position Percentage Calculator state
+  const [adrPercent, setAdrPercent] = useState<string>('');
 
   // Initialize portfolio value and name from database
   useEffect(() => {
@@ -1088,6 +1091,91 @@ export default function Portfolio() {
                 >
                   Add Stock
                 </Button>
+              </div>
+            </CardContent>
+          </Card>
+          
+          {/* Position Percentage Calculator */}
+          <Card className="max-w-md w-full">
+            <CardHeader>
+              <CardTitle>Position Percentage Calculator</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-4">
+                <div>
+                  <label htmlFor="adr-percent" className="block text-sm font-medium text-foreground mb-2">
+                    ADR %
+                  </label>
+                  <Input
+                    id="adr-percent"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="e.g., 2.50"
+                    value={adrPercent}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9.]/g, '');
+                      const parts = value.split('.');
+                      const formattedValue = parts.length > 2 
+                        ? parts[0] + '.' + parts.slice(1).join('')
+                        : value;
+                      
+                      // Allow only 2 decimal places
+                      if (parts.length === 2 && parts[1].length > 2) {
+                        return;
+                      }
+                      
+                      setAdrPercent(formattedValue);
+                    }}
+                    onBlur={(e) => {
+                      const value = e.target.value.replace(/[^0-9.]/g, '');
+                      const numValue = parseFloat(value);
+                      if (!isNaN(numValue) && numValue > 0) {
+                        setAdrPercent(numValue.toFixed(2));
+                      }
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Average Daily Range percentage
+                  </p>
+                </div>
+                {adrPercent && parseFloat(adrPercent) > 0 && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Max Position %
+                      </label>
+                      <div className="text-lg font-medium px-3 py-2 rounded-md border bg-muted/30">
+                        {(() => {
+                          const adr = parseFloat(adrPercent);
+                          if (adr === 0) return '0.00%';
+                          const maxPositionPercent = (1 / adr) * 100;
+                          return `${maxPositionPercent.toFixed(2)}%`;
+                        })()}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        1 / ADR %
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Max Position Amount
+                      </label>
+                      <div className="text-lg font-medium px-3 py-2 rounded-md border bg-muted/30">
+                        {(() => {
+                          const adr = parseFloat(adrPercent);
+                          const portfolioValueNum = parseFloat(portfolioValue) || 0;
+                          if (adr === 0 || portfolioValueNum === 0) return formatCurrency(0);
+                          const maxPositionPercent = (1 / adr);
+                          const maxPositionAmount = portfolioValueNum * maxPositionPercent;
+                          return formatCurrency(maxPositionAmount);
+                        })()}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Portfolio Value × Max Position %
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
