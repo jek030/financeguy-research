@@ -23,4 +23,38 @@ export type SupabaseTicker = {
   watchlist_id: string;
   symbol: string;
   created_at: string;
-}; 
+};
+
+export interface SupabasePortfolio {
+  portfolio_key: number | string; // int8 can be returned as string
+  created_at: string;
+  user_id: string;
+  user_email: string;
+  portfolio_value: number;
+  portfolio_name: string;
+}
+
+export interface SupabasePortfolioPosition {
+  portfolio_key: number | string; // int8 can be returned as string
+  trade_key: number | string; // int8 can be returned as string
+  created_at: string;
+  symbol: string;
+  type: string;
+  cost: number;
+  quantity: number;
+  net_cost: number;
+  equity: number;
+  percent_of_portfolio: number;
+  initial_stop_loss: number;
+  open_risk: number;
+  open_heat: number;
+  price_target_1: number;
+  price_target_1_quantity: number;
+  price_target_2: number;
+  price_target_2_quantity: number;
+  price_target_3: number;
+  remaining_shares: number;
+  open_date: string;
+  close_date: string | null;
+  days_in_trade: number;
+} 

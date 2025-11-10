@@ -27,6 +27,7 @@ import CumulativeGainsChart from '@/components/ui/(realized-gains)/CumulativeGai
 import TermDistributionChart from '@/components/ui/(realized-gains)/TermDistributionChart';
 import TradeTable from '@/components/ui/(realized-gains)/TradeTable';
 import TickerDetailModal from '@/components/ui/(realized-gains)/TickerDetailModal';
+import TradeCalendar from '@/components/ui/(realized-gains)/TradeCalendar';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import PnlBarChart from '@/components/ui/(realized-gains)/PnlBarChart';
@@ -333,6 +334,13 @@ export default function RealizedGainsPage() {
                 />
                 <TermDistributionChart data={termDistribution} />
               </div>
+            </div>
+          )}
+
+          {/* Trade Calendar - only show if we have final data */}
+          {hasFinalData && (
+            <div className="space-y-4">
+              <TradeCalendar trades={finalFilteredTrades} />
             </div>
           )}
 

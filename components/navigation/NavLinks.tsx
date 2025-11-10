@@ -7,6 +7,7 @@ import {
   BookmarkIcon,
   MapIcon,
   ChartBarIcon,
+  BriefcaseIcon,
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -42,6 +43,11 @@ const mainLinks = [
     name: 'Realized Gains',
     href: '/realized-gains',
     icon: ChartBarIcon,
+  },
+  {
+    name: 'Portfolio',
+    href: '/portfolio',
+    icon: BriefcaseIcon,
   },
 ];
 

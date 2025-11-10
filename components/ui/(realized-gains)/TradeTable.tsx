@@ -7,287 +7,31 @@ import {
   getSortedRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
-  createColumnHelper,
   flexRender,
   SortingState,
   ColumnFiltersState,
 } from '@tanstack/react-table';
-import { ArrowUpDown, ArrowUp, ArrowDown, Search, Filter, Download } from 'lucide-react';
+import { Search, Filter, Download } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { TradeRecord } from '@/lib/types/trading';
-import { formatCurrency } from '@/utils/tradeCalculations';
 import { cn } from '@/lib/utils';
-import { format, parseISO } from 'date-fns';
+import { getTradeTableColumns } from './TradeTableColumns';
 
 interface TradeTableProps {
   data: TradeRecord[];
   className?: string;
 }
 
-const columnHelper = createColumnHelper<TradeRecord>();
-
 export default function TradeTable({ data, className }: TradeTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
 
-  const columns = useMemo(() => [
-    columnHelper.accessor('symbol', {
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="p-0 h-auto font-semibold"
-        >
-          Symbol
-          {column.getIsSorted() === 'asc' ? (
-            <ArrowUp className="ml-2 h-4 w-4" />
-          ) : column.getIsSorted() === 'desc' ? (
-            <ArrowDown className="ml-2 h-4 w-4" />
-          ) : (
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          )}
-        </Button>
-      ),
-      cell: info => (
-        <span className="font-mono font-semibold">{info.getValue()}</span>
-      ),
-    }),
-    columnHelper.accessor('openedDate', {
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="p-0 h-auto font-semibold"
-        >
-          Opened Date
-          {column.getIsSorted() === 'asc' ? (
-            <ArrowUp className="ml-2 h-4 w-4" />
-          ) : column.getIsSorted() === 'desc' ? (
-            <ArrowDown className="ml-2 h-4 w-4" />
-          ) : (
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          )}
-        </Button>
-      ),
-      cell: info => {
-        try {
-          const date = parseISO(info.getValue());
-          return format(date, 'MMM dd, yyyy');
-        } catch {
-          return info.getValue();
-        }
-      },
-    }),
-    columnHelper.accessor('closedDate', {
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="p-0 h-auto font-semibold"
-        >
-          Closed Date
-          {column.getIsSorted() === 'asc' ? (
-            <ArrowUp className="ml-2 h-4 w-4" />
-          ) : column.getIsSorted() === 'desc' ? (
-            <ArrowDown className="ml-2 h-4 w-4" />
-          ) : (
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          )}
-        </Button>
-      ),
-      cell: info => {
-        try {
-          const date = parseISO(info.getValue());
-          return format(date, 'MMM dd, yyyy');
-        } catch {
-          return info.getValue();
-        }
-      },
-    }),
-    columnHelper.accessor('quantity', {
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="p-0 h-auto font-semibold"
-        >
-          Quantity
-          {column.getIsSorted() === 'asc' ? (
-            <ArrowUp className="ml-2 h-4 w-4" />
-          ) : column.getIsSorted() === 'desc' ? (
-            <ArrowDown className="ml-2 h-4 w-4" />
-          ) : (
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          )}
-        </Button>
-      ),
-      cell: info => info.getValue().toLocaleString(),
-    }),
-    columnHelper.accessor('costPerShare', {
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="p-0 h-auto font-semibold"
-        >
-          Cost Per Share
-          {column.getIsSorted() === 'asc' ? (
-            <ArrowUp className="ml-2 h-4 w-4" />
-          ) : column.getIsSorted() === 'desc' ? (
-            <ArrowDown className="ml-2 h-4 w-4" />
-          ) : (
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          )}
-        </Button>
-      ),
-      cell: info => formatCurrency(info.getValue()),
-    }),
-    columnHelper.accessor('proceedsPerShare', {
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="p-0 h-auto font-semibold"
-        >
-          Proceeds Per Share
-          {column.getIsSorted() === 'asc' ? (
-            <ArrowUp className="ml-2 h-4 w-4" />
-          ) : column.getIsSorted() === 'desc' ? (
-            <ArrowDown className="ml-2 h-4 w-4" />
-          ) : (
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          )}
-        </Button>
-      ),
-      cell: info => formatCurrency(info.getValue()),
-    }),
-    columnHelper.accessor('proceeds', {
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="p-0 h-auto font-semibold"
-        >
-          Proceeds
-          {column.getIsSorted() === 'asc' ? (
-            <ArrowUp className="ml-2 h-4 w-4" />
-          ) : column.getIsSorted() === 'desc' ? (
-            <ArrowDown className="ml-2 h-4 w-4" />
-          ) : (
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          )}
-        </Button>
-      ),
-      cell: info => formatCurrency(info.getValue()),
-    }),
-    columnHelper.accessor('costBasis', {
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="p-0 h-auto font-semibold"
-        >
-          Cost Basis
-          {column.getIsSorted() === 'asc' ? (
-            <ArrowUp className="ml-2 h-4 w-4" />
-          ) : column.getIsSorted() === 'desc' ? (
-            <ArrowDown className="ml-2 h-4 w-4" />
-          ) : (
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          )}
-        </Button>
-      ),
-      cell: info => formatCurrency(info.getValue()),
-    }),
-    columnHelper.accessor('gainLoss', {
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="p-0 h-auto font-semibold"
-        >
-          Gain/Loss
-          {column.getIsSorted() === 'asc' ? (
-            <ArrowUp className="ml-2 h-4 w-4" />
-          ) : column.getIsSorted() === 'desc' ? (
-            <ArrowDown className="ml-2 h-4 w-4" />
-          ) : (
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          )}
-        </Button>
-      ),
-      cell: info => {
-        const value = info.getValue();
-        return (
-          <span className={cn(
-            "font-semibold",
-            value >= 0 ? "text-green-600" : "text-red-600"
-          )}>
-            {formatCurrency(value)}
-          </span>
-        );
-      },
-    }),
-    columnHelper.accessor('daysInTrade', {
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="p-0 h-auto font-semibold"
-        >
-          Days in Trade
-          {column.getIsSorted() === 'asc' ? (
-            <ArrowUp className="ml-2 h-4 w-4" />
-          ) : column.getIsSorted() === 'desc' ? (
-            <ArrowDown className="ml-2 h-4 w-4" />
-          ) : (
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          )}
-        </Button>
-      ),
-      cell: info => {
-        const days = info.getValue();
-        return (
-          <span className="font-medium">
-            {days == null ? 'N/A' : days === 0 ? '0' : days.toLocaleString()}
-          </span>
-        );
-      },
-    }),
-    columnHelper.accessor('term', {
-      header: ({ column }) => (
-        <Button
-          variant="ghost"
-          onClick={() => column.toggleSorting(column.getIsSorted() === 'asc')}
-          className="p-0 h-auto font-semibold"
-        >
-          Term
-          {column.getIsSorted() === 'asc' ? (
-            <ArrowUp className="ml-2 h-4 w-4" />
-          ) : column.getIsSorted() === 'desc' ? (
-            <ArrowDown className="ml-2 h-4 w-4" />
-          ) : (
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          )}
-        </Button>
-      ),
-      cell: info => (
-        <span className={cn(
-          "px-2 py-1 rounded text-xs font-medium",
-          info.getValue() === 'Long Term' 
-            ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400"
-            : "bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400"
-        )}>
-          {info.getValue()}
-        </span>
-      ),
-    }),
-  ], []);
+  const columns = useMemo(() => getTradeTableColumns(), []);
 
   const table = useReactTable({
     data,
@@ -313,7 +57,7 @@ export default function TradeTable({ data, className }: TradeTableProps) {
 
   const exportToCSV = () => {
     const filteredData = table.getFilteredRowModel().rows.map(row => row.original);
-    const headers = ['Symbol', 'Name', 'Opened Date', 'Closed Date', 'Quantity', 'Cost Per Share', 'Proceeds Per Share', 'Proceeds', 'Cost Basis', 'Gain/Loss', 'Days in Trade', 'Term'];
+    const headers = ['Symbol', 'Name', 'Opened Date', 'Closed Date', 'Quantity', 'Cost Per Share', 'Proceeds Per Share', 'Proceeds', 'Cost Basis', 'Gain/Loss $', 'Gain/Loss %', 'Days in Trade', 'Term', 'Wash Sale'];
     const csvContent = [
       headers.join(','),
       ...filteredData.map(trade => [
@@ -327,8 +71,10 @@ export default function TradeTable({ data, className }: TradeTableProps) {
         trade.proceeds,
         trade.costBasis,
         trade.gainLoss,
+        trade.gainLossPercent,
         trade.daysInTrade || 0,
         trade.term,
+        trade.washSale || 'No',
       ].join(','))
     ].join('\n');
 
@@ -380,21 +126,30 @@ export default function TradeTable({ data, className }: TradeTableProps) {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border overflow-x-auto">
-          <Table className="min-w-full">
+        <div className="rounded-md border overflow-x-auto relative">
+          <Table className="min-w-full text-xs">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
-                  {headerGroup.headers.map((header) => (
-                                         <TableHead key={header.id} className="px-2 py-3 text-xs font-semibold whitespace-nowrap">
-                       {header.isPlaceholder
-                         ? null
-                         : flexRender(
-                             header.column.columnDef.header,
-                             header.getContext()
-                           )}
-                     </TableHead>
-                  ))}
+                  {headerGroup.headers.map((header) => {
+                    const isSticky = header.column.columnDef.meta?.sticky;
+                    return (
+                      <TableHead 
+                        key={header.id} 
+                        className={cn(
+                          "px-2 py-2 text-[10px] font-semibold whitespace-nowrap",
+                          isSticky && "sticky left-0 z-10 bg-background shadow-[2px_0_4px_rgba(0,0,0,0.1)]"
+                        )}
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </TableHead>
+                    );
+                  })}
                 </TableRow>
               ))}
             </TableHeader>
@@ -405,16 +160,25 @@ export default function TradeTable({ data, className }: TradeTableProps) {
                     key={row.id}
                     data-state={row.getIsSelected() && "selected"}
                   >
-                                           {row.getVisibleCells().map((cell) => (
-                         <TableCell key={cell.id} className="px-2 py-2 text-xs whitespace-nowrap">
-                           {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                         </TableCell>
-                       ))}
+                    {row.getVisibleCells().map((cell) => {
+                      const isSticky = cell.column.columnDef.meta?.sticky;
+                      return (
+                        <TableCell 
+                          key={cell.id} 
+                          className={cn(
+                            "px-2 py-1.5 text-[10px] whitespace-nowrap",
+                            isSticky && "sticky left-0 z-10 bg-background shadow-[2px_0_4px_rgba(0,0,0,0.05)]"
+                          )}
+                        >
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </TableCell>
+                      );
+                    })}
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center">
+                  <TableCell colSpan={columns.length} className="h-24 text-center text-xs">
                     No results.
                   </TableCell>
                 </TableRow>
