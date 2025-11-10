@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react';
 import { supabase, SupabasePortfolio, SupabasePortfolioPosition } from '@/lib/supabase';
 import { useAuth } from '@/lib/context/auth-context';
 
+const SELECTED_PORTFOLIO_STORAGE_KEY = 'financeguy-selected-portfolio';
+
+const normalizePortfolioKey = (key: number | string): number => {
+  return typeof key === 'string' ? parseInt(key, 10) : key;
+};
+
 export interface StockPosition {
   id: string;
   symbol: string;
@@ -24,6 +30,8 @@ export interface StockPosition {
 
 export function usePortfolio() {
   const [portfolio, setPortfolio] = useState<SupabasePortfolio | null>(null);
+  const [portfolios, setPortfolios] = useState<SupabasePortfolio[]>([]);
+  const [selectedPortfolioKey, setSelectedPortfolioKey] = useState<number | null>(null);
   const [positions, setPositions] = useState<StockPosition[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -112,11 +120,37 @@ export function usePortfolio() {
     return baseData;
   };
 
-  // Fetch portfolio and positions
-  const fetchPortfolio = async () => {
+  const fetchPositionsForPortfolio = async (portfolioKey: number) => {
+    console.log('Fetching positions for portfolio_key:', portfolioKey);
+
+    const { data: positionsData, error: positionsError } = await supabase
+      .from('tblPortfolioPositions')
+      .select('*')
+      .eq('portfolio_key', portfolioKey)
+      .order('trade_key', { ascending: true });
+
+    if (positionsError) {
+      console.error('Positions query error:', positionsError);
+      throw positionsError;
+    }
+
+    if (positionsData) {
+      const mappedPositions = positionsData.map(mapSupabaseToPosition);
+      setPositions(mappedPositions);
+      return mappedPositions;
+    }
+
+    setPositions([]);
+    return [] as StockPosition[];
+  };
+
+  // Fetch portfolios and positions
+  const fetchPortfolio = async (overridePortfolioKey?: number) => {
     if (!user) {
       setPortfolio(null);
+      setPortfolios([]);
       setPositions([]);
+      setSelectedPortfolioKey(null);
       setIsLoading(false);
       return;
     }
@@ -125,26 +159,25 @@ export function usePortfolio() {
     setError(null);
 
     try {
-      console.log('Fetching portfolio for user:', user.id);
-      
-      // First, check if user has a portfolio
+      console.log('Fetching portfolios for user:', user.id);
+
       const { data: portfolioData, error: portfolioError } = await supabase
         .from('tblPortfolio')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .order('portfolio_key', { ascending: true });
 
-      console.log('Portfolio query result:', { portfolioData, portfolioError });
-
-      if (portfolioError && portfolioError.code !== 'PGRST116') { // PGRST116 = no rows found
+      if (portfolioError) {
         console.error('Portfolio query error:', portfolioError);
         throw portfolioError;
       }
 
-      let currentPortfolio: SupabasePortfolio;
+      let normalizedPortfolios = (portfolioData ?? []).map((item) => ({
+        ...item,
+        portfolio_key: normalizePortfolioKey(item.portfolio_key),
+      }));
 
-      if (!portfolioData) {
-        // Create new portfolio - let Supabase generate the portfolio_key
+      if (normalizedPortfolios.length === 0) {
         const newPortfolio = {
           user_id: user.id,
           user_email: user.email || '',
@@ -152,7 +185,7 @@ export function usePortfolio() {
           portfolio_name: 'My Portfolio',
         };
 
-        console.log('Creating new portfolio:', newPortfolio);
+        console.log('Creating new portfolio for user:', newPortfolio);
 
         const { data: createdPortfolio, error: createError } = await supabase
           .from('tblPortfolio')
@@ -160,51 +193,66 @@ export function usePortfolio() {
           .select()
           .single();
 
-      console.log('Portfolio creation result:', { createdPortfolio, createError });
+        if (createError) {
+          console.error('Portfolio creation error:', createError);
+          throw createError;
+        }
 
-      if (createError) {
-        console.error('Portfolio creation error:', createError);
-        throw createError;
+        const normalizedCreated = {
+          ...createdPortfolio,
+          portfolio_key: normalizePortfolioKey(createdPortfolio.portfolio_key),
+        };
+
+        normalizedPortfolios = [normalizedCreated];
       }
 
-      // Ensure portfolio_key is properly typed
-      currentPortfolio = {
-        ...createdPortfolio,
-        portfolio_key: typeof createdPortfolio.portfolio_key === 'string' 
-          ? parseInt(createdPortfolio.portfolio_key, 10) 
-          : createdPortfolio.portfolio_key
-      };
-    } else {
-      // Ensure portfolio_key is properly typed for existing portfolio
-      currentPortfolio = {
-        ...portfolioData,
-        portfolio_key: typeof portfolioData.portfolio_key === 'string' 
-          ? parseInt(portfolioData.portfolio_key, 10) 
-          : portfolioData.portfolio_key
-      };
-    }
+      let storedSelectedKey: number | null = null;
 
-      setPortfolio(currentPortfolio);
-
-      // Fetch positions for this portfolio
-      console.log('Fetching positions for portfolio_key:', currentPortfolio.portfolio_key);
-      
-      const { data: positionsData, error: positionsError } = await supabase
-        .from('tblPortfolioPositions')
-        .select('*')
-        .eq('portfolio_key', currentPortfolio.portfolio_key)
-        .order('trade_key', { ascending: true });
-
-      console.log('Positions query result:', { positionsData, positionsError });
-
-      if (positionsError) {
-        console.error('Positions query error:', positionsError);
-        throw positionsError;
+      if (typeof window !== 'undefined') {
+        const stored = window.localStorage.getItem(SELECTED_PORTFOLIO_STORAGE_KEY);
+        if (stored) {
+          const parsed = parseInt(stored, 10);
+          if (!Number.isNaN(parsed)) {
+            storedSelectedKey = parsed;
+          }
+        }
       }
 
-      if (positionsData) {
-        const mappedPositions = positionsData.map(mapSupabaseToPosition);
-        setPositions(mappedPositions);
+      let targetKey =
+        overridePortfolioKey ??
+        storedSelectedKey ??
+        selectedPortfolioKey ??
+        (normalizedPortfolios.length > 0
+          ? normalizePortfolioKey(normalizedPortfolios[0].portfolio_key)
+          : null);
+
+      let currentPortfolio =
+        targetKey !== null
+          ? normalizedPortfolios.find((item) => normalizePortfolioKey(item.portfolio_key) === targetKey)
+          : undefined;
+
+      if (!currentPortfolio && normalizedPortfolios.length > 0) {
+        currentPortfolio = normalizedPortfolios[0];
+        targetKey = normalizePortfolioKey(currentPortfolio.portfolio_key);
+      }
+
+      setPortfolios(normalizedPortfolios);
+      setPortfolio(currentPortfolio ?? null);
+      setSelectedPortfolioKey(targetKey ?? null);
+
+      if (currentPortfolio) {
+        if (typeof window !== 'undefined') {
+          try {
+            window.localStorage.setItem(
+              SELECTED_PORTFOLIO_STORAGE_KEY,
+              String(normalizePortfolioKey(currentPortfolio.portfolio_key))
+            );
+          } catch {
+            // Ignore storage write errors
+          }
+        }
+
+        await fetchPositionsForPortfolio(normalizePortfolioKey(currentPortfolio.portfolio_key));
       } else {
         setPositions([]);
       }
@@ -214,6 +262,21 @@ export function usePortfolio() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const selectPortfolio = (portfolioKey: number) => {
+    const normalizedKey = normalizePortfolioKey(portfolioKey);
+    setSelectedPortfolioKey(normalizedKey);
+
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(SELECTED_PORTFOLIO_STORAGE_KEY, String(normalizedKey));
+      } catch {
+        // Ignore storage write errors
+      }
+    }
+
+    return fetchPortfolio(normalizedKey);
   };
 
   // Add a new position
@@ -373,6 +436,8 @@ export function usePortfolio() {
     }
 
     try {
+      const currentKey = normalizePortfolioKey(portfolio.portfolio_key);
+
       const { error } = await supabase
         .from('tblPortfolio')
         .update({ portfolio_value: value })
@@ -383,6 +448,12 @@ export function usePortfolio() {
       }
 
       setPortfolio(prev => prev ? { ...prev, portfolio_value: value } : null);
+      setPortfolios(prev => prev.map(item => {
+        if (normalizePortfolioKey(item.portfolio_key) === currentKey) {
+          return { ...item, portfolio_value: value };
+        }
+        return item;
+      }));
 
       // Recalculate percent_of_portfolio for all positions
       if (value > 0) {
@@ -415,6 +486,7 @@ export function usePortfolio() {
     }
 
     try {
+      const currentKey = normalizePortfolioKey(portfolio.portfolio_key);
       console.log('Updating portfolio:', {
         portfolio_key: portfolio.portfolio_key,
         portfolio_name: name,
@@ -441,6 +513,12 @@ export function usePortfolio() {
         portfolio_name: name,
         portfolio_value: value 
       } : null);
+      setPortfolios(prev => prev.map(item => {
+        if (normalizePortfolioKey(item.portfolio_key) === currentKey) {
+          return { ...item, portfolio_name: name, portfolio_value: value };
+        }
+        return item;
+      }));
     } catch (err) {
       console.error('Error updating portfolio:', err);
       throw err;
@@ -454,9 +532,12 @@ export function usePortfolio() {
 
   return {
     portfolio,
+    portfolios,
+    selectedPortfolioKey,
     positions,
     isLoading,
     error,
+    selectPortfolio,
     addPosition,
     updatePosition,
     deletePosition,
