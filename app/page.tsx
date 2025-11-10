@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useMovingAverageData } from '@/hooks/FMP/useMovingAverage';
 import type { Ticker } from "@/lib/types";
 import SectorReturns from "@/components/SectorReturns";
+import TVWSymbolOverview from "@/components/TVWSymbolOverview";
 
 interface MovingAverageData {
   ma: number;
@@ -267,6 +268,20 @@ export default function Home() {
                 </div>
               </div>
             </div>
+
+          {/* Market Overview Widget */}
+          <div className="mt-8">
+            <Card className="h-[460px]">
+              <CardHeader className="px-3 md:px-4 py-2 md:py-3">
+                <CardTitle className="text-base font-medium text-foreground/90">Market Snapshot</CardTitle>
+              </CardHeader>
+              <CardContent className="h-full p-0">
+                <div className="h-[400px] w-full">
+                  <TVWSymbolOverview />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
               
             {/* Sector Performance */}
             <div className="mt-8">
