@@ -788,7 +788,10 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
             <RRCard price={quote.price || 0} dayLow={quote.dayLow || 0} />
           </div>
 
-          <IntradayChart symbol={symbol} />
+          {/* Previous IntradayChart implementation preserved within the component file */}
+          <div className="relative mt-6 w-full overflow-hidden rounded-xl border border-border/40 bg-card/60 shadow-sm" style={{ minHeight: 480 }}>
+            <IntradayChart symbol={symbol} exchange={quote?.exchange ?? undefined} />
+          </div>
         </div>
       </div>
 
