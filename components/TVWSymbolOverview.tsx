@@ -74,14 +74,14 @@ function TVWSymbolOverviewComponent(): ReactElement {
       valuesTracking: "1",
       changeMode: "price-and-percent",
       symbols: [
-        ["AMEX:SPY|1D"],
         ["NASDAQ:QQQ|1D"],
-        ["AMEX:DIA|1D"],    
+        ["AMEX:IWM|1D"],
+        ["AMEX:SPY|1D"],
         ["AMEX:RSP|1D"],
-        ["AMEX:IWM|1D"],  
+        ["AMEX:DIA|1D"],
+        ["TVC:VIX|1D"],
         ["AMEX:SLV|1D"],
-        ["AMEX:GLD|1D"],
-        ["TVC:VIX|1D"]
+        ["AMEX:GLD|1D"]
       ],
       dateRanges: ["1d|1", "1m|30", "3m|60", "12m|1D", "60m|1W", "all|1M"],
       fontSize: "10",
@@ -142,35 +142,15 @@ function TVWSymbolOverviewComponent(): ReactElement {
   return (
     <div className="tradingview-widget-container h-full w-full" ref={containerRef}>
       <div className="tradingview-widget-container__widget h-full w-full" />
-      <div className="tradingview-widget-copyright text-xs text-muted-foreground">
+      <div className="text-xs text-muted-foreground">
         <a
-          href="https://www.tradingview.com/symbols/NASDAQ-AAPL/"
+          href="https://www.tradingview.com/"
           rel="noopener nofollow"
           target="_blank"
           className="text-primary"
         >
-          <span>Apple</span>
+          <span>Markets data by TradingView</span>
         </a>
-        <span className="comma">,</span>&nbsp;
-        <a
-          href="https://www.tradingview.com/symbols/NASDAQ-GOOGL/"
-          rel="noopener nofollow"
-          target="_blank"
-          className="text-primary"
-        >
-          <span>Google</span>
-        </a>
-        <span className="comma">,</span>
-        <span className="and">&nbsp;and&nbsp;</span>
-        <a
-          href="https://www.tradingview.com/symbols/NASDAQ-MSFT/"
-          rel="noopener nofollow"
-          target="_blank"
-          className="text-primary"
-        >
-          <span>Microsoft stock price</span>
-        </a>
-        <span className="trademark">&nbsp;by TradingView</span>
       </div>
     </div>
   );

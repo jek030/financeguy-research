@@ -7,7 +7,9 @@ import { cn } from "@/lib/utils";
 import { useMovingAverageData } from '@/hooks/FMP/useMovingAverage';
 import type { Ticker } from "@/lib/types";
 import SectorReturns from "@/components/SectorReturns";
-import TVWSymbolOverview from "@/components/TVWSymbolOverview";
+import TVWTickers from "@/components/TVWTickers";
+import SectorOverviewChart from "@/components/SectorOverviewChart";
+import { useSupabaseSectorData } from "@/hooks/useSupabaseSectorData";
 
 interface MovingAverageData {
   ma: number;
@@ -22,6 +24,7 @@ export default function Home() {
   const { data: gldData, isLoading: isGldLoading } = useQuote("GLD");
   const { data: vixData, isLoading: isVixLoading } = useQuote("^VIX");
   const { data: rspData, isLoading: isRspLoading } = useQuote("RSP");
+  const { sectorsBySymbol, latestDate, isLoading: sectorsLoading, error: sectorsError } = useSupabaseSectorData();
 
   const formatNumber = (value: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -240,8 +243,8 @@ export default function Home() {
     <div className="flex flex-col h-screen">
       <main className="flex-1">
         <div className="flex h-full">
-          {/* Main Content */}
           <div className="flex-1 min-w-0 p-2 md:p-2">
+            <TVWTickers />
             {/* Market Data Cards */}
             <div className="max-w-8xl">
               <div className="flex overflow-x-auto pb-2 gap-3 md:gap-2 -mx-2 md:-mx-3 px-2 md:px-3">
@@ -268,24 +271,22 @@ export default function Home() {
                 </div>
               </div>
             </div>
-
-          {/* Market Overview Widget */}
-          <div className="mt-8">
-            <Card className="h-[460px]">
-              <CardHeader className="px-3 md:px-4 py-2 md:py-3">
-                <CardTitle className="text-base font-medium text-foreground/90">Market Snapshot</CardTitle>
-              </CardHeader>
-              <CardContent className="h-full p-0">
-                <div className="h-[400px] w-full">
-                  <TVWSymbolOverview />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
               
             {/* Sector Performance */}
             <div className="mt-8">
-              <SectorReturns />
+              <SectorReturns
+                sectorsBySymbol={sectorsBySymbol}
+                latestDate={latestDate}
+                isLoading={sectorsLoading}
+                error={sectorsError}
+              />
+            </div>
+            <div className="mt-8">
+              <SectorOverviewChart
+                sectorsBySymbol={sectorsBySymbol}
+                isLoading={sectorsLoading}
+                error={sectorsError}
+              />
             </div>
           </div>
         </div>
