@@ -62,7 +62,7 @@ function Chart({ symbol, exchange, height = 480 }: ChartProps) {
       withdateranges: false,
       range: "YTD",
       compareSymbols: [],
-      studies: []
+      studies: ["STD;RSI"]
     } satisfies Record<string, unknown>;
 
     script.innerHTML = JSON.stringify(config);
