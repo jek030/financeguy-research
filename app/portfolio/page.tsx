@@ -444,8 +444,8 @@ export default function Portfolio() {
   const [tempPortfolioValue, setTempPortfolioValue] = useState<string>('');
   
   // Sorting state
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortColumn, setSortColumn] = useState<string | null>('closedDate');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // Delete confirmation state
   const [positionToDelete, setPositionToDelete] = useState<StockPosition | null>(null);
@@ -453,6 +453,7 @@ export default function Portfolio() {
   
   // Filter state
   const [showClosedPositions, setShowClosedPositions] = useState(false);
+  const [symbolFilter, setSymbolFilter] = useState<string>('');
   
   // Edit state
   const [editingPosition, setEditingPosition] = useState<StockPosition | null>(null);
@@ -689,121 +690,139 @@ export default function Portfolio() {
     }
   };
 
-  // Sort positions
-  const sortedPositions = [...positions].sort((a, b) => {
-    if (!sortColumn) return 0;
+  const normalizedSymbolFilter = symbolFilter.trim().toUpperCase();
 
-    let aValue: number | string = 0;
-    let bValue: number | string = 0;
-
-    switch (sortColumn) {
-      case 'symbol':
-        aValue = a.symbol;
-        bValue = b.symbol;
-        break;
-      case 'price':
-        aValue = a.currentPrice || 0;
-        bValue = b.currentPrice || 0;
-        break;
-      case 'type':
-        aValue = a.type;
-        bValue = b.type;
-        break;
-      case 'cost':
-        aValue = a.cost;
-        bValue = b.cost;
-        break;
-      case 'quantity':
-        aValue = a.quantity;
-        bValue = b.quantity;
-        break;
-      case 'remainingShares':
-        aValue = a.remainingShares;
-        bValue = b.remainingShares;
-        break;
-      case 'netCost':
-        aValue = a.netCost;
-        bValue = b.netCost;
-        break;
-      case 'equity':
-        aValue = (a.currentPrice || a.cost) * a.remainingShares;
-        bValue = (b.currentPrice || b.cost) * b.remainingShares;
-        break;
-      case 'gainLoss':
-        aValue = ((a.currentPrice || a.cost) - a.cost) * a.remainingShares;
-        bValue = ((b.currentPrice || b.cost) - b.cost) * b.remainingShares;
-        break;
-      case 'portfolioPercent':
-        const aEquity = (a.currentPrice || a.cost) * a.remainingShares;
-        const bEquity = (b.currentPrice || b.cost) * b.remainingShares;
-        const totalValue = portfolio?.portfolio_value || 1;
-        aValue = (aEquity / totalValue) * 100;
-        bValue = (bEquity / totalValue) * 100;
-        break;
-      case 'initialStopLoss':
-        aValue = a.initialStopLoss;
-        bValue = b.initialStopLoss;
-        break;
-      case 'stopLoss':
-        aValue = a.stopLoss;
-        bValue = b.stopLoss;
-        break;
-      case 'openRisk':
-        aValue = ((a.stopLoss - a.cost) / a.cost) * 100;
-        bValue = ((b.stopLoss - b.cost) / b.cost) * 100;
-        break;
-      case 'openHeat':
-        const aRisk = ((a.stopLoss - a.cost) / a.cost) * 100;
-        const bRisk = ((b.stopLoss - b.cost) / b.cost) * 100;
-        const aPortPercent = ((a.currentPrice || a.cost) * a.remainingShares / (portfolio?.portfolio_value || 1)) * 100;
-        const bPortPercent = ((b.currentPrice || b.cost) * b.remainingShares / (portfolio?.portfolio_value || 1)) * 100;
-        aValue = (aRisk * aPortPercent) / 100;
-        bValue = (bRisk * bPortPercent) / 100;
-        break;
-      case 'priceTarget2R':
-        aValue = a.priceTarget2R;
-        bValue = b.priceTarget2R;
-        break;
-      case 'priceTarget2RShares':
-        aValue = a.priceTarget2RShares;
-        bValue = b.priceTarget2RShares;
-        break;
-      case 'priceTarget5R':
-        aValue = a.priceTarget5R;
-        bValue = b.priceTarget5R;
-        break;
-      case 'priceTarget5RShares':
-        aValue = a.priceTarget5RShares;
-        bValue = b.priceTarget5RShares;
-        break;
-      case 'priceTarget21Day':
-        aValue = a.priceTarget21Day;
-        bValue = b.priceTarget21Day;
-        break;
-      case 'openDate':
-        aValue = a.openDate.getTime();
-        bValue = b.openDate.getTime();
-        break;
-      case 'closedDate':
-        aValue = a.closedDate?.getTime() || 0;
-        bValue = b.closedDate?.getTime() || 0;
-        break;
-      case 'daysInTrade':
-        const now = new Date();
-        const aEndDate = a.closedDate || now;
-        const bEndDate = b.closedDate || now;
-        aValue = Math.ceil((aEndDate.getTime() - a.openDate.getTime()) / (1000 * 60 * 60 * 24));
-        bValue = Math.ceil((bEndDate.getTime() - b.openDate.getTime()) / (1000 * 60 * 60 * 24));
-        break;
-      default:
-        return 0;
+  const filteredPositions = useMemo(() => {
+    if (!normalizedSymbolFilter) {
+      return positions;
     }
 
-    const aNumber = typeof aValue === 'number' ? aValue : Number(aValue);
-    const bNumber = typeof bValue === 'number' ? bValue : Number(bValue);
+    return positions.filter((pos) => pos.symbol.toUpperCase().includes(normalizedSymbolFilter));
+  }, [positions, normalizedSymbolFilter]);
 
-    return sortDirection === 'asc' ? aNumber - bNumber : bNumber - aNumber;
-  });
+  // Sort positions
+  const sortedPositions = useMemo(() => {
+    const basePositions = [...filteredPositions];
+
+    if (!sortColumn) {
+      return basePositions;
+    }
+
+    basePositions.sort((a, b) => {
+      let aValue: number | string = 0;
+      let bValue: number | string = 0;
+
+      switch (sortColumn) {
+        case 'symbol':
+          aValue = a.symbol;
+          bValue = b.symbol;
+          break;
+        case 'price':
+          aValue = a.currentPrice || 0;
+          bValue = b.currentPrice || 0;
+          break;
+        case 'type':
+          aValue = a.type;
+          bValue = b.type;
+          break;
+        case 'cost':
+          aValue = a.cost;
+          bValue = b.cost;
+          break;
+        case 'quantity':
+          aValue = a.quantity;
+          bValue = b.quantity;
+          break;
+        case 'remainingShares':
+          aValue = a.remainingShares;
+          bValue = b.remainingShares;
+          break;
+        case 'netCost':
+          aValue = a.netCost;
+          bValue = b.netCost;
+          break;
+        case 'equity':
+          aValue = (a.currentPrice || a.cost) * a.remainingShares;
+          bValue = (b.currentPrice || b.cost) * b.remainingShares;
+          break;
+        case 'gainLoss':
+          aValue = ((a.currentPrice || a.cost) - a.cost) * a.remainingShares;
+          bValue = ((b.currentPrice || b.cost) - b.cost) * b.remainingShares;
+          break;
+        case 'portfolioPercent':
+          const aEquity = (a.currentPrice || a.cost) * a.remainingShares;
+          const bEquity = (b.currentPrice || b.cost) * b.remainingShares;
+          const totalValue = portfolio?.portfolio_value || 1;
+          aValue = (aEquity / totalValue) * 100;
+          bValue = (bEquity / totalValue) * 100;
+          break;
+        case 'initialStopLoss':
+          aValue = a.initialStopLoss;
+          bValue = b.initialStopLoss;
+          break;
+        case 'stopLoss':
+          aValue = a.stopLoss;
+          bValue = b.stopLoss;
+          break;
+        case 'openRisk':
+          aValue = ((a.stopLoss - a.cost) / a.cost) * 100;
+          bValue = ((b.stopLoss - b.cost) / b.cost) * 100;
+          break;
+        case 'openHeat':
+          const aRisk = ((a.stopLoss - a.cost) / a.cost) * 100;
+          const bRisk = ((b.stopLoss - b.cost) / b.cost) * 100;
+          const aPortPercent = ((a.currentPrice || a.cost) * a.remainingShares / (portfolio?.portfolio_value || 1)) * 100;
+          const bPortPercent = ((b.currentPrice || b.cost) * b.remainingShares / (portfolio?.portfolio_value || 1)) * 100;
+          aValue = (aRisk * aPortPercent) / 100;
+          bValue = (bRisk * bPortPercent) / 100;
+          break;
+        case 'priceTarget2R':
+          aValue = a.priceTarget2R;
+          bValue = b.priceTarget2R;
+          break;
+        case 'priceTarget2RShares':
+          aValue = a.priceTarget2RShares;
+          bValue = b.priceTarget2RShares;
+          break;
+        case 'priceTarget5R':
+          aValue = a.priceTarget5R;
+          bValue = b.priceTarget5R;
+          break;
+        case 'priceTarget5RShares':
+          aValue = a.priceTarget5RShares;
+          bValue = b.priceTarget5RShares;
+          break;
+        case 'priceTarget21Day':
+          aValue = a.priceTarget21Day;
+          bValue = b.priceTarget21Day;
+          break;
+        case 'openDate':
+          aValue = a.openDate.getTime();
+          bValue = b.openDate.getTime();
+          break;
+        case 'closedDate':
+          aValue = a.closedDate?.getTime() || 0;
+          bValue = b.closedDate?.getTime() || 0;
+          break;
+        case 'daysInTrade':
+          const now = new Date();
+          const aEndDate = a.closedDate || now;
+          const bEndDate = b.closedDate || now;
+          aValue = Math.ceil((aEndDate.getTime() - a.openDate.getTime()) / (1000 * 60 * 60 * 24));
+          bValue = Math.ceil((bEndDate.getTime() - b.openDate.getTime()) / (1000 * 60 * 60 * 24));
+          break;
+        default:
+          return 0;
+      }
+
+      const aNumber = typeof aValue === 'number' ? aValue : Number(aValue);
+      const bNumber = typeof bValue === 'number' ? bValue : Number(bValue);
+
+      return sortDirection === 'asc' ? aNumber - bNumber : bNumber - aNumber;
+    });
+
+    return basePositions;
+  }, [filteredPositions, sortColumn, sortDirection, portfolio?.portfolio_value]);
 
   // Filter positions based on closed status (memoized to prevent unnecessary recalculations)
   const openPositions = useMemo(() => positions.filter(pos => !pos.closedDate), [positions]);
@@ -1214,7 +1233,14 @@ export default function Portfolio() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Input
+                value={symbolFilter}
+                onChange={(e) => setSymbolFilter(e.target.value.toUpperCase())}
+                placeholder="Filter symbol"
+                aria-label="Filter positions by symbol"
+                className="w-full min-w-[160px] sm:w-40"
+              />
               {!isEditingPortfolio && (
                 <TooltipProvider>
                   <Tooltip>
