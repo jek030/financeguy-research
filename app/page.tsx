@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useMovingAverageData } from '@/hooks/FMP/useMovingAverage';
 import type { Ticker } from "@/lib/types";
 import SectorReturns from "@/components/SectorReturns";
-import TVWTickers from "@/components/TVWTickers";
+// import TVWTickers from "@/components/TVWTickers";
 import SectorOverviewChart from "@/components/SectorOverviewChart";
 import { useSupabaseSectorData } from "@/hooks/useSupabaseSectorData";
 
@@ -244,7 +244,7 @@ export default function Home() {
       <main className="flex-1">
         <div className="flex h-full">
           <div className="flex-1 min-w-0 p-2 md:p-2">
-            <TVWTickers />
+            {/* <TVWTickers /> */}
             {/* Market Data Cards */}
             <div className="max-w-8xl">
               <div className="flex overflow-x-auto pb-2 gap-3 md:gap-2 -mx-2 md:-mx-3 px-2 md:px-3">
