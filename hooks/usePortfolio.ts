@@ -25,6 +25,7 @@ export interface StockPosition {
   priceTarget5RShares: number;
   priceTarget21Day: number;
   remainingShares: number;
+  realizedGain: number;
   currentPrice?: number;
 }
 
@@ -41,6 +42,40 @@ export function usePortfolio() {
   const parseLocalDate = (dateString: string): Date => {
     const [year, month, day] = dateString.split('-').map(Number);
     return new Date(year, month - 1, day);
+  };
+
+  // Helper function to calculate realized gain for a position
+  const calculateRealizedGainForPosition = (position: Omit<StockPosition, 'id' | 'currentPrice'>): number => {
+    let positionGain = 0;
+
+    // PT1 trim gain
+    if (position.priceTarget2RShares > 0 && position.priceTarget2R > 0) {
+      // For short positions: gain = (entry - exit) * shares (positive when exit < entry)
+      // For long positions: gain = (exit - entry) * shares (positive when exit > entry)
+      const pt1Gain = position.type === 'Long'
+        ? (position.priceTarget2R - position.cost) * position.priceTarget2RShares
+        : (position.cost - position.priceTarget2R) * position.priceTarget2RShares;
+      positionGain += pt1Gain;
+    }
+
+    // PT2 trim gain
+    if (position.priceTarget5RShares > 0 && position.priceTarget5R > 0) {
+      const pt2Gain = position.type === 'Long'
+        ? (position.priceTarget5R - position.cost) * position.priceTarget5RShares
+        : (position.cost - position.priceTarget5R) * position.priceTarget5RShares;
+      positionGain += pt2Gain;
+    }
+
+    // Final exit gain (21 Day Trail or remaining shares)
+    if (position.priceTarget21Day > 0) {
+      const remainingShares = position.quantity - position.priceTarget2RShares - position.priceTarget5RShares;
+      const finalGain = position.type === 'Long'
+        ? (position.priceTarget21Day - position.cost) * remainingShares
+        : (position.cost - position.priceTarget21Day) * remainingShares;
+      positionGain += finalGain;
+    }
+
+    return positionGain;
   };
 
   // Convert Supabase position to our app's format
@@ -67,6 +102,7 @@ export function usePortfolio() {
       priceTarget5RShares: data.price_target_2_quantity,
       priceTarget21Day: data.price_target_3,
       remainingShares: data.remaining_shares,
+      realizedGain: data.realized_gain || 0,
     };
   };
 
@@ -88,6 +124,9 @@ export function usePortfolio() {
     const equity = position.cost * remainingShares; // Calculate equity based on remaining shares
     const portfolioPercent = portfolioValue > 0 ? (equity / portfolioValue) * 100 : 0;
 
+    // Calculate realized gain based on PT1, PT2, and 21 Day Trail shares
+    const realizedGain = calculateRealizedGainForPosition(position);
+
     const baseData = {
       portfolio_key: portfolioKey,
       symbol: position.symbol,
@@ -106,6 +145,7 @@ export function usePortfolio() {
       price_target_2_quantity: position.priceTarget5RShares,
       price_target_3: position.priceTarget21Day,
       remaining_shares: remainingShares, // Store the calculated remaining shares
+      realized_gain: realizedGain, // Store the calculated realized gain
       open_date: position.openDate.toISOString().split('T')[0], // YYYY-MM-DD format
       close_date: position.closedDate ? position.closedDate.toISOString().split('T')[0] : null,
       days_in_trade: diffDays,
@@ -357,6 +397,29 @@ export function usePortfolio() {
         const pt2Shares = updates.priceTarget5RShares !== undefined ? updates.priceTarget5RShares : positions.find(p => p.id === positionId)?.priceTarget5RShares!;
         const remainingShares = quantity - pt1Shares - pt2Shares;
         supabaseUpdates.remaining_shares = remainingShares;
+      }
+
+      // Recalculate realized gain if PT1, PT2, or 21 Day Trail values change
+      if (updates.priceTarget2R !== undefined || updates.priceTarget2RShares !== undefined ||
+          updates.priceTarget5R !== undefined || updates.priceTarget5RShares !== undefined ||
+          updates.priceTarget21Day !== undefined || updates.cost !== undefined || updates.type !== undefined) {
+        const currentPosition = positions.find(p => p.id === positionId);
+        if (currentPosition) {
+          const updatedPosition: Omit<StockPosition, 'id' | 'currentPrice'> = {
+            ...currentPosition,
+            ...updates,
+            cost: updates.cost !== undefined ? updates.cost : currentPosition.cost,
+            type: updates.type !== undefined ? updates.type : currentPosition.type,
+            priceTarget2R: updates.priceTarget2R !== undefined ? updates.priceTarget2R : currentPosition.priceTarget2R,
+            priceTarget2RShares: updates.priceTarget2RShares !== undefined ? updates.priceTarget2RShares : currentPosition.priceTarget2RShares,
+            priceTarget5R: updates.priceTarget5R !== undefined ? updates.priceTarget5R : currentPosition.priceTarget5R,
+            priceTarget5RShares: updates.priceTarget5RShares !== undefined ? updates.priceTarget5RShares : currentPosition.priceTarget5RShares,
+            priceTarget21Day: updates.priceTarget21Day !== undefined ? updates.priceTarget21Day : currentPosition.priceTarget21Day,
+            quantity: updates.quantity !== undefined ? updates.quantity : currentPosition.quantity,
+          };
+          const realizedGain = calculateRealizedGainForPosition(updatedPosition);
+          supabaseUpdates.realized_gain = realizedGain;
+        }
       }
 
       // Recalculate % Portfolio if cost, quantity, or portfolio value changes

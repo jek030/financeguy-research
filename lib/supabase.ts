@@ -54,6 +54,7 @@ export interface SupabasePortfolioPosition {
   price_target_2_quantity: number;
   price_target_3: number;
   remaining_shares: number;
+  realized_gain: number;
   open_date: string;
   close_date: string | null;
   days_in_trade: number;
