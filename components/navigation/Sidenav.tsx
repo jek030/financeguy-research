@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { useMobileMenu } from '@/lib/context/MobileMenuContext';
 import { useAuth } from '@/lib/context/auth-context';
-import { LogIn, LogOut } from 'lucide-react';
+import { LogIn, LogOut, Settings } from 'lucide-react';
 import { Bars3Icon } from '@heroicons/react/24/outline';
 import { Button } from '@/components/ui/Button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/Tooltip";
@@ -56,24 +56,26 @@ export default function SideNav() {
         )}
       >
         {/* Toggle button */}
-        <div className={cn("flex mb-2", isCollapsed ? "justify-center" : "justify-start")}>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn("h-8 w-8", !isCollapsed && "ml-1.5")}
-                  onClick={toggleSidebar}
-                >
-                  <Bars3Icon className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{isSidebarOpen ? "Close sidebar" : "Open sidebar"}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+        <div className="flex mb-2">
+          <div className="flex items-center justify-center shrink-0 w-[44px]">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={toggleSidebar}
+                  >
+                    <Bars3Icon className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isSidebarOpen ? "Close sidebar" : "Open sidebar"}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
         
         <div className="flex flex-col flex-1">
@@ -82,26 +84,50 @@ export default function SideNav() {
           
           {/* Authentication Button */}
           {user ? (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button 
-                    onClick={signOut}
-                    className="w-full flex items-center rounded-md bg-muted text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors duration-200 justify-start h-10 px-0"
-                  >
-                    <div className={cn("flex items-center justify-center shrink-0", isCollapsed ? "w-full" : "w-[44px]")}>
-                      <LogOut className="h-4 w-4" />
-                    </div>
-                    {!isCollapsed && <span className="truncate">Sign Out</span>}
-                  </button>
-                </TooltipTrigger>
-                {isCollapsed && (
-                  <TooltipContent>
-                    <p>Sign Out</p>
-                  </TooltipContent>
-                )}
-              </Tooltip>
-            </TooltipProvider>
+            <>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link href="/settings" className="w-full block mb-1">
+                      <button 
+                        className="w-full flex items-center rounded-md bg-muted text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors duration-200 justify-start h-10 px-0"
+                      >
+                        <div className="flex items-center justify-center shrink-0 w-[44px]">
+                          <Settings className="h-4 w-4" />
+                        </div>
+                        {!isCollapsed && <span className="truncate">Settings</span>}
+                      </button>
+                    </Link>
+                  </TooltipTrigger>
+                  {isCollapsed && (
+                    <TooltipContent>
+                      <p>Settings</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      onClick={signOut}
+                      className="w-full flex items-center rounded-md bg-muted text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors duration-200 justify-start h-10 px-0"
+                    >
+                      <div className="flex items-center justify-center shrink-0 w-[44px]">
+                        <LogOut className="h-4 w-4" />
+                      </div>
+                      {!isCollapsed && <span className="truncate">Sign Out</span>}
+                    </button>
+                  </TooltipTrigger>
+                  {isCollapsed && (
+                    <TooltipContent>
+                      <p>Sign Out</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
+            </>
           ) : (
             <Link href="/login" className="w-full">
                <TooltipProvider>
@@ -110,7 +136,7 @@ export default function SideNav() {
                     <button 
                       className="w-full flex items-center rounded-md bg-muted text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors duration-200 justify-start h-10 px-0"
                     >
-                      <div className={cn("flex items-center justify-center shrink-0", isCollapsed ? "w-full" : "w-[44px]")}>
+                      <div className="flex items-center justify-center shrink-0 w-[44px]">
                         <LogIn className="h-4 w-4" />
                       </div>
                       {!isCollapsed && <span className="truncate">Sign In</span>}

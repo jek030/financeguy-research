@@ -101,7 +101,7 @@ export default function NavLinks({ isCollapsed = false }: { isCollapsed?: boolea
         )}
       >
         <Link href={link.href} onClick={isMobile ? handleClick : undefined} className="flex items-center w-full">
-          <div className={cn("flex items-center justify-center shrink-0", isCollapsed ? "w-full" : "w-[44px]")}>
+          <div className="flex items-center justify-center shrink-0 w-[44px]">
             <LinkIcon className={cn(
               "flex-shrink-0 transition-all",
               pathname === link.href ? "h-6 w-6" : "h-5 w-5"
@@ -136,7 +136,7 @@ export default function NavLinks({ isCollapsed = false }: { isCollapsed?: boolea
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="px-2 py-2">
+      <div className="py-2">
         <div className="space-y-1">
           {mainLinks.map((link) => (
             <NavButton key={link.name} link={link} />
@@ -148,7 +148,7 @@ export default function NavLinks({ isCollapsed = false }: { isCollapsed?: boolea
         <div className="h-px bg-border" />
       </div>
 
-      <div className="px-2 py-2">
+      <div className="py-2">
         <div className="space-y-1">
           {marketLinks.map((link) => (
             <NavButton key={link.name} link={link} />
