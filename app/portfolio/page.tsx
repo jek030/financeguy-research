@@ -578,6 +578,7 @@ function EditPositionModal({
   const [editType, setEditType] = useState<'Long' | 'Short'>('Long');
   const [editOpenDate, setEditOpenDate] = useState<Date>(new Date());
   const [editClosedDate, setEditClosedDate] = useState<Date | undefined>(undefined);
+  const [editClosedDateInput, setEditClosedDateInput] = useState<string>('');
   const [editPriceTarget2R, setEditPriceTarget2R] = useState<string>('');
   const [editPriceTarget2RShares, setEditPriceTarget2RShares] = useState<string>('');
   const [editPriceTarget5R, setEditPriceTarget5R] = useState<string>('');
@@ -594,6 +595,7 @@ function EditPositionModal({
       setEditType(position.type);
       setEditOpenDate(position.openDate);
       setEditClosedDate(position.closedDate || undefined);
+      setEditClosedDateInput(position.closedDate ? format(position.closedDate, "MM/dd/yyyy") : '');
       setEditPriceTarget2R(position.priceTarget2R.toString());
       setEditPriceTarget2RShares(position.priceTarget2RShares.toString());
       setEditPriceTarget5R(position.priceTarget5R.toString());
@@ -813,14 +815,14 @@ function EditPositionModal({
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Open Date</label>
-            <Popover>
+            <Popover modal={true}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full justify-start text-left font-normal">
                   <CalendarIcon className="mr-2 h-4 w-4" />
                   {format(editOpenDate, "MM/dd/yyyy")}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 z-[60]" align="start">
                 <Calendar
                   mode="single"
                   selected={editOpenDate}
@@ -833,32 +835,57 @@ function EditPositionModal({
 
           <div className="space-y-2">
             <label className="text-sm font-medium">Closed Date</label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full justify-start text-left font-normal">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {editClosedDate ? format(editClosedDate, "MM/dd/yyyy") : "Not Closed"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <div className="p-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full mb-2"
-                    onClick={() => setEditClosedDate(undefined)}
-                  >
-                    Clear Date
+            <div className="flex gap-2">
+              <Input
+                value={editClosedDateInput}
+                onChange={(e) => {
+                  setEditClosedDateInput(e.target.value);
+                  const val = e.target.value;
+                  if (!val) {
+                    setEditClosedDate(undefined);
+                    return;
+                  }
+                  const date = new Date(val);
+                  if (!isNaN(date.getTime()) && val.length >= 8) {
+                    if (date.getFullYear() > 1900) {
+                      setEditClosedDate(date);
+                    }
+                  }
+                }}
+                placeholder="MM/DD/YYYY"
+              />
+              <Popover modal={true}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="px-3">
+                    <CalendarIcon className="h-4 w-4" />
                   </Button>
-                </div>
-                <Calendar
-                  mode="single"
-                  selected={editClosedDate}
-                  onSelect={(date) => setEditClosedDate(date)}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 z-[60]" align="end">
+                  <div className="p-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mb-2"
+                      onClick={() => {
+                        setEditClosedDate(undefined);
+                        setEditClosedDateInput('');
+                      }}
+                    >
+                      Clear Date
+                    </Button>
+                  </div>
+                  <Calendar
+                    mode="single"
+                    selected={editClosedDate}
+                    onSelect={(date) => {
+                      setEditClosedDate(date);
+                      setEditClosedDateInput(date ? format(date, "MM/dd/yyyy") : '');
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
           </div>
 
           <div className="space-y-2">
