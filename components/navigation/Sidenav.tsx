@@ -15,6 +15,9 @@ export default function SideNav() {
   const { user, signOut } = useAuth();
   const [mounted, setMounted] = useState(false);
 
+  // Desktop collapsed state is when we are not on mobile and sidebar is not open
+  const isCollapsed = !isMobile && !isSidebarOpen;
+
   // Only run on client
   useEffect(() => {
     setMounted(true);
@@ -41,58 +44,85 @@ export default function SideNav() {
       <div 
         className={cn(
           "flex h-full flex-col border-r border-border bg-muted/40 px-2 py-4",
-          "w-[240px] z-50 transition-transform duration-300 ease-in-out",
+          "z-50 transition-all duration-300 ease-in-out",
+          // Width handling
+          isCollapsed ? "w-[60px]" : "w-[240px]",
           // Mobile: always fixed positioning
           isMobile && "fixed",
-          // Desktop: relative when open, absolute when closed to not take layout space
-          !isMobile && isSidebarOpen && "relative",
-          !isMobile && !isSidebarOpen && "absolute",
-          // Transform when closed
-          !isSidebarOpen && "-translate-x-full"
+          // Desktop: relative positioning so it takes up layout space
+          !isMobile && "relative",
+          // Mobile transform when closed
+          isMobile && !isSidebarOpen && "-translate-x-full"
         )}
       >
-        {/* Close button when sidebar is open */}
-        <div className="flex justify-start mb-2">
+        {/* Toggle button */}
+        <div className={cn("flex mb-2", isCollapsed ? "justify-center" : "justify-start")}>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8"
+                  className={cn("h-8 w-8", !isCollapsed && "ml-1.5")}
                   onClick={toggleSidebar}
                 >
                   <Bars3Icon className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Close sidebar</p>
+                <p>{isSidebarOpen ? "Close sidebar" : "Open sidebar"}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
         
         <div className="flex flex-col flex-1">
-          <NavLinks />
+          <NavLinks isCollapsed={isCollapsed} />
           <div className="flex-1" />
           
           {/* Authentication Button */}
           {user ? (
-            <button 
-              onClick={signOut}
-              className="w-full flex items-center rounded-md bg-muted p-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors duration-200 justify-start gap-2"
-            >
-              <LogOut className="h-4 w-4 flex-shrink-0" />
-              <span>Sign Out</span>
-            </button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button 
+                    onClick={signOut}
+                    className="w-full flex items-center rounded-md bg-muted text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors duration-200 justify-start h-10 px-0"
+                  >
+                    <div className={cn("flex items-center justify-center shrink-0", isCollapsed ? "w-full" : "w-[44px]")}>
+                      <LogOut className="h-4 w-4" />
+                    </div>
+                    {!isCollapsed && <span className="truncate">Sign Out</span>}
+                  </button>
+                </TooltipTrigger>
+                {isCollapsed && (
+                  <TooltipContent>
+                    <p>Sign Out</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           ) : (
-            <Link href="/login">
-              <button 
-                className="w-full flex items-center rounded-md bg-muted p-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors duration-200 justify-start gap-2"
-              >
-                <LogIn className="h-4 w-4 flex-shrink-0" />
-                <span>Sign In</span>
-              </button>
+            <Link href="/login" className="w-full">
+               <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button 
+                      className="w-full flex items-center rounded-md bg-muted text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors duration-200 justify-start h-10 px-0"
+                    >
+                      <div className={cn("flex items-center justify-center shrink-0", isCollapsed ? "w-full" : "w-[44px]")}>
+                        <LogIn className="h-4 w-4" />
+                      </div>
+                      {!isCollapsed && <span className="truncate">Sign In</span>}
+                    </button>
+                  </TooltipTrigger>
+                  {isCollapsed && (
+                    <TooltipContent>
+                      <p>Sign In</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             </Link>
           )}
         </div>

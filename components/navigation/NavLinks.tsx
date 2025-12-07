@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/Button';
 import { electrolize } from '@/lib/fonts';
 import { useMobileMenu } from '@/lib/context/MobileMenuContext';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/Tooltip";
 
 const mainLinks = [
   { 
@@ -70,7 +71,7 @@ const marketLinks = [
 ];
 
 
-export default function NavLinks() {
+export default function NavLinks({ isCollapsed = false }: { isCollapsed?: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isMobile, toggleSidebar } = useMobileMenu();
@@ -89,28 +90,48 @@ export default function NavLinks() {
       }
     };
     
-    return (
+    const ButtonElement = (
       <Button
-        key={link.name}
         asChild
         variant={pathname === link.href ? "secondary" : "ghost"}
         className={cn(
-          "w-full transition-all duration-200 justify-start",
+          "w-full transition-all duration-200 justify-start px-0 gap-0",
           electrolize.className,
           pathname === link.href ? "text-lg font-bold" : "text-sm"
         )}
       >
-        <Link href={link.href} onClick={isMobile ? handleClick : undefined}>
-          <LinkIcon className={cn(
-            "flex-shrink-0",
-            pathname === link.href ? "h-5 w-5" : "h-4 w-4"
-          )} />
-          <span className="ml-2 whitespace-nowrap">
-            {link.name}
-          </span>
+        <Link href={link.href} onClick={isMobile ? handleClick : undefined} className="flex items-center w-full">
+          <div className={cn("flex items-center justify-center shrink-0", isCollapsed ? "w-full" : "w-[44px]")}>
+            <LinkIcon className={cn(
+              "flex-shrink-0 transition-all",
+              pathname === link.href ? "h-6 w-6" : "h-5 w-5"
+            )} />
+          </div>
+          {!isCollapsed && (
+            <span className="whitespace-nowrap overflow-hidden text-ellipsis">
+              {link.name}
+            </span>
+          )}
         </Link>
       </Button>
     );
+
+    if (isCollapsed) {
+      return (
+        <TooltipProvider>
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              {ButtonElement}
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>{link.name}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+
+    return ButtonElement;
   };
 
   return (
@@ -137,4 +158,3 @@ export default function NavLinks() {
     </div>
   );
 }
-
