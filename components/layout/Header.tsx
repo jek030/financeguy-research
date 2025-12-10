@@ -7,7 +7,6 @@ import { Bars3Icon } from '@heroicons/react/24/outline';
 import { Button } from '@/components/ui/Button';
 import { useMobileMenu } from '@/lib/context/MobileMenuContext';
 
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -47,7 +46,6 @@ export default function Header({ description, className, actions, children }: Pa
           <div className="flex-1" />
           <div className="flex items-center gap-2">
             {actions}
-            <ThemeToggle />
           </div>
         </div>
         {(description || children) && (

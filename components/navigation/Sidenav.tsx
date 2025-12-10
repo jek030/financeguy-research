@@ -1,18 +1,15 @@
 "use client";
-import Link from 'next/link';
 import NavLinks from '@/components/navigation/NavLinks';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
 import { useMobileMenu } from '@/lib/context/MobileMenuContext';
-import { useAuth } from '@/lib/context/auth-context';
-import { LogIn, LogOut, Settings } from 'lucide-react';
 import { Bars3Icon } from '@heroicons/react/24/outline';
 import { Button } from '@/components/ui/Button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/Tooltip";
+import { ProfileMenu } from '@/components/navigation/ProfileMenu';
 
 export default function SideNav() {
   const { isSidebarOpen, toggleSidebar, isMobile } = useMobileMenu();
-  const { user, signOut } = useAuth();
   const [mounted, setMounted] = useState(false);
 
   // Desktop collapsed state is when we are not on mobile and sidebar is not open
@@ -81,76 +78,11 @@ export default function SideNav() {
         <div className="flex flex-col flex-1">
           <NavLinks isCollapsed={isCollapsed} />
           <div className="flex-1" />
-          
-          {/* Authentication Button */}
-          {user ? (
-            <>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link href="/settings" className="w-full block mb-1">
-                      <button 
-                        className="w-full flex items-center rounded-md bg-muted text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors duration-200 justify-start h-10 px-0"
-                      >
-                        <div className="flex items-center justify-center shrink-0 w-[44px]">
-                          <Settings className="h-4 w-4" />
-                        </div>
-                        {!isCollapsed && <span className="truncate">Settings</span>}
-                      </button>
-                    </Link>
-                  </TooltipTrigger>
-                  {isCollapsed && (
-                    <TooltipContent>
-                      <p>Settings</p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              </TooltipProvider>
 
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button 
-                      onClick={signOut}
-                      className="w-full flex items-center rounded-md bg-muted text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors duration-200 justify-start h-10 px-0"
-                    >
-                      <div className="flex items-center justify-center shrink-0 w-[44px]">
-                        <LogOut className="h-4 w-4" />
-                      </div>
-                      {!isCollapsed && <span className="truncate">Sign Out</span>}
-                    </button>
-                  </TooltipTrigger>
-                  {isCollapsed && (
-                    <TooltipContent>
-                      <p>Sign Out</p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              </TooltipProvider>
-            </>
-          ) : (
-            <Link href="/login" className="w-full">
-               <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button 
-                      className="w-full flex items-center rounded-md bg-muted text-sm font-medium hover:bg-accent hover:text-accent-foreground transition-colors duration-200 justify-start h-10 px-0"
-                    >
-                      <div className="flex items-center justify-center shrink-0 w-[44px]">
-                        <LogIn className="h-4 w-4" />
-                      </div>
-                      {!isCollapsed && <span className="truncate">Sign In</span>}
-                    </button>
-                  </TooltipTrigger>
-                  {isCollapsed && (
-                    <TooltipContent>
-                      <p>Sign In</p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-              </TooltipProvider>
-            </Link>
-          )}
+          {/* Profile Menu (replaces Settings, Theme, Auth buttons) */}
+          <div className="w-full block mb-1">
+             <ProfileMenu isCollapsed={isCollapsed} />
+          </div>
         </div>
       </div>
     </>
