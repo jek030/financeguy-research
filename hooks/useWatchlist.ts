@@ -39,11 +39,12 @@ export function useWatchlist() {
       setError(null);
 
       try {
-        // Fetch watchlists
+        // Sort watchlists by order_index
         const { data: watchlistData, error: watchlistError } = await supabase
           .from('watchlists')
           .select('*')
-          .eq('user_id', user.id);
+          .eq('user_id', user.id)
+          .order('order_index', { ascending: true });
 
         if (watchlistError) {
           throw watchlistError;
@@ -54,10 +55,12 @@ export function useWatchlist() {
           
           // Fetch all tickers for all watchlists
           for (const watchlist of mappedWatchlists) {
+            // Sort tickers by order_index
             const { data: tickerData, error: tickerError } = await supabase
               .from('watchlist_tickers')
               .select('*')
-              .eq('watchlist_id', watchlist.id);
+              .eq('watchlist_id', watchlist.id)
+              .order('order_index', { ascending: true });
               
             if (tickerError) {
               console.error('Error fetching tickers:', tickerError);
@@ -281,8 +284,7 @@ export function useWatchlist() {
       const { error } = await supabase
         .from('watchlist_tickers')
         .delete()
-        .eq('watchlist_id', watchlistId)
-        .eq('symbol', symbol);
+        .match({ watchlist_id: watchlistId, symbol: symbol });
         
       if (error) throw error;
       
@@ -303,10 +305,65 @@ export function useWatchlist() {
   };
 
   const updateWatchlists = async (newWatchlists: WatchlistCard[]) => {
+    // 1. Optimistically update local state immediately
     setWatchlists(newWatchlists);
+
+    // 2. Persist Watchlist Order
+    if (newWatchlists.map(w => w.id).join(',') !== watchlists.map(w => w.id).join(',')) {
+      const updates = newWatchlists.map((watchlist, index) => ({
+        id: watchlist.id,
+        watchlist_name: watchlist.name,
+        user_id: user?.id,
+        order_index: index,
+        updated_at: new Date().toISOString(),
+      }));
+
+      const { error } = await supabase
+        .from('watchlists')
+        .upsert(updates, { onConflict: 'id' });
+        
+      if (error) console.error('Supabase Error (Watchlist Order):', error);
+    } 
     
-    // We could potentially update the order of tickers in the database here,
-    // but since we're only storing symbol and not order, we'll skip for now
+    // 3. Persist Ticker Order
+    // We process each watchlist to see if its tickers have changed order
+    for (const newWatchlist of newWatchlists) {
+      const oldWatchlist = watchlists.find(w => w.id === newWatchlist.id);
+      
+      // If we can't find the old one, or the order hasn't changed, skip
+      if (!oldWatchlist) continue;
+      
+      const newSymbolOrder = newWatchlist.tickers.map(t => t.symbol).join(',');
+      const oldSymbolOrder = oldWatchlist.tickers.map(t => t.symbol).join(',');
+
+      if (newSymbolOrder !== oldSymbolOrder) {
+        console.log(`Updating order for watchlist ${newWatchlist.name}...`);
+        
+        const updates = newWatchlist.tickers.map((ticker, index) => ({
+          watchlist_id: newWatchlist.id,
+          symbol: ticker.symbol,
+          order_index: index,
+        }));
+
+        // Try with explicit constraint name which is safer for upserts
+        const { error } = await supabase
+          .from('watchlist_tickers')
+          .upsert(updates, { onConflict: 'watchlist_id,symbol' });
+          
+        if (error) {
+            console.error('Supabase Error (Ticker Order):', error);
+            // Fallback: Try with explicit constraint name if column match fails
+            if (error.code === '23505' || error.code === '409') { 
+               console.log('Retrying with explicit constraint name...');
+               await supabase
+                .from('watchlist_tickers')
+                .upsert(updates, { onConflict: 'watchlist_tickers_watchlist_id_symbol_key' });
+            }
+        } else {
+            console.log('Order updated successfully');
+        }
+      }
+    }
   };
 
   return {

@@ -16,6 +16,7 @@ export type SupabaseWatchlist = {
   updated_at: string;
   user_id: string;
   watchlist_name: string;
+  order_index: number; // Add this
 };
 
 export type SupabaseTicker = {
@@ -23,6 +24,7 @@ export type SupabaseTicker = {
   watchlist_id: string;
   symbol: string;
   created_at: string;
+  order_index: number; // Add this
 };
 
 export interface SupabasePortfolio {

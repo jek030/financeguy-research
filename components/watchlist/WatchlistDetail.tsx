@@ -13,12 +13,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/Table";
-import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useQuote } from '@/hooks/FMP/useQuote';
 import { useProfile } from '@/hooks/FMP/useProfile';
 import { usePriceChanges } from '@/hooks/FMP/usePriceChanges';
 import { formatNumber, formatPercentage } from '@/lib/utils';
-import { X } from 'lucide-react';
+import { X, GripVertical } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useQueries } from '@tanstack/react-query';
@@ -144,8 +145,9 @@ interface QuoteRowProps {
 function LoadingRow() {
   return (
     <TableRow>
+      <TableCell className="sticky left-0 bg-background"><Skeleton className="h-4 w-4" /></TableCell>
       {Array(13).fill(0).map((_, i) => (
-        <TableCell key={i} className={cn(i === 0 && "sticky left-0 bg-background")}>
+        <TableCell key={i} className={cn(i === 0 && "bg-background")}>
           <Skeleton className="h-4 w-16" />
         </TableCell>
       ))}
@@ -154,6 +156,26 @@ function LoadingRow() {
 }
 
 function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: `${symbol}-${watchlistId}`,
+        data: {
+          type: 'ticker',
+          ticker: { symbol, watchlistId },
+        },
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
   const { data: quote, isLoading: isQuoteLoading } = useQuote(symbol);
   const { data: profile, isLoading: isProfileLoading } = useProfile(symbol);
 
@@ -165,17 +187,32 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
   if (!quote) return null;
 
   return (
-    <TableRow key={`${symbol}-${watchlistId}`} className={cn(
-      "group",
-      "even:bg-muted/40"
-    )}>
+    <TableRow 
+      ref={setNodeRef}
+      style={style}
+      key={`${symbol}-${watchlistId}`} 
+      className={cn(
+        "group",
+        "even:bg-muted/40",
+        isDragging && "opacity-50 bg-muted/80"
+      )}
+    >
+      <TableCell className="sticky left-0 bg-background/95 w-[40px] px-2">
+        <div 
+          {...attributes} 
+          {...listeners} 
+          className="cursor-grab hover:text-foreground text-muted-foreground/50 flex items-center justify-center"
+        >
+            <GripVertical className="h-4 w-4" />
+        </div>
+      </TableCell>
       <TableCell className={cn(
-        "sticky left-0"    
+        "sticky left-[40px] bg-background/95 drop-shadow-[2px_0_2px_rgba(0,0,0,0.1)] dark:drop-shadow-[2px_0_2px_rgba(255,255,255,0.05)] border-r"    
       )}>
         <div className="flex items-center gap-2">
           <Link 
             href={`/search/${symbol}`}
-            className="hover:underline text-blue-600 dark:text-blue-400 text-xs sm:text-sm"
+            className="hover:underline text-blue-600 dark:text-blue-400 text-xs sm:text-sm font-semibold"
           >
             {symbol}
           </Link>
@@ -623,7 +660,8 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
           <Table className="w-full">
                           <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="sticky left-0 bg-background/95 text-xs whitespace-nowrap">Symbol</TableHead>
+                  <TableHead className="sticky left-0 bg-background/95 w-[40px]"></TableHead>
+                  <TableHead className="sticky left-[40px] bg-background/95 text-xs whitespace-nowrap drop-shadow-[2px_0_2px_rgba(0,0,0,0.1)] dark:drop-shadow-[2px_0_2px_rgba(255,255,255,0.05)] border-r">Symbol</TableHead>
                   <TableHead className="text-xs whitespace-nowrap">Price</TableHead>
                   <TableHead className="text-xs whitespace-nowrap">Change ($)</TableHead>
                   <TableHead className="text-xs whitespace-nowrap">Change (%)</TableHead>
@@ -641,7 +679,7 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
               {watchlist.tickers.length === 0 ? (
                 <TableRow>
                   <TableCell 
-                    colSpan={13} 
+                    colSpan={14} 
                     className="h-12 sm:h-12 text-center text-xs sm:text-sm text-muted-foreground"
                   >
                     No tickers added yet.
@@ -693,7 +731,7 @@ export function WatchlistDetail({
         onRemoveWatchlist={onRemoveWatchlist}
       />
       <WatchlistTable
-        key={`table-${watchlist.id}-${watchlist.tickers.length}`} // Only re-render when tickers change
+        key={`table-${watchlist.id}-${watchlist.tickers.map(t => t.symbol).join(',')}`} // Re-render when tickers or their order change
         watchlist={watchlist}
         onRemoveTicker={onRemoveTicker}
       />
