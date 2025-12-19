@@ -35,15 +35,14 @@ export default function Header({ description, className, actions, children }: Pa
                 <Bars3Icon className="h-5 w-5" />
               </Button>
             )}
-            <Link href="/" className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2 flex-shrink-0">
               <Image src="/stockF.png" alt="Finance Guy Logo" width={32} height={32} className="rounded" />
-              <span className={cn("text-base font-semibold", electrolize.className)}>Finance Guy</span>
+              <span className={cn("text-base font-semibold hidden sm:inline-block", electrolize.className)}>Finance Guy</span>
             </Link>
           </div>
-          <div className="w-[400px] hidden md:block">
+          <div className="flex-1 md:w-[400px] md:flex-none">
             <SearchForm />
           </div>
-          <div className="flex-1" />
           <div className="flex items-center gap-2">
             {actions}
           </div>
