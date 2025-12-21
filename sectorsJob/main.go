@@ -26,9 +26,19 @@ type Quote struct {
 }
 
 func loadEnv() {
-	err := godotenv.Load()
+	// Try loading .env.local from parent directory (project root) first
+	err := godotenv.Load("../.env.local")
 	if err != nil {
-		log.Println("No .env file found. Using system environment variables.")
+		log.Printf("Could not load ../.env.local: %v\n", err)
+		// Fall back to .env in current directory
+		err = godotenv.Load()
+		if err != nil {
+			log.Println("No .env or .env.local file found. Using system environment variables.")
+		} else {
+			log.Println("Loaded .env from current directory")
+		}
+	} else {
+		log.Println("Loaded ../.env.local from parent directory")
 	}
 }
 
@@ -107,6 +117,11 @@ func main() {
 		fmt.Println("\nOptions for backfill:")
 		fmt.Println("  [symbols]   Optional list of symbols to backfill (e.g., XLF XLE XLK)")
 		fmt.Println("              Default: All sector ETFs")
+		fmt.Println("  [date]      Optional cutoff date (MM/DD/YYYY or YYYY-MM-DD)")
+		fmt.Println("              Only data BEFORE this date will be inserted")
+		fmt.Println("\nExamples:")
+		fmt.Println("  go run . backfill XLK 12/05/2025")
+		fmt.Println("  go run . backfill XLF XLE 2025-12-05")
 		return
 	}
 
