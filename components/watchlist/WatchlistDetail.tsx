@@ -139,7 +139,6 @@ function PriceChangeCell({ symbol, period }: PriceChangeCellProps) {
 interface QuoteRowProps {
   symbol: string;
   watchlistId: string;
-  index: number;
   onRemoveTicker: (watchlistId: string, symbol: string) => void;
 }
 
@@ -165,7 +164,7 @@ function LoadingRow() {
   );
 }
 
-function QuoteRow({ symbol, watchlistId, index, onRemoveTicker }: QuoteRowProps) {
+function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
   const {
     attributes,
     listeners,
@@ -698,12 +697,11 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
                   </TableCell>
                 </TableRow>
               ) : (
-                watchlist.tickers.map((ticker, index) => (
+                watchlist.tickers.map((ticker) => (
                   <QuoteRow
                     key={`${ticker.symbol}-${watchlist.id}`}
                     symbol={ticker.symbol}
                     watchlistId={watchlist.id}
-                    index={index}
                     onRemoveTicker={onRemoveTicker}
                   />
                 ))
