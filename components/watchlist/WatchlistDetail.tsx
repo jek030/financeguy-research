@@ -139,14 +139,24 @@ function PriceChangeCell({ symbol, period }: PriceChangeCellProps) {
 interface QuoteRowProps {
   symbol: string;
   watchlistId: string;
+  index: number;
   onRemoveTicker: (watchlistId: string, symbol: string) => void;
 }
 
 function LoadingRow() {
   return (
     <TableRow>
-      <TableCell className="sticky left-0 bg-background"><Skeleton className="h-4 w-4" /></TableCell>
-      {Array(13).fill(0).map((_, i) => (
+      <TableCell className="sticky left-0 z-20 !bg-background px-0 border-r border-border">
+        <div className="grid grid-cols-[40px,auto] items-center">
+          <div className="w-10 flex items-center justify-center">
+            <Skeleton className="h-4 w-4" />
+          </div>
+          <div className="px-2">
+            <Skeleton className="h-4 w-16" />
+          </div>
+        </div>
+      </TableCell>
+      {Array(12).fill(0).map((_, i) => (
         <TableCell key={i} className={cn(i === 0 && "bg-background")}>
           <Skeleton className="h-4 w-16" />
         </TableCell>
@@ -155,7 +165,7 @@ function LoadingRow() {
   );
 }
 
-function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
+function QuoteRow({ symbol, watchlistId, index, onRemoveTicker }: QuoteRowProps) {
   const {
     attributes,
     listeners,
@@ -197,25 +207,23 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
         isDragging && "opacity-50 bg-muted/80"
       )}
     >
-      <TableCell className="sticky left-0 bg-background/95 w-[40px] px-2">
-        <div 
-          {...attributes} 
-          {...listeners} 
-          className="cursor-grab hover:text-foreground text-muted-foreground/50 flex items-center justify-center"
-        >
-            <GripVertical className="h-4 w-4" />
-        </div>
-      </TableCell>
-      <TableCell className={cn(
-        "sticky left-[40px] bg-background/95 drop-shadow-[2px_0_2px_rgba(0,0,0,0.1)] dark:drop-shadow-[2px_0_2px_rgba(255,255,255,0.05)] border-r"    
-      )}>
-        <div className="flex items-center gap-2">
-          <Link 
-            href={`/search/${symbol}`}
-            className="hover:underline text-blue-600 dark:text-blue-400 text-xs sm:text-sm font-semibold"
+      <TableCell className="sticky left-0 z-20 !bg-background px-0 border-r border-border">
+        <div className="grid grid-cols-[40px,auto] items-center">
+          <div 
+            {...attributes} 
+            {...listeners} 
+            className="w-10 cursor-grab hover:text-foreground text-muted-foreground/50 flex items-center justify-center"
           >
-            {symbol}
-          </Link>
+              <GripVertical className="h-4 w-4" />
+          </div>
+          <div className="flex items-center gap-2 px-2">
+            <Link 
+              href={`/search/${symbol}`}
+              className="hover:underline text-blue-600 dark:text-blue-400 text-xs sm:text-sm font-semibold"
+            >
+              {symbol}
+            </Link>
+          </div>
         </div>
       </TableCell>
       <TableCell className="text-xs sm:text-sm">${formatNumber(quote.price)}</TableCell>
@@ -660,8 +668,12 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
           <Table className="w-full">
                           <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="sticky left-0 bg-background/95 w-[40px]"></TableHead>
-                  <TableHead className="sticky left-[40px] bg-background/95 text-xs whitespace-nowrap drop-shadow-[2px_0_2px_rgba(0,0,0,0.1)] dark:drop-shadow-[2px_0_2px_rgba(255,255,255,0.05)] border-r">Symbol</TableHead>
+                  <TableHead className="sticky left-0 z-20 !bg-background px-0 border-r border-border">
+                    <div className="grid grid-cols-[40px,auto] items-center text-xs whitespace-nowrap">
+                      <span className="w-10 text-center" aria-hidden />
+                      <span className="px-2">Symbol</span>
+                    </div>
+                  </TableHead>
                   <TableHead className="text-xs whitespace-nowrap">Price</TableHead>
                   <TableHead className="text-xs whitespace-nowrap">Change ($)</TableHead>
                   <TableHead className="text-xs whitespace-nowrap">Change (%)</TableHead>
@@ -686,11 +698,12 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
                   </TableCell>
                 </TableRow>
               ) : (
-                watchlist.tickers.map((ticker) => (
+                watchlist.tickers.map((ticker, index) => (
                   <QuoteRow
                     key={`${ticker.symbol}-${watchlist.id}`}
                     symbol={ticker.symbol}
                     watchlistId={watchlist.id}
+                    index={index}
                     onRemoveTicker={onRemoveTicker}
                   />
                 ))
