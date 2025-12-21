@@ -588,6 +588,53 @@ export function usePortfolio() {
     }
   };
 
+  // Create a new portfolio
+  const createPortfolio = async (name: string, value: number) => {
+    if (!user) {
+      throw new Error('No user found');
+    }
+
+    try {
+      const newPortfolio = {
+        user_id: user.id,
+        user_email: user.email || '',
+        portfolio_value: value,
+        portfolio_name: name,
+      };
+
+      console.log('Creating new portfolio:', newPortfolio);
+
+      const { data: createdPortfolio, error: createError } = await supabase
+        .from('tblPortfolio')
+        .insert(newPortfolio)
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Portfolio creation error:', createError);
+        throw createError;
+      }
+
+      const normalizedCreated = {
+        ...createdPortfolio,
+        portfolio_key: normalizePortfolioKey(createdPortfolio.portfolio_key),
+      };
+
+      console.log('Portfolio created successfully:', normalizedCreated);
+
+      // Add to portfolios list and select it
+      setPortfolios(prev => [...prev, normalizedCreated]);
+      
+      // Switch to the newly created portfolio
+      await selectPortfolio(normalizePortfolioKey(normalizedCreated.portfolio_key));
+
+      return normalizedCreated;
+    } catch (err) {
+      console.error('Error creating portfolio:', err);
+      throw err;
+    }
+  };
+
   // Fetch portfolio on mount
   useEffect(() => {
     fetchPortfolio();
@@ -606,6 +653,7 @@ export function usePortfolio() {
     deletePosition,
     updatePortfolioValue,
     updatePortfolio,
+    createPortfolio,
     refetch: fetchPortfolio,
   };
 }

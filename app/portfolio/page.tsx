@@ -10,7 +10,7 @@ import { Calendar } from '@/components/ui/Calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
-import { CalendarIcon, InfoIcon, X, Loader2, Pencil, ChevronUp, ChevronDown } from 'lucide-react';
+import { CalendarIcon, InfoIcon, X, Loader2, Pencil, ChevronUp, ChevronDown, PlusCircle } from 'lucide-react';
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 import { format, differenceInCalendarDays } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -1076,6 +1076,7 @@ export default function Portfolio() {
     updatePosition,
     deletePosition,
     updatePortfolio,
+    createPortfolio,
   } = usePortfolio();
 
   const [portfolioValue, setPortfolioValue] = useState<string>('');
@@ -1110,6 +1111,12 @@ export default function Portfolio() {
   
   // Position Percentage Calculator state
   const [adrPercent, setAdrPercent] = useState<string>('');
+
+  // Create Portfolio state
+  const [showCreatePortfolioDialog, setShowCreatePortfolioDialog] = useState(false);
+  const [newPortfolioName, setNewPortfolioName] = useState<string>('');
+  const [newPortfolioValue, setNewPortfolioValue] = useState<string>('');
+  const [isCreatingPortfolio, setIsCreatingPortfolio] = useState(false);
 
   // Initialize portfolio value and name from database
   useEffect(() => {
@@ -1281,6 +1288,41 @@ export default function Portfolio() {
     setIsEditingPortfolio(false);
     setTempPortfolioName(portfolioName);
     setTempPortfolioValue(portfolioValue);
+  };
+
+  // Create Portfolio handlers
+  const handleOpenCreatePortfolio = () => {
+    setNewPortfolioName('');
+    setNewPortfolioValue('');
+    setShowCreatePortfolioDialog(true);
+  };
+
+  const handleCreatePortfolio = async () => {
+    const name = newPortfolioName.trim();
+    const value = parseFloat(newPortfolioValue) || 0;
+
+    if (!name) {
+      return; // Don't create portfolio without a name
+    }
+
+    setIsCreatingPortfolio(true);
+    try {
+      await createPortfolio(name, value);
+      setShowCreatePortfolioDialog(false);
+      setNewPortfolioName('');
+      setNewPortfolioValue('');
+    } catch (error) {
+      console.error('Failed to create portfolio:', error);
+      // You could add a toast notification here
+    } finally {
+      setIsCreatingPortfolio(false);
+    }
+  };
+
+  const handleCancelCreatePortfolio = () => {
+    setShowCreatePortfolioDialog(false);
+    setNewPortfolioName('');
+    setNewPortfolioValue('');
   };
 
   // Sorting handler
@@ -1861,6 +1903,23 @@ export default function Portfolio() {
                   ))}
                 </SelectContent>
               </Select>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={handleOpenCreatePortfolio}
+                      disabled={isPortfolioLoading}
+                    >
+                      <PlusCircle className="h-3 w-3 sm:h-4 sm:w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Create New Portfolio</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Input
@@ -2441,6 +2500,96 @@ export default function Portfolio() {
           </Button>
           <Button variant="destructive" onClick={confirmDeletePosition}>
             Delete
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    {/* Create Portfolio Dialog */}
+    <Dialog open={showCreatePortfolioDialog} onOpenChange={setShowCreatePortfolioDialog}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Create New Portfolio</DialogTitle>
+          <DialogDescription>
+            Create a new portfolio to track your investments separately.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="space-y-2">
+            <label htmlFor="new-portfolio-name" className="block text-sm font-medium text-foreground">
+              Portfolio Name <span className="text-red-500">*</span>
+            </label>
+            <Input
+              id="new-portfolio-name"
+              type="text"
+              placeholder="e.g., Retirement Portfolio, Tech Stocks"
+              value={newPortfolioName}
+              onChange={(e) => setNewPortfolioName(e.target.value)}
+              disabled={isCreatingPortfolio}
+              className="text-base"
+              autoFocus
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="new-portfolio-value" className="block text-sm font-medium text-foreground">
+              Initial Portfolio Value
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base text-muted-foreground pointer-events-none">
+                $
+              </span>
+              <Input
+                id="new-portfolio-value"
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={newPortfolioValue}
+                onChange={(e) => {
+                  const value = e.target.value.replace(/[^0-9.]/g, '');
+                  const parts = value.split('.');
+                  const formattedValue = parts.length > 2 
+                    ? parts[0] + '.' + parts.slice(1).join('')
+                    : value;
+                  setNewPortfolioValue(formattedValue);
+                }}
+                onBlur={(e) => {
+                  const value = e.target.value.replace(/[^0-9.]/g, '');
+                  const numValue = parseFloat(value);
+                  if (!isNaN(numValue)) {
+                    setNewPortfolioValue(numValue.toFixed(2));
+                  } else if (value === '') {
+                    setNewPortfolioValue('');
+                  }
+                }}
+                disabled={isCreatingPortfolio}
+                className="pl-7 text-base"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              You can leave this as 0 and update it later.
+            </p>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button 
+            variant="outline" 
+            onClick={handleCancelCreatePortfolio}
+            disabled={isCreatingPortfolio}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleCreatePortfolio}
+            disabled={isCreatingPortfolio || !newPortfolioName.trim()}
+          >
+            {isCreatingPortfolio ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Creating...
+              </>
+            ) : (
+              'Create Portfolio'
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>
