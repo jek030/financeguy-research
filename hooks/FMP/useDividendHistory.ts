@@ -1,11 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { StockDividend } from '@/lib/types';
 
-interface DividendHistoryResponse {
-  symbol: string;
-  historical: StockDividend[];
-}
-
 async function fetchDividendHistory(symbol: string): Promise<StockDividend[]> {
   if (!symbol) {
     throw new Error('Symbol is required');
@@ -17,8 +12,8 @@ async function fetchDividendHistory(symbol: string): Promise<StockDividend[]> {
     throw new Error('Failed to fetch dividend history');
   }
 
-  const jsonData: DividendHistoryResponse = await response.json();
-  return jsonData.historical || [];
+  const jsonData: StockDividend[] = await response.json();
+  return Array.isArray(jsonData) ? jsonData : [];
 }
 
 export function useDividendHistory(symbol: string) {

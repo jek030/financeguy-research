@@ -31,29 +31,33 @@ export const DividendHistory: React.FC<DividendHistoryProps> = ({ symbol }) => {
             <Table>
               <TableHeader className="sticky top-0 bg-background z-20">
                 <TableRow>
+                  <TableHead>Date</TableHead>
                   <TableHead>Declaration Date</TableHead>
+                  <TableHead>Record Date</TableHead>
                   <TableHead>Payment Date</TableHead>
                   <TableHead>Dividend</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Record Date</TableHead>
                   <TableHead>Adjusted Dividend</TableHead>
+                  <TableHead>Yield</TableHead>
+                  <TableHead>Frequency</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {Array.isArray(dividendHistory) && dividendHistory.length > 0 ? (
-                  dividendHistory.map((dividend) => (
-                    <TableRow key={`${dividend.date}-${dividend.dividend}`}>
+                  dividendHistory.map((dividend, index) => (
+                    <TableRow key={`${dividend.date}-${dividend.dividend}-${index}`}>
+                      <TableCell>{new Date(dividend.date).toLocaleDateString()}</TableCell>
                       <TableCell>{dividend.declarationDate ? new Date(dividend.declarationDate).toLocaleDateString() : 'N/A'}</TableCell>
+                      <TableCell>{dividend.recordDate ? new Date(dividend.recordDate).toLocaleDateString() : 'N/A'}</TableCell>
                       <TableCell>{dividend.paymentDate ? new Date(dividend.paymentDate).toLocaleDateString() : 'N/A'}</TableCell>
                       <TableCell>${dividend.dividend.toFixed(4)}</TableCell>
-                      <TableCell>{new Date(dividend.date).toLocaleDateString()}</TableCell>
-                      <TableCell>{dividend.recordDate ? new Date(dividend.recordDate).toLocaleDateString() : 'N/A'}</TableCell>
                       <TableCell>${dividend.adjDividend.toFixed(4)}</TableCell>
+                      <TableCell>{dividend.yield.toFixed(2)}%</TableCell>
+                      <TableCell>{dividend.frequency}</TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center">No dividend history available</TableCell>
+                    <TableCell colSpan={8} className="text-center">No dividend history available</TableCell>
                   </TableRow>
                 )}
               </TableBody>

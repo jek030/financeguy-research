@@ -18,6 +18,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useQuote } from '@/hooks/FMP/useQuote';
 import { useProfile } from '@/hooks/FMP/useProfile';
 import { usePriceChanges } from '@/hooks/FMP/usePriceChanges';
+import { useDividendYield } from '@/hooks/FMP/useDividendYield';
 import { formatNumber, formatPercentage } from '@/lib/utils';
 import { X, GripVertical } from 'lucide-react';
 import Link from 'next/link';
@@ -140,6 +141,7 @@ interface QuoteRowProps {
   symbol: string;
   watchlistId: string;
   onRemoveTicker: (watchlistId: string, symbol: string) => void;
+  enableDividendYield?: boolean;
 }
 
 function LoadingRow() {
@@ -155,7 +157,7 @@ function LoadingRow() {
           </div>
         </div>
       </TableCell>
-      {Array(12).fill(0).map((_, i) => (
+      {Array(14).fill(0).map((_, i) => (
         <TableCell key={i} className={cn(i === 0 && "bg-background")}>
           <Skeleton className="h-4 w-16" />
         </TableCell>
@@ -164,7 +166,7 @@ function LoadingRow() {
   );
 }
 
-function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
+function QuoteRow({ symbol, watchlistId, onRemoveTicker, enableDividendYield = false }: QuoteRowProps) {
   const {
     attributes,
     listeners,
@@ -187,6 +189,7 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
 
   const { data: quote, isLoading: isQuoteLoading } = useQuote(symbol);
   const { data: profile, isLoading: isProfileLoading } = useProfile(symbol);
+  const { data: dividendYield, isLoading: isDividendLoading } = useDividendYield(symbol);
 
   // Only show loading state for quote data since it's essential
   if (isQuoteLoading) {
@@ -276,6 +279,16 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
             {profile.industry}
           </Link>
         ) : "-"}
+      </TableCell>
+      <TableCell className="text-xs sm:text-sm">
+        {quote.pe ? quote.pe.toFixed(2) : '-'}
+      </TableCell>
+      <TableCell className="text-xs sm:text-sm">
+        {isDividendLoading ? (
+          <Skeleton className="h-4 w-16" />
+        ) : dividendYield !== null && dividendYield !== undefined ? (
+          `${dividendYield.toFixed(2)}%`
+        ) : '-'}
       </TableCell>
       <TableCell className="text-xs sm:text-sm">{formatEarningsDate(quote.earningsAnnouncement)}</TableCell>
       <TableCell className="text-xs sm:text-sm">
@@ -431,7 +444,7 @@ function ExportButton({ watchlist }: ExportButtonProps) {
 
   const handleExport = () => {
     // Create CSV header
-    const headers = ['Symbol', 'Price', 'Change ($)', 'Change (%)', 'Volume', '1Y Change (%)', '3Y Change (%)', '5Y Change (%)', 'Market Cap', 'Sector', 'Industry', 'Next Earnings'];
+    const headers = ['Symbol', 'Price', 'Change ($)', 'Change (%)', 'Volume', '1Y Change (%)', '3Y Change (%)', '5Y Change (%)', 'Market Cap', 'Sector', 'Industry', 'P/E Ratio', 'Dividend Yield (%)', 'Next Earnings'];
     const csvRows = [headers.map(header => `"${header}"`)];
 
     // Use the data that's already loaded
@@ -457,6 +470,8 @@ function ExportButton({ watchlist }: ExportButtonProps) {
         quote ? `"${formatMarketCap(quote.marketCap)}"` : '""',
         profile && profile.sector ? `"${profile.sector}"` : '""',
         profile && profile.industry ? `"${profile.industry}"` : '""',
+        quote && quote.pe ? `"${quote.pe.toFixed(2)}"` : '""',
+        '""', // Dividend yield - not loaded in export
         quote ? `"${formatEarningsDate(quote.earningsAnnouncement)}"` : '""'
       ];
       csvRows.push(row);
@@ -683,6 +698,8 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
                   <TableHead className="text-xs whitespace-nowrap">Market Cap</TableHead> 
                   <TableHead className="text-xs whitespace-nowrap">Sector</TableHead>
                   <TableHead className="text-xs whitespace-nowrap">Industry</TableHead>
+                  <TableHead className="text-xs whitespace-nowrap">P/E Ratio</TableHead>
+                  <TableHead className="text-xs whitespace-nowrap">Div. Yield</TableHead>
                   <TableHead className="text-xs whitespace-nowrap">Next Earnings</TableHead>
                 </TableRow>
               </TableHeader>
@@ -690,7 +707,7 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
               {watchlist.tickers.length === 0 ? (
                 <TableRow>
                   <TableCell 
-                    colSpan={14} 
+                    colSpan={16} 
                     className="h-12 sm:h-12 text-center text-xs sm:text-sm text-muted-foreground"
                   >
                     No tickers added yet.
@@ -703,6 +720,7 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
                     symbol={ticker.symbol}
                     watchlistId={watchlist.id}
                     onRemoveTicker={onRemoveTicker}
+                    enableDividendYield={true}
                   />
                 ))
               )}

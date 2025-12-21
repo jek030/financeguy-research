@@ -20,8 +20,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Use the correct endpoint for v4 stable dividends API
     const response = await fetch(
-      `${FMP_BASE_URL}/v3/historical-price-full/stock_dividend/${symbol}?apikey=${FMP_API_KEY}`,
+      `https://financialmodelingprep.com/stable/dividends?symbol=${symbol}&apikey=${FMP_API_KEY}`,
       {
         headers: {
           'Content-Type': 'application/json',

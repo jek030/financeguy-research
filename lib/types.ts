@@ -157,13 +157,15 @@ export interface CompanyProfile {
   }
   
   export interface StockDividend {
+    symbol: string;
     date: string;
-    label: string;
-    adjDividend: number;
-    dividend: number;
     recordDate: string;
     paymentDate: string;
     declarationDate: string;
+    adjDividend: number;
+    dividend: number;
+    yield: number;
+    frequency: string;
   }
   
   export interface NewsItem {
