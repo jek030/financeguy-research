@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { FMP_API_KEY, FMP_BASE_URL } from '../config';
+import { FMP_API_KEY } from '../config';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
