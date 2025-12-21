@@ -578,7 +578,6 @@ function EditPositionModal({
   const [editType, setEditType] = useState<'Long' | 'Short'>('Long');
   const [editOpenDate, setEditOpenDate] = useState<Date>(new Date());
   const [editClosedDate, setEditClosedDate] = useState<Date | undefined>(undefined);
-  const [editClosedDateInput, setEditClosedDateInput] = useState<string>('');
   const [editPriceTarget2R, setEditPriceTarget2R] = useState<string>('');
   const [editPriceTarget2RShares, setEditPriceTarget2RShares] = useState<string>('');
   const [editPriceTarget5R, setEditPriceTarget5R] = useState<string>('');
@@ -595,7 +594,6 @@ function EditPositionModal({
       setEditType(position.type);
       setEditOpenDate(position.openDate);
       setEditClosedDate(position.closedDate || undefined);
-      setEditClosedDateInput(position.closedDate ? format(position.closedDate, "MM/dd/yyyy") : '');
       setEditPriceTarget2R(position.priceTarget2R.toString());
       setEditPriceTarget2RShares(position.priceTarget2RShares.toString());
       setEditPriceTarget5R(position.priceTarget5R.toString());
@@ -693,7 +691,7 @@ function EditPositionModal({
     <Dialog open={isOpen} onOpenChange={(open) => {
       if (!open) onClose();
     }}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Position - {position?.symbol}</DialogTitle>
           <DialogDescription>
@@ -702,348 +700,381 @@ function EditPositionModal({
         </DialogHeader>
         
         {position && (
-        <div className="grid grid-cols-2 gap-4 py-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Symbol</label>
-            <Input
-              value={editSymbol}
-              onChange={(e) => setEditSymbol(e.target.value.toUpperCase())}
-              placeholder="SYMBOL"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Type</label>
-            <Select value={editType} onValueChange={handleTypeChange}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Long">Long</SelectItem>
-                <SelectItem value="Short">Short</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Cost</label>
-            <Input
-              type="text"
-              inputMode="decimal"
-              value={editCost}
-              onChange={(e) => handleCostChange(e.target.value)}
-              onBlur={(e) => {
-                const numValue = parseFloat(e.target.value);
-                if (!isNaN(numValue)) {
-                  setEditCost(numValue.toString());
-                }
-              }}
-              placeholder="0.00"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Quantity</label>
-            <Input
-              type="text"
-              inputMode="decimal"
-              value={editQuantity}
-              onChange={(e) => {
-                const value = e.target.value.replace(/[^0-9.]/g, '');
-                const parts = value.split('.');
-                const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
-                setEditQuantity(formattedValue);
-              }}
-              onBlur={(e) => {
-                const numValue = parseFloat(e.target.value);
-                if (!isNaN(numValue)) {
-                  setEditQuantity(numValue.toString());
-                }
-              }}
-              placeholder="0.00"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Remaining Shares</label>
-            <Input
-              value={remainingShares >= 0 ? remainingShares.toString() : '0'}
-              disabled
-              className="bg-muted"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Net Cost</label>
-            <Input
-              value={formatCurrency(netCostValue)}
-              disabled
-              className="bg-muted"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Initial Stop Loss</label>
-            <Input
-              value={formatCurrency(position.initialStopLoss)}
-              disabled
-              className="bg-muted"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Stop Loss</label>
-            <Input
-              type="text"
-              inputMode="decimal"
-              value={editStopLoss}
-              onChange={(e) => {
-                const value = e.target.value.replace(/[^0-9.]/g, '');
-                const parts = value.split('.');
-                const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
-                setEditStopLoss(formattedValue);
-              }}
-              onBlur={(e) => {
-                const numValue = parseFloat(e.target.value);
-                if (!isNaN(numValue)) {
-                  setEditStopLoss(numValue.toString());
-                }
-              }}
-              placeholder="0.00"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Open Date</label>
-            <Popover modal={true}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full justify-start text-left font-normal">
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {format(editOpenDate, "MM/dd/yyyy")}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 z-[60]" align="start">
-                <Calendar
-                  mode="single"
-                  selected={editOpenDate}
-                  onSelect={(date) => date && setEditOpenDate(date)}
-                  initialFocus
+        <div className="space-y-6 py-4">
+          {/* Position Information */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-foreground border-b pb-2">Position Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Symbol</label>
+                <Input
+                  value={editSymbol}
+                  disabled
+                  className="bg-muted cursor-not-allowed font-semibold"
                 />
-              </PopoverContent>
-            </Popover>
-          </div>
+              </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Closed Date</label>
-            <div className="flex gap-2">
-              <Input
-                value={editClosedDateInput}
-                onChange={(e) => {
-                  setEditClosedDateInput(e.target.value);
-                  const val = e.target.value;
-                  if (!val) {
-                    setEditClosedDate(undefined);
-                    return;
-                  }
-                  const date = new Date(val);
-                  if (!isNaN(date.getTime()) && val.length >= 8) {
-                    if (date.getFullYear() > 1900) {
-                      setEditClosedDate(date);
-                    }
-                  }
-                }}
-                placeholder="MM/DD/YYYY"
-              />
-              <Popover modal={true}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="px-3">
-                    <CalendarIcon className="h-4 w-4" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 z-[60]" align="end">
-                  <div className="p-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full mb-2"
-                      onClick={() => {
-                        setEditClosedDate(undefined);
-                        setEditClosedDateInput('');
-                      }}
-                    >
-                      Clear Date
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Type</label>
+                <Select value={editType} onValueChange={handleTypeChange}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Long">Long</SelectItem>
+                    <SelectItem value="Short">Short</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Open Date</label>
+                <Popover modal={true}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left font-normal">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(editOpenDate, "MM/dd/yyyy")}
                     </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 z-[60]" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={editOpenDate}
+                      onSelect={(date) => date && setEditOpenDate(date)}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Closed Date</label>
+                <Popover modal={true}>
+                  <PopoverTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !editClosedDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {editClosedDate ? format(editClosedDate, "MM/dd/yyyy") : "Select date..."}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 z-[60]" align="start">
+                    <div className="p-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full mb-2"
+                        onClick={() => {
+                          setEditClosedDate(undefined);
+                        }}
+                      >
+                        Clear Date
+                      </Button>
+                    </div>
+                    <Calendar
+                      mode="single"
+                      selected={editClosedDate}
+                      onSelect={(date) => {
+                        setEditClosedDate(date);
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+          </div>
+
+          {/* Entry Details */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-foreground border-b pb-2">Entry Details</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Cost (Entry Price)</label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={editCost}
+                  onChange={(e) => handleCostChange(e.target.value)}
+                  onBlur={(e) => {
+                    const numValue = parseFloat(e.target.value);
+                    if (!isNaN(numValue)) {
+                      setEditCost(numValue.toString());
+                    }
+                  }}
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Quantity (Shares)</label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={editQuantity}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9.]/g, '');
+                    const parts = value.split('.');
+                    const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
+                    setEditQuantity(formattedValue);
+                  }}
+                  onBlur={(e) => {
+                    const numValue = parseFloat(e.target.value);
+                    if (!isNaN(numValue)) {
+                      setEditQuantity(numValue.toString());
+                    }
+                  }}
+                  placeholder="0.00"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Stop Loss (Current)</label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={editStopLoss}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9.]/g, '');
+                    const parts = value.split('.');
+                    const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
+                    setEditStopLoss(formattedValue);
+                  }}
+                  onBlur={(e) => {
+                    const numValue = parseFloat(e.target.value);
+                    if (!isNaN(numValue)) {
+                      setEditStopLoss(numValue.toString());
+                    }
+                  }}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Calculated Values */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-foreground border-b pb-2">Calculated Values</h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Net Cost</label>
+                <Input
+                  value={formatCurrency(netCostValue)}
+                  disabled
+                  className="bg-muted/50 border-muted"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Remaining Shares</label>
+                <Input
+                  value={remainingShares >= 0 ? remainingShares.toString() : '0'}
+                  disabled
+                  className="bg-muted/50 border-muted"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Days in Trade</label>
+                <Input
+                  value={`${calculateDaysInTrade(editOpenDate, editClosedDate)} days`}
+                  disabled
+                  className="bg-muted/50 border-muted"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Initial Stop Loss</label>
+                <Input
+                  value={formatCurrency(position.initialStopLoss)}
+                  disabled
+                  className="bg-muted/50 border-muted"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Realized Gain</label>
+                <Input
+                  value={formatCurrency(realizedGain)}
+                  disabled
+                  className={cn(
+                    "bg-muted/50 border-muted font-semibold",
+                    realizedGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                  )}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Price Targets */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-foreground border-b pb-2">Price Targets & Exit Strategy</h3>
+            
+            {/* PT 1 */}
+            <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
+              <h4 className="text-sm font-medium text-foreground">Price Target 1 (2R)</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">PT 1 Price</label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={editPriceTarget2R}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9.]/g, '');
+                        const parts = value.split('.');
+                        const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
+                        setEditPriceTarget2R(formattedValue);
+                      }}
+                      onBlur={(e) => {
+                        const numValue = parseFloat(e.target.value);
+                        if (!isNaN(numValue)) {
+                          setEditPriceTarget2R(numValue.toString());
+                        }
+                      }}
+                      placeholder="0.00"
+                    />
+                    {parseFloat(editPriceTarget2R) > 0 && (
+                      <PercentageChange 
+                        value={calculatePercentageChange(parseFloat(editPriceTarget2R), parseFloat(editCost) || position.cost)} 
+                        size="sm"
+                      />
+                    )}
                   </div>
-                  <Calendar
-                    mode="single"
-                    selected={editClosedDate}
-                    onSelect={(date) => {
-                      setEditClosedDate(date);
-                      setEditClosedDateInput(date ? format(date, "MM/dd/yyyy") : '');
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Shares Sold at PT 1</label>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    value={editPriceTarget2RShares}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9.]/g, '');
+                      const parts = value.split('.');
+                      const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
+                      setEditPriceTarget2RShares(formattedValue);
                     }}
-                    initialFocus
+                    onBlur={(e) => {
+                      const numValue = parseFloat(e.target.value);
+                      if (!isNaN(numValue)) {
+                        setEditPriceTarget2RShares(numValue.toString());
+                      } else {
+                        setEditPriceTarget2RShares('0');
+                      }
+                    }}
+                    placeholder="0.00"
                   />
-                </PopoverContent>
-              </Popover>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Days in Trade</label>
-            <Input
-              value={`${calculateDaysInTrade(editOpenDate, editClosedDate)} days`}
-              disabled
-              className="bg-muted"
-            />
-          </div>
+            {/* PT 2 */}
+            <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
+              <h4 className="text-sm font-medium text-foreground">Price Target 2 (5R)</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">PT 2 Price</label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={editPriceTarget5R}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9.]/g, '');
+                        const parts = value.split('.');
+                        const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
+                        setEditPriceTarget5R(formattedValue);
+                      }}
+                      onBlur={(e) => {
+                        const numValue = parseFloat(e.target.value);
+                        if (!isNaN(numValue)) {
+                          setEditPriceTarget5R(numValue.toString());
+                        }
+                      }}
+                      placeholder="0.00"
+                    />
+                    {parseFloat(editPriceTarget5R) > 0 && (
+                      <PercentageChange 
+                        value={calculatePercentageChange(parseFloat(editPriceTarget5R), parseFloat(editCost) || position.cost)} 
+                        size="sm"
+                      />
+                    )}
+                  </div>
+                </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Realized Gain</label>
-            <Input
-              value={formatCurrency(realizedGain)}
-              disabled
-              className={cn(
-                "bg-muted",
-                realizedGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-              )}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">PT 1 (2R Price Target)</label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={editPriceTarget2R}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/[^0-9.]/g, '');
-                  const parts = value.split('.');
-                  const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
-                  setEditPriceTarget2R(formattedValue);
-                }}
-                onBlur={(e) => {
-                  const numValue = parseFloat(e.target.value);
-                  if (!isNaN(numValue)) {
-                    setEditPriceTarget2R(numValue.toString());
-                  }
-                }}
-                placeholder="0.00"
-              />
-              {parseFloat(editPriceTarget2R) > 0 && (
-                <PercentageChange 
-                  value={calculatePercentageChange(parseFloat(editPriceTarget2R), parseFloat(editCost) || position.cost)} 
-                  size="sm"
-                />
-              )}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Shares Sold at PT 2</label>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    value={editPriceTarget5RShares}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9.]/g, '');
+                      const parts = value.split('.');
+                      const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
+                      setEditPriceTarget5RShares(formattedValue);
+                    }}
+                    onBlur={(e) => {
+                      const numValue = parseFloat(e.target.value);
+                      if (!isNaN(numValue)) {
+                        setEditPriceTarget5RShares(numValue.toString());
+                      } else {
+                        setEditPriceTarget5RShares('0');
+                      }
+                    }}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium">PT 1 # (Shares at PT 1)</label>
-            <Input
-              type="text"
-              inputMode="decimal"
-              value={editPriceTarget2RShares}
-              onChange={(e) => {
-                const value = e.target.value.replace(/[^0-9.]/g, '');
-                const parts = value.split('.');
-                const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
-                setEditPriceTarget2RShares(formattedValue);
-              }}
-              onBlur={(e) => {
-                const numValue = parseFloat(e.target.value);
-                if (!isNaN(numValue)) {
-                  setEditPriceTarget2RShares(numValue.toString());
-                } else {
-                  setEditPriceTarget2RShares('0');
-                }
-              }}
-              placeholder="0.00"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">PT 2 (5R Price Target)</label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={editPriceTarget5R}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/[^0-9.]/g, '');
-                  const parts = value.split('.');
-                  const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
-                  setEditPriceTarget5R(formattedValue);
-                }}
-                onBlur={(e) => {
-                  const numValue = parseFloat(e.target.value);
-                  if (!isNaN(numValue)) {
-                    setEditPriceTarget5R(numValue.toString());
-                  }
-                }}
-                placeholder="0.00"
-              />
-              {parseFloat(editPriceTarget5R) > 0 && (
-                <PercentageChange 
-                  value={calculatePercentageChange(parseFloat(editPriceTarget5R), parseFloat(editCost) || position.cost)} 
-                  size="sm"
-                />
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">PT 2 # (Shares at PT 2)</label>
-            <Input
-              type="text"
-              inputMode="decimal"
-              value={editPriceTarget5RShares}
-              onChange={(e) => {
-                const value = e.target.value.replace(/[^0-9.]/g, '');
-                const parts = value.split('.');
-                const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
-                setEditPriceTarget5RShares(formattedValue);
-              }}
-              onBlur={(e) => {
-                const numValue = parseFloat(e.target.value);
-                if (!isNaN(numValue)) {
-                  setEditPriceTarget5RShares(numValue.toString());
-                } else {
-                  setEditPriceTarget5RShares('0');
-                }
-              }}
-              placeholder="0.00"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium">21 Day Trail</label>
-            <div className="flex items-center gap-2">
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={editPriceTarget21Day}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/[^0-9.]/g, '');
-                  const parts = value.split('.');
-                  const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
-                  setEditPriceTarget21Day(formattedValue);
-                }}
-                onBlur={(e) => {
-                  const numValue = parseFloat(e.target.value);
-                  if (!isNaN(numValue)) {
-                    setEditPriceTarget21Day(numValue.toString());
-                  }
-                }}
-                placeholder="0.00"
-              />
-              {parseFloat(editPriceTarget21Day) > 0 && (
-                <PercentageChange 
-                  value={calculatePercentageChange(parseFloat(editPriceTarget21Day), parseFloat(editCost) || position.cost)} 
-                  size="sm"
-                />
-              )}
+            {/* 21 Day Trail */}
+            <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
+              <h4 className="text-sm font-medium text-foreground">21 Day Trailing Stop Exit</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Final Exit Price</label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="text"
+                      inputMode="decimal"
+                      value={editPriceTarget21Day}
+                      onChange={(e) => {
+                        const value = e.target.value.replace(/[^0-9.]/g, '');
+                        const parts = value.split('.');
+                        const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
+                        setEditPriceTarget21Day(formattedValue);
+                      }}
+                      onBlur={(e) => {
+                        const numValue = parseFloat(e.target.value);
+                        if (!isNaN(numValue)) {
+                          setEditPriceTarget21Day(numValue.toString());
+                        }
+                      }}
+                      placeholder="0.00"
+                    />
+                    {parseFloat(editPriceTarget21Day) > 0 && (
+                      <PercentageChange 
+                        value={calculatePercentageChange(parseFloat(editPriceTarget21Day), parseFloat(editCost) || position.cost)} 
+                        size="sm"
+                      />
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-end">
+                  <p className="text-xs text-muted-foreground pb-2">
+                    Exit price for remaining shares after PT1 and PT2
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
