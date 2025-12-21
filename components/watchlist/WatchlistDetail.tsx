@@ -20,6 +20,7 @@ import { useProfile } from '@/hooks/FMP/useProfile';
 import { usePriceChanges } from '@/hooks/FMP/usePriceChanges';
 import { useDividendYield } from '@/hooks/FMP/useDividendYield';
 import { formatNumber, formatPercentage } from '@/lib/utils';
+import { safeFormat } from '@/lib/formatters';
 import { X, GripVertical } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -166,7 +167,7 @@ function LoadingRow() {
   );
 }
 
-function QuoteRow({ symbol, watchlistId, onRemoveTicker, enableDividendYield = false }: QuoteRowProps) {
+function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
   const {
     attributes,
     listeners,
@@ -281,7 +282,7 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker, enableDividendYield = f
         ) : "-"}
       </TableCell>
       <TableCell className="text-xs sm:text-sm">
-        {quote.pe ? quote.pe.toFixed(2) : '-'}
+        {quote.pe ? safeFormat(quote.pe) : 'N/A'}
       </TableCell>
       <TableCell className="text-xs sm:text-sm">
         {isDividendLoading ? (
@@ -470,7 +471,7 @@ function ExportButton({ watchlist }: ExportButtonProps) {
         quote ? `"${formatMarketCap(quote.marketCap)}"` : '""',
         profile && profile.sector ? `"${profile.sector}"` : '""',
         profile && profile.industry ? `"${profile.industry}"` : '""',
-        quote && quote.pe ? `"${quote.pe.toFixed(2)}"` : '""',
+        quote && quote.pe ? `"${safeFormat(quote.pe)}"` : '""',
         '""', // Dividend yield - not loaded in export
         quote ? `"${formatEarningsDate(quote.earningsAnnouncement)}"` : '""'
       ];
