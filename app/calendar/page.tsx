@@ -564,29 +564,29 @@ const CalendarPage: React.FC = () => {
               </div>
             </div>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
-            <DialogHeader className="pb-4 border-b border-border/50 flex-shrink-0">
-              <DialogTitle className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-primary/10">
-                  <Calendar className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <div className="text-xl font-bold">
-                    {monthNames[currentDate.getMonth()]} {day}, {currentDate.getFullYear()}
-                  </div>
-                  <div className="text-sm text-muted-foreground font-normal">
-                    {sortedEvents.length} {sortedEvents.length === 1 ? 'company' : 'companies'} reporting
-                  </div>
-                </div>
-              </DialogTitle>
-              <DialogDescription className="sr-only">
-                Earnings reports for {monthNames[currentDate.getMonth()]} {day}, {currentDate.getFullYear()}
-              </DialogDescription>
-            </DialogHeader>
-            
-            <ScrollArea className="flex-1 -mx-6 px-6">
-              {sortedEvents.length > 0 ? (
-                <div className="space-y-3 py-4">
+           <DialogContent className="max-w-2xl max-h-[85vh] p-0 gap-0 overflow-hidden flex flex-col">
+             <DialogHeader className="pb-4 pt-6 px-6 border-b border-border/50 flex-shrink-0">
+               <DialogTitle className="flex items-center gap-3">
+                 <div className="p-2 rounded-xl bg-primary/10">
+                   <Calendar className="w-5 h-5 text-primary" />
+                 </div>
+                 <div>
+                   <div className="text-xl font-bold">
+                     {monthNames[currentDate.getMonth()]} {day}, {currentDate.getFullYear()}
+                   </div>
+                   <div className="text-sm text-muted-foreground font-normal">
+                     {sortedEvents.length} {sortedEvents.length === 1 ? 'company' : 'companies'} reporting
+                   </div>
+                 </div>
+               </DialogTitle>
+               <DialogDescription className="sr-only">
+                 Earnings reports for {monthNames[currentDate.getMonth()]} {day}, {currentDate.getFullYear()}
+               </DialogDescription>
+             </DialogHeader>
+             
+             <div className="overflow-y-auto flex-1 px-6" style={{ maxHeight: 'calc(85vh - 140px)' }}>
+               {sortedEvents.length > 0 ? (
+                 <div className="space-y-3 py-4">
                   {sortedEvents.map((event, idx) => {
                     // Determine beat/miss status
                     const isReported = event.eps !== null;
@@ -730,17 +730,17 @@ const CalendarPage: React.FC = () => {
                       </div>
                     );
                   })}
-                </div>
-              ) : (
-                <div className="py-12 text-center">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-muted/50 mb-4">
-                    <Calendar className="w-8 h-8 text-muted-foreground" />
-                  </div>
-                  <div className="text-muted-foreground">No earnings scheduled for this day</div>
-                </div>
-              )}
-            </ScrollArea>
-          </DialogContent>
+                   </div>
+                 ) : (
+                   <div className="py-12 text-center">
+                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-muted/50 mb-4">
+                       <Calendar className="w-8 h-8 text-muted-foreground" />
+                     </div>
+                     <div className="text-muted-foreground">No earnings scheduled for this day</div>
+                   </div>
+                 )}
+             </div>
+           </DialogContent>
         </Dialog>
       );
     }
