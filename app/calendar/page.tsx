@@ -604,7 +604,7 @@ const CalendarPage: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <main className="w-full">
+      <main className="w-full p-4 md:p-6">
         <div className="flex flex-col gap-6">
           {/* Page Header */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
