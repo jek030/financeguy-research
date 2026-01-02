@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { ScrollArea } from '@/components/ui/ScrollArea';
 import { Switch } from '@/components/ui/Switch';
 import { Label } from '@/components/ui/Label';
+import { useRouter } from 'next/navigation';
 
 interface EventCategory {
   name: string;
@@ -44,6 +45,7 @@ interface EventsState {
 }
 
 const CalendarPage: React.FC = () => {
+  const router = useRouter();
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [events, setEvents] = useState<EventsState>({});
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -271,6 +273,16 @@ const CalendarPage: React.FC = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
   };
 
+  const handleGoToTicker = (symbol: string | undefined) => {
+    if (!symbol) return;
+    router.push(`/search/${symbol}`);
+  };
+
+  const handleOpenExternal = (url: string | undefined) => {
+    if (!url) return;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   const renderEventBadge = (event: CalendarEvent): React.ReactElement => {
     // Create a specific class based on earnings time
     let timingClass = '';
@@ -284,27 +296,41 @@ const CalendarPage: React.FC = () => {
     }
     
     return (
-      <div className={`group relative flex items-center gap-1.5 p-2 mb-1 rounded-lg bg-card/80 hover:bg-card border border-border/50 hover:border-primary/30 hover:shadow-sm border-l-2 ${timingClass} transition-all duration-200`}>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleGoToTicker(event.symbol);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.stopPropagation();
+            handleGoToTicker(event.symbol);
+          }
+        }}
+        className={`group relative flex items-center gap-1.5 p-2 mb-1 rounded-lg bg-card/80 hover:bg-card border border-border/50 hover:border-primary/30 hover:shadow-sm border-l-2 ${timingClass} transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+      >
         {timeIcon}
         <div className="flex-1 min-w-0">
-          {event.url ? (
-            <a href={event.url} target="_blank" rel="noopener noreferrer" className="block group-hover:text-primary transition-colors">
-              <div className="font-semibold text-xs truncate">{event.symbol}</div>
-              {event.name && (
-                <div className="text-[10px] text-muted-foreground truncate">{event.name}</div>
-              )}
-            </a>
-          ) : (
-            <>
-              <div className="font-semibold text-xs truncate">{event.symbol}</div>
-              {event.name && (
-                <div className="text-[10px] text-muted-foreground truncate">{event.name}</div>
-              )}
-            </>
+          <div className="font-semibold text-xs truncate">{event.symbol}</div>
+          {event.name && (
+            <div className="text-[10px] text-muted-foreground truncate">{event.name}</div>
           )}
         </div>
         {event.url && (
-          <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenExternal(event.url);
+            }}
+            className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+            aria-label={`Open external earnings link for ${event.symbol}`}
+          >
+            <ExternalLink className="w-3 h-3" />
+          </button>
         )}
       </div>
     );
@@ -379,7 +405,18 @@ const CalendarPage: React.FC = () => {
     const isRevenueMiss = event.revenueBeatPercentage && event.revenueBeatPercentage < 0;
     
     return (
-      <div className="group relative p-3 rounded-xl bg-card/50 border border-border/50 hover:border-primary/30 hover:bg-accent/30 transition-all duration-200">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => handleGoToTicker(event.symbol)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleGoToTicker(event.symbol);
+          }
+        }}
+        className="group relative p-3 rounded-xl bg-card/50 border border-border/50 hover:border-primary/30 hover:bg-accent/30 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
         {/* Header: Symbol, Name, Time, Date, Link */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -398,14 +435,17 @@ const CalendarPage: React.FC = () => {
             )}
           </div>
           {event.url && (
-            <a 
-              href={event.url} 
-              target="_blank" 
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleOpenExternal(event.url);
+              }}
               className="flex-shrink-0 p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+              aria-label={`Open external earnings link for ${event.symbol}`}
             >
               <ExternalLink className="w-3.5 h-3.5" />
-            </a>
+            </button>
           )}
         </div>
 
@@ -558,7 +598,16 @@ const CalendarPage: React.FC = () => {
                     return (
                       <div 
                         key={idx} 
-                        className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-card to-card/50 border border-border/50 hover:border-primary/30 transition-all duration-300"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleGoToTicker(event.symbol)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleGoToTicker(event.symbol);
+                          }
+                        }}
+                        className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-card to-card/50 border border-border/50 hover:border-primary/30 transition-all duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         {/* Header */}
                         <div className="flex items-center justify-between p-4 pb-2">
@@ -577,14 +626,17 @@ const CalendarPage: React.FC = () => {
                             )}
                           </div>
                           {event.url && (
-                            <a 
-                              href={event.url} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenExternal(event.url);
+                              }}
                               className="p-2 rounded-xl hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                              aria-label={`Open external earnings link for ${event.symbol}`}
                             >
                               <ExternalLink className="w-4 h-4" />
-                            </a>
+                            </button>
                           )}
                         </div>
                         
@@ -711,7 +763,7 @@ const CalendarPage: React.FC = () => {
                 Earnings Calendar
               </h1>
               <p className="text-muted-foreground mt-1">
-                Track S&P 500, Dow Jones, and NASDAQ earnings reports
+                Click on a day to view detailed earnings reports for that day. Click on a company to redirect to the company's profile.
               </p>
             </div>
             
