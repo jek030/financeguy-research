@@ -763,7 +763,7 @@ const CalendarPage: React.FC = () => {
                 Earnings Calendar
               </h1>
               <p className="text-muted-foreground mt-1">
-                Click on a day to view detailed earnings reports for that day. Click on a company to redirect to the company's profile.
+                Click on a day to view detailed earnings reports for that day. Click on a company to redirect to the company profile.
               </p>
             </div>
             
