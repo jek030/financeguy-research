@@ -60,13 +60,13 @@ const CalendarPage: React.FC = () => {
   const { data: spData, isLoading: spLoading } = useSP500Constituents();
   const { data: nasdaqData, isLoading: nasdaqLoading } = useNasdaqConstituents();
   
-  const dowConstituents = dowData?.symbols || new Set();
-  const spConstituents = spData?.symbols || new Set();
-  const nasdaqConstituents = nasdaqData?.symbols || new Set();
+  const dowConstituents = useMemo(() => dowData?.symbols || new Set(), [dowData?.symbols]);
+  const spConstituents = useMemo(() => spData?.symbols || new Set(), [spData?.symbols]);
+  const nasdaqConstituents = useMemo(() => nasdaqData?.symbols || new Set(), [nasdaqData?.symbols]);
   
-  const dowDataMap = dowData?.dataMap || new Map();
-  const spDataMap = spData?.dataMap || new Map();
-  const nasdaqDataMap = nasdaqData?.dataMap || new Map();
+  const dowDataMap = useMemo(() => dowData?.dataMap || new Map(), [dowData?.dataMap]);
+  const spDataMap = useMemo(() => spData?.dataMap || new Map(), [spData?.dataMap]);
+  const nasdaqDataMap = useMemo(() => nasdaqData?.dataMap || new Map(), [nasdaqData?.dataMap]);
 
   // Format the time string
   const formatTime = (time: string | undefined): string => {
@@ -272,24 +272,39 @@ const CalendarPage: React.FC = () => {
   };
 
   const renderEventBadge = (event: CalendarEvent): React.ReactElement => {
-    const categoryStyle = eventCategories[event.category]?.color || 'bg-primary/10 text-primary';
-    
     // Create a specific class based on earnings time
     let timingClass = '';
+    let timeIcon = null;
     if (event.time?.toLowerCase() === 'bmo') {
-      timingClass = 'border-l-amber-400';
+      timingClass = 'border-l-amber-400/60';
+      timeIcon = <Sun className="w-3 h-3 text-amber-500 flex-shrink-0" />;
     } else if (event.time?.toLowerCase() === 'amc') {
-      timingClass = 'border-l-indigo-400';
+      timingClass = 'border-l-indigo-400/60';
+      timeIcon = <Moon className="w-3 h-3 text-indigo-400 flex-shrink-0" />;
     }
     
     return (
-      <div className={`text-xs truncate p-1 mb-1 rounded ${categoryStyle} border-l-2 ${timingClass}`}>
-        {event.url ? (
-          <a href={event.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-            {event.symbol}
-          </a>
-        ) : (
-          event.symbol
+      <div className={`group relative flex items-center gap-1.5 p-2 mb-1 rounded-lg bg-card/80 hover:bg-card border border-border/50 hover:border-primary/30 hover:shadow-sm border-l-2 ${timingClass} transition-all duration-200`}>
+        {timeIcon}
+        <div className="flex-1 min-w-0">
+          {event.url ? (
+            <a href={event.url} target="_blank" rel="noopener noreferrer" className="block group-hover:text-primary transition-colors">
+              <div className="font-semibold text-xs truncate">{event.symbol}</div>
+              {event.name && (
+                <div className="text-[10px] text-muted-foreground truncate">{event.name}</div>
+              )}
+            </a>
+          ) : (
+            <>
+              <div className="font-semibold text-xs truncate">{event.symbol}</div>
+              {event.name && (
+                <div className="text-[10px] text-muted-foreground truncate">{event.name}</div>
+              )}
+            </>
+          )}
+        </div>
+        {event.url && (
+          <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
         )}
       </div>
     );
@@ -337,7 +352,7 @@ const CalendarPage: React.FC = () => {
   const formatDateShort = (dateStr: string | undefined): string => {
     if (!dateStr) return '';
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
   const getDaysUntil = (dateStr: string | undefined): string => {
