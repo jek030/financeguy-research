@@ -199,18 +199,36 @@ const CalendarPage: React.FC = () => {
   }, []);
   
   const previousEvents = useMemo(() => {
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+    
     return allEventsSorted.filter(event => {
       const eventDate = new Date(event.date || '');
-      return eventDate < today;
-    }).reverse(); // Most recent first
-  }, [allEventsSorted, today]);
+      const eventMonth = eventDate.getMonth();
+      const eventYear = eventDate.getFullYear();
+      
+      // Only include events from the current calendar month that are before today
+      return eventYear === currentYear && 
+             eventMonth === currentMonth && 
+             eventDate < today;
+    }); // Ascending order (earliest to latest)
+  }, [allEventsSorted, today, currentDate]);
 
   const upcomingEvents = useMemo(() => {
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+    
     return allEventsSorted.filter(event => {
       const eventDate = new Date(event.date || '');
-      return eventDate >= today;
+      const eventMonth = eventDate.getMonth();
+      const eventYear = eventDate.getFullYear();
+      
+      // Only include events from the current calendar month that are today or later
+      return eventYear === currentYear && 
+             eventMonth === currentMonth && 
+             eventDate >= today;
     });
-  }, [allEventsSorted, today]);
+  }, [allEventsSorted, today, currentDate]);
 
   // Filter events based on search
   const filteredPreviousEvents = useMemo(() => {
