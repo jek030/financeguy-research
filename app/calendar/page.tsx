@@ -1,11 +1,15 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, Calendar, Clock, TrendingUp, TrendingDown, ExternalLink, Sparkles, BarChart3, Target, ArrowUpRight, ArrowDownRight, Search, Sun, Moon } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
 import { useEarningsConfirmed } from '@/hooks/FMP/useEarningsConfirmed';
 import { useDowJonesConstituents } from '@/hooks/FMP/useDowJonesConstituents';
 import { useSP500Constituents } from '@/hooks/FMP/useSP500Constituents';
+import { Badge } from '@/components/ui/Badge';
+import { Input } from '@/components/ui/Input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { ScrollArea } from '@/components/ui/ScrollArea';
 
 interface EventCategory {
   name: string;
@@ -26,6 +30,7 @@ interface CalendarEvent {
   fiscalDateEnding?: string;
   epsBeatPercentage?: number | null;
   revenueBeatPercentage?: number | null;
+  date?: string;
 }
 
 interface EventsState {
@@ -35,6 +40,8 @@ interface EventsState {
 const CalendarPage: React.FC = () => {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [events, setEvents] = useState<EventsState>({});
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<string>('upcoming');
   const [eventCategories] = useState<Record<string, EventCategory>>({
     earnings: { name: 'Earnings', color: 'bg-info/10 text-primary' },
   });
@@ -43,21 +50,34 @@ const CalendarPage: React.FC = () => {
   const { data: dowConstituents = new Set(), isLoading: dowLoading } = useDowJonesConstituents();
   const { data: spConstituents = new Set(), isLoading: spLoading } = useSP500Constituents();
 
-  // Add a new function to format the time string
+  // Format the time string
   const formatTime = (time: string | undefined): string => {
     if (!time) return 'TBD';
     
     switch (time.toLowerCase()) {
       case 'amc':
-        return 'After close';
+        return 'After Close';
       case 'bmo':
-        return 'Before open';
+        return 'Before Open';
       default:
         return time;
     }
   };
 
-  // Add useEffect to handle earnings data
+  // Get time icon
+  const getTimeIcon = (time: string | undefined) => {
+    if (!time) return <Clock className="w-3.5 h-3.5" />;
+    switch (time.toLowerCase()) {
+      case 'bmo':
+        return <Sun className="w-3.5 h-3.5 text-amber-500" />;
+      case 'amc':
+        return <Moon className="w-3.5 h-3.5 text-indigo-400" />;
+      default:
+        return <Clock className="w-3.5 h-3.5" />;
+    }
+  };
+
+  // Handle earnings data
   useEffect(() => {
     if (earnings && earnings.length > 0 && !dowLoading && !spLoading) {
       setEvents(prevEvents => {
@@ -94,7 +114,8 @@ const CalendarPage: React.FC = () => {
               revenueEstimated: earning.revenueEstimated,
               fiscalDateEnding: earning.fiscalDateEnding,
               epsBeatPercentage,
-              revenueBeatPercentage
+              revenueBeatPercentage,
+              date: earning.date
             };
 
             if (!newEvents[dateKey]) {
@@ -116,6 +137,72 @@ const CalendarPage: React.FC = () => {
       });
     }
   }, [earnings, currentDate, dowConstituents, spConstituents, dowLoading, spLoading]);
+
+  // Get all events as a flat sorted array
+  const allEventsSorted = useMemo(() => {
+    const flatEvents: CalendarEvent[] = [];
+    Object.entries(events).forEach(([date, dayEvents]) => {
+      dayEvents.forEach(event => {
+        flatEvents.push({ ...event, date });
+      });
+    });
+    return flatEvents.sort((a, b) => {
+      const dateA = new Date(a.date || '');
+      const dateB = new Date(b.date || '');
+      return dateA.getTime() - dateB.getTime();
+    });
+  }, [events]);
+
+  // Split events into previous and upcoming
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  const previousEvents = useMemo(() => {
+    return allEventsSorted.filter(event => {
+      const eventDate = new Date(event.date || '');
+      return eventDate < today;
+    }).reverse(); // Most recent first
+  }, [allEventsSorted, today]);
+
+  const upcomingEvents = useMemo(() => {
+    return allEventsSorted.filter(event => {
+      const eventDate = new Date(event.date || '');
+      return eventDate >= today;
+    });
+  }, [allEventsSorted, today]);
+
+  // Filter events based on search
+  const filteredPreviousEvents = useMemo(() => {
+    if (!searchQuery) return previousEvents;
+    return previousEvents.filter(event => 
+      event.symbol?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [previousEvents, searchQuery]);
+
+  const filteredUpcomingEvents = useMemo(() => {
+    if (!searchQuery) return upcomingEvents;
+    return upcomingEvents.filter(event => 
+      event.symbol?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [upcomingEvents, searchQuery]);
+
+  // Stats calculations
+  const stats = useMemo(() => {
+    const reported = previousEvents.filter(e => e.eps !== null);
+    const beats = reported.filter(e => e.epsBeatPercentage && e.epsBeatPercentage > 0);
+    const misses = reported.filter(e => e.epsBeatPercentage && e.epsBeatPercentage < 0);
+    
+    return {
+      totalUpcoming: upcomingEvents.length,
+      totalReported: reported.length,
+      beatRate: reported.length > 0 ? (beats.length / reported.length * 100).toFixed(0) : '0',
+      avgBeat: beats.length > 0 
+        ? (beats.reduce((sum, e) => sum + (e.epsBeatPercentage || 0), 0) / beats.length).toFixed(1)
+        : '0',
+      missCount: misses.length,
+      beatCount: beats.length
+    };
+  }, [previousEvents, upcomingEvents]);
 
 
   const daysInMonth = (date: Date): number => {
@@ -151,9 +238,9 @@ const CalendarPage: React.FC = () => {
     // Create a specific class based on earnings time
     let timingClass = '';
     if (event.time?.toLowerCase() === 'bmo') {
-      timingClass = 'border-l-green-400';
+      timingClass = 'border-l-amber-400';
     } else if (event.time?.toLowerCase() === 'amc') {
-      timingClass = 'border-l-blue-400';
+      timingClass = 'border-l-indigo-400';
     }
     
     return (
@@ -178,11 +265,11 @@ const CalendarPage: React.FC = () => {
         </div>
       ))}
       <div className="flex items-center gap-1.5">
-        <div className="w-3 h-3 border-l-2 border-l-green-400 rounded-sm" />
+        <Sun className="w-3 h-3 text-amber-500" />
         <span className="text-xs">Before Open</span>
       </div>
       <div className="flex items-center gap-1.5">
-        <div className="w-3 h-3 border-l-2 border-l-blue-400 rounded-sm" />
+        <Moon className="w-3 h-3 text-indigo-400" />
         <span className="text-xs">After Close</span>
       </div>
     </div>
@@ -206,6 +293,99 @@ const CalendarPage: React.FC = () => {
   const formatPercentage = (percentage: number | null): string => {
     if (percentage === null) return 'N/A';
     return `${percentage > 0 ? '+' : ''}${percentage.toFixed(2)}%`;
+  };
+
+  const formatDateShort = (dateStr: string | undefined): string => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const getDaysUntil = (dateStr: string | undefined): string => {
+    if (!dateStr) return '';
+    const eventDate = new Date(dateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    eventDate.setHours(0, 0, 0, 0);
+    const diffTime = eventDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays < 0) return `${Math.abs(diffDays)} days ago`;
+    return `In ${diffDays} days`;
+  };
+
+  // Earnings list item component
+  const EarningsListItem: React.FC<{ event: CalendarEvent; showDate?: boolean }> = ({ event, showDate = true }) => {
+    const isReported = event.eps !== null;
+    const isBeat = event.epsBeatPercentage && event.epsBeatPercentage > 0;
+    const isMiss = event.epsBeatPercentage && event.epsBeatPercentage < 0;
+    
+    return (
+      <div className="group relative flex items-center gap-4 p-4 rounded-xl bg-card/50 border border-border/50 hover:border-primary/30 hover:bg-accent/30 transition-all duration-200">
+        {/* Symbol & Time */}
+        <div className="flex-shrink-0 w-20">
+          <div className="font-bold text-lg tracking-tight">{event.symbol}</div>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            {getTimeIcon(event.time)}
+            <span>{formatTime(event.time)}</span>
+          </div>
+        </div>
+
+        {/* Date */}
+        {showDate && (
+          <div className="flex-shrink-0 w-24 text-center">
+            <div className="text-sm font-medium">{formatDateShort(event.date)}</div>
+            <div className="text-xs text-muted-foreground">{getDaysUntil(event.date)}</div>
+          </div>
+        )}
+
+        {/* EPS */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3">
+            <div className="text-xs text-muted-foreground uppercase tracking-wide">EPS</div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold">{event.eps !== null ? event.eps.toFixed(2) : '—'}</span>
+              <span className="text-muted-foreground">/</span>
+              <span className="text-muted-foreground">{event.epsEstimated !== null ? event.epsEstimated.toFixed(2) : '—'}</span>
+              {isReported && (
+                <Badge 
+                  variant={isBeat ? "default" : isMiss ? "destructive" : "secondary"}
+                  className={`text-xs ${isBeat ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30' : isMiss ? 'bg-red-500/20 text-red-500 border-red-500/30' : ''}`}
+                >
+                  {isBeat && <ArrowUpRight className="w-3 h-3 mr-0.5" />}
+                  {isMiss && <ArrowDownRight className="w-3 h-3 mr-0.5" />}
+                  {formatPercentage(event.epsBeatPercentage ?? null)}
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Revenue */}
+        <div className="flex-1 min-w-0 hidden md:block">
+          <div className="flex items-center gap-3">
+            <div className="text-xs text-muted-foreground uppercase tracking-wide">Revenue</div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold">{formatCurrency(event.revenue ?? null)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Link */}
+        {event.url && (
+          <a 
+            href={event.url} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="flex-shrink-0 p-2 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+          >
+            <ExternalLink className="w-4 h-4" />
+          </a>
+        )}
+      </div>
+    );
   };
 
   // Helper function to check if a date is a weekend
@@ -263,101 +443,153 @@ const CalendarPage: React.FC = () => {
               </div>
             </div>
           </DialogTrigger>
-          <DialogContent className="max-h-[85vh] overflow-y-auto">
-            <DialogHeader className="pb-4 border-b">
-              <DialogTitle className="flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
-                <span>
-                  Earnings for {monthNames[currentDate.getMonth()]} {day}, {currentDate.getFullYear()}
-                </span>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+            <DialogHeader className="pb-4 border-b border-border/50 flex-shrink-0">
+              <DialogTitle className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-primary/10">
+                  <Calendar className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <div className="text-xl font-bold">
+                    {monthNames[currentDate.getMonth()]} {day}, {currentDate.getFullYear()}
+                  </div>
+                  <div className="text-sm text-muted-foreground font-normal">
+                    {sortedEvents.length} {sortedEvents.length === 1 ? 'company' : 'companies'} reporting
+                  </div>
+                </div>
               </DialogTitle>
+              <DialogDescription className="sr-only">
+                Earnings reports for {monthNames[currentDate.getMonth()]} {day}, {currentDate.getFullYear()}
+              </DialogDescription>
             </DialogHeader>
-            {sortedEvents.length > 0 ? (
-              <div className="space-y-4 mt-4">
-                {sortedEvents.map((event, idx) => {
-                  // Determine color based on EPS beat
-                  let epsColor = '';
-                  if (event.epsBeatPercentage && event.epsBeatPercentage > 0) {
-                    epsColor = 'text-green-500';
-                  } else if (event.epsBeatPercentage && event.epsBeatPercentage < 0) {
-                    epsColor = 'text-red-500';
-                  }
-                  
-                  // Determine color based on revenue beat
-                  let revenueColor = '';
-                  if (event.revenueBeatPercentage && event.revenueBeatPercentage > 0) {
-                    revenueColor = 'text-green-500';
-                  } else if (event.revenueBeatPercentage && event.revenueBeatPercentage < 0) {
-                    revenueColor = 'text-red-500';
-                  }
-                  
-                  // Determine card border color based on time
-                  let timeBorderColor = 'border-primary';
-                  if (event.time?.toLowerCase() === 'bmo') {
-                    timeBorderColor = 'border-green-400';
-                  } else if (event.time?.toLowerCase() === 'amc') {
-                    timeBorderColor = 'border-blue-400';
-                  }
-                  
-                  return (
-                    <Card key={idx} className={`overflow-hidden border-l-4 ${timeBorderColor} shadow-sm hover:shadow transition-shadow`}>
-                      <CardHeader className="py-3 bg-muted/20">
-                        <CardTitle className="text-base flex justify-between items-center">
-                          <span className="font-bold">{event.symbol}</span>
-                          <span className="text-sm font-normal">{formatTime(event.time)}</span>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent className="py-4">
-                        <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                          <div className="flex flex-col space-y-0.5">
-                            <span className="text-muted-foreground text-xs">EPS</span>
-                            <div className="font-medium">{event.eps !== null ? event.eps : 'N/A'}</div>
+            
+            <ScrollArea className="flex-1 -mx-6 px-6">
+              {sortedEvents.length > 0 ? (
+                <div className="space-y-3 py-4">
+                  {sortedEvents.map((event, idx) => {
+                    // Determine beat/miss status
+                    const isReported = event.eps !== null;
+                    const isBeat = event.epsBeatPercentage && event.epsBeatPercentage > 0;
+                    const isMiss = event.epsBeatPercentage && event.epsBeatPercentage < 0;
+                    const isRevenueBeat = event.revenueBeatPercentage && event.revenueBeatPercentage > 0;
+                    const isRevenueMiss = event.revenueBeatPercentage && event.revenueBeatPercentage < 0;
+                    
+                    return (
+                      <div 
+                        key={idx} 
+                        className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-card to-card/50 border border-border/50 hover:border-primary/30 transition-all duration-300"
+                      >
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-4 pb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="text-2xl font-bold tracking-tight">{event.symbol}</div>
+                            <Badge variant="outline" className="text-xs flex items-center gap-1">
+                              {getTimeIcon(event.time)}
+                              {formatTime(event.time)}
+                            </Badge>
+                            {isReported && (
+                              <Badge 
+                                className={`text-xs ${isBeat ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : isMiss ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-muted'}`}
+                              >
+                                {isBeat ? 'Beat' : isMiss ? 'Missed' : 'Met'}
+                              </Badge>
+                            )}
+                          </div>
+                          {event.url && (
+                            <a 
+                              href={event.url} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="p-2 rounded-xl hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                          )}
+                        </div>
+                        
+                        {/* Metrics Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 pt-0">
+                          {/* EPS Actual */}
+                          <div className="space-y-1">
+                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                              <Target className="w-3 h-3" />
+                              EPS Actual
+                            </div>
+                            <div className={`text-lg font-bold ${isBeat ? 'text-emerald-400' : isMiss ? 'text-red-400' : ''}`}>
+                              {event.eps !== null ? `$${event.eps.toFixed(2)}` : '—'}
+                            </div>
                           </div>
                           
-                          <div className="flex flex-col space-y-0.5">
-                            <span className="text-muted-foreground text-xs">EPS Estimated</span>
-                            <div className="font-medium">{event.epsEstimated !== null ? event.epsEstimated : 'N/A'}</div>
+                          {/* EPS Estimated */}
+                          <div className="space-y-1">
+                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                              <BarChart3 className="w-3 h-3" />
+                              EPS Est.
+                            </div>
+                            <div className="text-lg font-bold text-muted-foreground">
+                              {event.epsEstimated !== null ? `$${event.epsEstimated.toFixed(2)}` : '—'}
+                            </div>
                           </div>
                           
-                          <div className="flex flex-col space-y-0.5">
-                            <span className="text-muted-foreground text-xs">EPS Beat</span>
-                            <div className={`font-medium ${epsColor}`}>
+                          {/* EPS Surprise */}
+                          <div className="space-y-1">
+                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                              <Sparkles className="w-3 h-3" />
+                              EPS Surprise
+                            </div>
+                            <div className={`text-lg font-bold flex items-center gap-1 ${isBeat ? 'text-emerald-400' : isMiss ? 'text-red-400' : ''}`}>
+                              {isReported && (isBeat ? <TrendingUp className="w-4 h-4" /> : isMiss ? <TrendingDown className="w-4 h-4" /> : null)}
                               {formatPercentage(event.epsBeatPercentage ?? null)}
                             </div>
                           </div>
                           
-                          <div className="flex flex-col space-y-0.5">
-                            <span className="text-muted-foreground text-xs">Fiscal Period Ending</span>
-                            <div className="font-medium">{event.fiscalDateEnding || 'N/A'}</div>
+                          {/* Fiscal Period */}
+                          <div className="space-y-1">
+                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              Fiscal Period
+                            </div>
+                            <div className="text-sm font-medium">
+                              {event.fiscalDateEnding || '—'}
+                            </div>
                           </div>
-                          
-                          <div className="flex flex-col space-y-0.5">
-                            <span className="text-muted-foreground text-xs">Revenue</span>
-                            <div className="font-medium">{formatCurrency(event.revenue ?? null)}</div>
+                        </div>
+                        
+                        {/* Revenue Section */}
+                        <div className="border-t border-border/30 mx-4" />
+                        <div className="grid grid-cols-3 gap-4 p-4 pt-3">
+                          <div className="space-y-1">
+                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Revenue</div>
+                            <div className={`text-base font-bold ${isRevenueBeat ? 'text-emerald-400' : isRevenueMiss ? 'text-red-400' : ''}`}>
+                              {formatCurrency(event.revenue ?? null)}
+                            </div>
                           </div>
-                          
-                          <div className="flex flex-col space-y-0.5">
-                            <span className="text-muted-foreground text-xs">Revenue Estimated</span>
-                            <div className="font-medium">{formatCurrency(event.revenueEstimated ?? null)}</div>
+                          <div className="space-y-1">
+                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Revenue Est.</div>
+                            <div className="text-base font-bold text-muted-foreground">
+                              {formatCurrency(event.revenueEstimated ?? null)}
+                            </div>
                           </div>
-                          
-                          <div className="flex flex-col space-y-0.5">
-                            <span className="text-muted-foreground text-xs">Revenue Beat</span>
-                            <div className={`font-medium ${revenueColor}`}>
+                          <div className="space-y-1">
+                            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Rev. Surprise</div>
+                            <div className={`text-base font-bold ${isRevenueBeat ? 'text-emerald-400' : isRevenueMiss ? 'text-red-400' : ''}`}>
                               {formatPercentage(event.revenueBeatPercentage ?? null)}
                             </div>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="py-8 text-center text-muted-foreground">
-                No events for this day
-              </div>
-            )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="py-12 text-center">
+                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-muted/50 mb-4">
+                    <Calendar className="w-8 h-8 text-muted-foreground" />
+                  </div>
+                  <div className="text-muted-foreground">No earnings scheduled for this day</div>
+                </div>
+              )}
+            </ScrollArea>
           </DialogContent>
         </Dialog>
       );
@@ -368,51 +600,203 @@ const CalendarPage: React.FC = () => {
 
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col min-h-screen">
       <main className="w-full">
-        <div className="flex flex-col gap-4 sm:items-start">
-          <Card className="w-full">
-            <CardHeader className="pb-2">
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={previousMonth}
-                  className="p-2 hover:bg-muted/50 rounded-full"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <div className="text-center">
-                  <CardTitle className="mb-1 flex items-center justify-center gap-2">
-                    <Calendar className="w-5 h-5" />
-                    {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    Tap any day to view detailed earnings reports and performance metrics
-                  </p>
-                  <CategoryLegend />
+        <div className="flex flex-col gap-6">
+          {/* Page Header */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-primary/10">
+                  <Calendar className="w-7 h-7 text-primary" />
                 </div>
-                <button
-                  onClick={nextMonth}
-                  className="p-2 hover:bg-muted/50 rounded-full"
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
-            </CardHeader>
-            <CardContent className="px-2 pt-0">
-              <div className="grid grid-cols-5 gap-px">
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => (
-                  <div key={day} className="h-8 p-2 font-semibold text-center border-b border-border/40">
-                    {day}
+                Earnings Calendar
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Track S&P 500 and Dow Jones earnings reports
+              </p>
+            </div>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="bg-gradient-to-br from-card to-card/50 border-border/50">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-primary/10">
+                    <Clock className="w-5 h-5 text-primary" />
                   </div>
-                ))}
-                {renderCalendar()}
-              </div>
-            </CardContent>
-          </Card>
+                  <div>
+                    <div className="text-2xl font-bold">{stats.totalUpcoming}</div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide">Upcoming</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-card to-card/50 border-border/50">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-emerald-500/10">
+                    <TrendingUp className="w-5 h-5 text-emerald-500" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-emerald-500">{stats.beatCount}</div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide">Beats</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-card to-card/50 border-border/50">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-red-500/10">
+                    <TrendingDown className="w-5 h-5 text-red-500" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-red-500">{stats.missCount}</div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide">Misses</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="bg-gradient-to-br from-card to-card/50 border-border/50">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-amber-500/10">
+                    <Target className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold">{stats.beatRate}%</div>
+                    <div className="text-xs text-muted-foreground uppercase tracking-wide">Beat Rate</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+            {/* Calendar Section */}
+            <Card className="xl:col-span-2 bg-gradient-to-br from-card to-card/50 border-border/50">
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <button
+                    onClick={previousMonth}
+                    className="p-2 hover:bg-muted/50 rounded-xl transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <div className="text-center">
+                    <CardTitle className="mb-1 flex items-center justify-center gap-2 text-xl">
+                      {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Click any day to view detailed earnings reports
+                    </p>
+                    <CategoryLegend />
+                  </div>
+                  <button
+                    onClick={nextMonth}
+                    className="p-2 hover:bg-muted/50 rounded-xl transition-colors"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent className="px-2 pt-0">
+                <div className="grid grid-cols-5 gap-px">
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => (
+                    <div key={day} className="h-8 p-2 font-semibold text-center text-sm text-muted-foreground border-b border-border/40">
+                      {day}
+                    </div>
+                  ))}
+                  {renderCalendar()}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Earnings List Section */}
+            <Card className="bg-gradient-to-br from-card to-card/50 border-border/50">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg">Earnings Reports</CardTitle>
+                </div>
+                {/* Search Input */}
+                <div className="relative mt-3">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by symbol..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 bg-muted/30 border-border/50"
+                  />
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                  <div className="px-4">
+                    <TabsList className="w-full grid grid-cols-2 bg-muted/30">
+                      <TabsTrigger value="upcoming" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                        Upcoming ({filteredUpcomingEvents.length})
+                      </TabsTrigger>
+                      <TabsTrigger value="previous" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                        Previous ({filteredPreviousEvents.length})
+                      </TabsTrigger>
+                    </TabsList>
+                  </div>
+
+                  <TabsContent value="upcoming" className="mt-0">
+                    <ScrollArea className="h-[500px]">
+                      <div className="p-4 space-y-2">
+                        {filteredUpcomingEvents.length > 0 ? (
+                          filteredUpcomingEvents.map((event, idx) => (
+                            <EarningsListItem key={`${event.symbol}-${event.date}-${idx}`} event={event} />
+                          ))
+                        ) : (
+                          <div className="py-12 text-center">
+                            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted/50 mb-3">
+                              <Calendar className="w-6 h-6 text-muted-foreground" />
+                            </div>
+                            <div className="text-muted-foreground text-sm">
+                              {searchQuery ? 'No matching earnings found' : 'No upcoming earnings'}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </TabsContent>
+
+                  <TabsContent value="previous" className="mt-0">
+                    <ScrollArea className="h-[500px]">
+                      <div className="p-4 space-y-2">
+                        {filteredPreviousEvents.length > 0 ? (
+                          filteredPreviousEvents.map((event, idx) => (
+                            <EarningsListItem key={`${event.symbol}-${event.date}-${idx}`} event={event} />
+                          ))
+                        ) : (
+                          <div className="py-12 text-center">
+                            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted/50 mb-3">
+                              <Calendar className="w-6 h-6 text-muted-foreground" />
+                            </div>
+                            <div className="text-muted-foreground text-sm">
+                              {searchQuery ? 'No matching earnings found' : 'No previous earnings'}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </TabsContent>
+                </Tabs>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </main>
     </div>
-  ) ;
+  );
 };
 
 export default CalendarPage;
