@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-export interface SP500Constituent {
+export interface NasdaqConstituent {
   symbol: string;
   name: string;
   sector: string;
@@ -11,21 +11,21 @@ export interface SP500Constituent {
   founded: string;
 }
 
-async function fetchSP500Constituents(): Promise<SP500Constituent[]> {
-  const response = await fetch('/api/fmp/market/sp500');
+async function fetchNasdaqConstituents(): Promise<NasdaqConstituent[]> {
+  const response = await fetch('/api/fmp/nasdaq');
 
   if (!response.ok) {
-    throw new Error('Failed to fetch S&P 500 constituents');
+    throw new Error('Failed to fetch NASDAQ constituents');
   }
 
   return response.json();
 }
 
-export function useSP500Constituents() {
+export function useNasdaqConstituents() {
   return useQuery({
-    queryKey: ['sp500-constituents'],
+    queryKey: ['nasdaq-constituent'],
     queryFn: async () => {
-      const data = await fetchSP500Constituents();
+      const data = await fetchNasdaqConstituents();
       const symbols = new Set(data.map(item => item.symbol));
       const dataMap = new Map(data.map(item => [item.symbol, item]));
       return { symbols, dataMap };
@@ -33,4 +33,5 @@ export function useSP500Constituents() {
     staleTime: 24 * 60 * 60 * 1000, // Consider data fresh for 24 hours
     gcTime: 7 * 24 * 60 * 60 * 1000, // Keep data in cache for 7 days
   });
-} 
+}
+

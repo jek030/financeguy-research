@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-interface Constituent {
+export interface Constituent {
   symbol: string;
   name: string;
   sector: string;
@@ -11,7 +11,7 @@ interface Constituent {
   founded: string;
 }
 
-async function fetchDowJonesConstituents(): Promise<Set<string>> {
+async function fetchDowJonesConstituents(): Promise<{ symbols: Set<string>; dataMap: Map<string, Constituent> }> {
   const response = await fetch('/api/fmp/dowjones');
 
   if (!response.ok) {
@@ -19,7 +19,10 @@ async function fetchDowJonesConstituents(): Promise<Set<string>> {
   }
 
   const data: Constituent[] = await response.json();
-  return new Set(data.map(item => item.symbol));
+  const symbols = new Set(data.map(item => item.symbol));
+  const dataMap = new Map(data.map(item => [item.symbol, item]));
+  
+  return { symbols, dataMap };
 }
 
 export function useDowJonesConstituents() {
