@@ -862,8 +862,8 @@ const CalendarPage: React.FC = () => {
             </Card>
 
             {/* Earnings List Section */}
-            <Card className="bg-gradient-to-br from-card to-card/50 border-border/50">
-              <CardHeader className="pb-3">
+            <Card className="bg-gradient-to-br from-card to-card/50 border-border/50 flex flex-col max-h-[1000px] overflow-hidden">
+              <CardHeader className="pb-3 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">Earnings Reports</CardTitle>
                 </div>
@@ -878,9 +878,9 @@ const CalendarPage: React.FC = () => {
                   />
                 </div>
               </CardHeader>
-              <CardContent className="p-0">
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                  <div className="px-4">
+              <CardContent className="p-0 flex-1 flex flex-col min-h-0">
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1 min-h-0">
+                  <div className="px-4 flex-shrink-0">
                     <TabsList className="w-full grid grid-cols-2 bg-muted/30">
                       <TabsTrigger value="upcoming" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                         Upcoming ({filteredUpcomingEvents.length})
@@ -891,8 +891,8 @@ const CalendarPage: React.FC = () => {
                     </TabsList>
                   </div>
 
-                  <TabsContent value="upcoming" className="mt-0">
-                    <ScrollArea className="h-[500px]">
+                  <TabsContent value="upcoming" className="mt-0 flex-1 min-h-0 data-[state=inactive]:hidden">
+                    <ScrollArea className="h-full">
                       <div className="p-4 space-y-2">
                         {filteredUpcomingEvents.length > 0 ? (
                           filteredUpcomingEvents.map((event, idx) => (
@@ -912,8 +912,8 @@ const CalendarPage: React.FC = () => {
                     </ScrollArea>
                   </TabsContent>
 
-                  <TabsContent value="previous" className="mt-0">
-                    <ScrollArea className="h-[500px]">
+                  <TabsContent value="previous" className="mt-0 flex-1 min-h-0 data-[state=inactive]:hidden">
+                    <ScrollArea className="h-full">
                       <div className="p-4 space-y-2">
                         {filteredPreviousEvents.length > 0 ? (
                           filteredPreviousEvents.map((event, idx) => (
