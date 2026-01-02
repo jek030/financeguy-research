@@ -154,8 +154,11 @@ const CalendarPage: React.FC = () => {
   }, [events]);
 
   // Split events into previous and upcoming
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = useMemo(() => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }, []);
   
   const previousEvents = useMemo(() => {
     return allEventsSorted.filter(event => {
@@ -346,9 +349,9 @@ const CalendarPage: React.FC = () => {
           <div className="flex items-center gap-3">
             <div className="text-xs text-muted-foreground uppercase tracking-wide">EPS</div>
             <div className="flex items-center gap-2">
-              <span className="font-semibold">{event.eps !== null ? event.eps.toFixed(2) : '—'}</span>
+              <span className="font-semibold">{event.eps !== null && event.eps !== undefined ? event.eps.toFixed(2) : '—'}</span>
               <span className="text-muted-foreground">/</span>
-              <span className="text-muted-foreground">{event.epsEstimated !== null ? event.epsEstimated.toFixed(2) : '—'}</span>
+              <span className="text-muted-foreground">{event.epsEstimated !== null && event.epsEstimated !== undefined ? event.epsEstimated.toFixed(2) : '—'}</span>
               {isReported && (
                 <Badge 
                   variant={isBeat ? "default" : isMiss ? "destructive" : "secondary"}
@@ -516,7 +519,7 @@ const CalendarPage: React.FC = () => {
                               EPS Actual
                             </div>
                             <div className={`text-lg font-bold ${isBeat ? 'text-emerald-400' : isMiss ? 'text-red-400' : ''}`}>
-                              {event.eps !== null ? `$${event.eps.toFixed(2)}` : '—'}
+                              {event.eps !== null && event.eps !== undefined ? `$${event.eps.toFixed(2)}` : '—'}
                             </div>
                           </div>
                           
@@ -527,7 +530,7 @@ const CalendarPage: React.FC = () => {
                               EPS Est.
                             </div>
                             <div className="text-lg font-bold text-muted-foreground">
-                              {event.epsEstimated !== null ? `$${event.epsEstimated.toFixed(2)}` : '—'}
+                              {event.epsEstimated !== null && event.epsEstimated !== undefined ? `$${event.epsEstimated.toFixed(2)}` : '—'}
                             </div>
                           </div>
                           
