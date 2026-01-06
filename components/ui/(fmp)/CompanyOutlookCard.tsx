@@ -1,7 +1,7 @@
 "use client"
 import React, { useState } from 'react';
 
-import {Building2, Users, DollarSign, PieChart, Activity, ChevronDown, ChevronUp, Calculator} from 'lucide-react';
+import {Building2, Users, DollarSign, PieChart, Activity, ChevronDown, ChevronUp, Calculator, TrendingUp, BarChart3, Layers} from 'lucide-react';
 import { addYears } from 'date-fns';
 
 //UI Components
@@ -12,7 +12,7 @@ import { cn } from '@/lib/utils';
 import { Skeleton } from "@/components/ui/Skeleton";
 import RRCard from '@/components/ui/RRCard';
 import {  PercentageChange } from "@/components/ui/PriceIndicator";
-import { MetricDisplay, MetricRow, SectionDivider } from "@/components/ui/MetricDisplay";
+import { MetricDisplay, MetricCard, MetricGrid } from "@/components/ui/MetricDisplay";
 import { CompanyHeader, CompanyInfoSection } from "@/components/ui/CompanyHeader";
 import { FetchErrorDisplay, InvalidSymbolDisplay } from "@/components/ui/ErrorDisplay";
 
@@ -311,120 +311,58 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
     return (
       <div>
         {/* Header Skeleton */}
-        <div className="bg-secondary/60">
-          <div className="px-6 py-4">
+        <div className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-900/95 dark:to-slate-800" />
+          <div className="relative px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
             <div className="flex flex-col gap-4">
               <div className="flex gap-4 justify-between">
                 <div className="flex gap-4">
-                  <Skeleton className="h-16 w-16 rounded-lg" />
+                  <Skeleton className="h-16 w-16 rounded-xl" />
                   <div>
-                    <div className="flex items-center gap-2">
-                      <Skeleton className="h-8 w-48" />
-                      <div className="mx-2 h-5 w-px bg-border"></div>
-                      <Skeleton className="h-8 w-24" />
-                    </div>
-                    <Skeleton className="h-4 w-64 mt-2" />
+                    <Skeleton className="h-8 w-48 mb-2" />
+                    <Skeleton className="h-4 w-32 mb-3" />
+                    <Skeleton className="h-10 w-64" />
                   </div>
                 </div>
-                
-                {/* Next Earnings Skeleton */}
                 <div className="text-right">
-                  <Skeleton className="h-3 w-24 mb-1 ml-auto" />
-                  <Skeleton className="h-5 w-32 ml-auto" />
+                  <Skeleton className="h-3 w-24 mb-2 ml-auto" />
+                  <Skeleton className="h-5 w-28 ml-auto" />
                 </div>
-              </div>
-              
-              {/* 5D and 20D ADR/ATR row Skeleton */}
-              <div className="mt-4 pt-4 border-t border-border/40">
-                <div className="flex items-center gap-6 flex-wrap">
-                  <div>
-                    <Skeleton className="h-6 w-24 mb-1" />
-                    <Skeleton className="h-3 w-16" />
-                  </div>
-                  <div className="mx-1 h-5 w-px bg-border/20"></div>
-                  <div>
-                    <Skeleton className="h-6 w-24 mb-1" />
-                    <Skeleton className="h-3 w-16" />
-                  </div>
-                  <div className="mx-1 h-5 w-px bg-border/20"></div>
-                  <div>
-                    <Skeleton className="h-6 w-24 mb-1" />
-                    <Skeleton className="h-3 w-32" />
-                  </div>
-                  <div className="mx-1 h-5 w-px bg-border/20"></div>
-                  <div>
-                    <Skeleton className="h-6 w-24 mb-1" />
-                    <Skeleton className="h-3 w-32" />
-                  </div>
-                  <div className="mx-1 h-5 w-px bg-border/20"></div>
-                  <div>
-                    <Skeleton className="h-6 w-24 mb-1" />
-                    <Skeleton className="h-3 w-16" />
-                  </div>
-                </div>
-              </div>
-              
-              {/* Market Cap and other metrics Skeleton */}
-              <div className="flex items-center gap-6 flex-wrap">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i}>
-                    <Skeleton className="h-6 w-24 mb-1" />
-                    <Skeleton className="h-3 w-16" />
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            {/* Company Info Skeleton in Header */}
-            <div className="mt-4 pt-4 border-t border-border/40">
-              <div className="flex flex-wrap items-start">
-                {[...Array(6)].map((_, i) => (
-                  <React.Fragment key={i}>
-                    {i > 0 && <div className="mx-3 h-5 w-px bg-border self-center"></div>}
-                    <div className="min-w-[80px] px-3">
-                      <Skeleton className="h-3 w-16 mb-1" />
-                      <Skeleton className="h-3 w-24" />
-                    </div>
-                  </React.Fragment>
-                ))}
               </div>
             </div>
           </div>
         </div>
         
-        {/* Content Skeleton */}
-        <div className="bg-card">
-          <div className="p-6 space-y-6">
-            <div className="border-b pb-4">
-              <Skeleton className="h-16 w-full" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="p-4 rounded-lg bg-secondary/50">
-                  <div className="space-y-2">
-                    {[...Array(4)].map((_, j) => (
-                      <div key={j} className="flex justify-between items-center">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-4 w-20" />
-                      </div>
-                    ))}
-                  </div>
+        {/* Metrics Cards Skeleton */}
+        <div className="px-4 sm:px-6 lg:px-8 py-6 bg-slate-50 dark:bg-slate-900/50">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-5">
+                <Skeleton className="h-5 w-32 mb-4" />
+                <div className="grid grid-cols-2 gap-4">
+                  {[...Array(4)].map((_, j) => (
+                    <div key={j}>
+                      <Skeleton className="h-5 w-16 mb-1" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <Skeleton className="h-[400px] w-full" />
-
-        <div className="space-y-4">
-          <div className="grid w-full grid-cols-8 gap-2">
-            {[...Array(8)].map((_, i) => (
-              <Skeleton key={i} className="h-10" />
+              </div>
             ))}
           </div>
-          <Skeleton className="h-[600px] w-full" />
         </div>
+
+        {/* Content Skeleton */}
+        <div className="px-4 sm:px-6 lg:px-8 py-6">
+          <Skeleton className="h-16 w-full mb-6" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {[...Array(3)].map((_, i) => (
+              <Skeleton key={i} className="h-64 w-full rounded-xl" />
+            ))}
+          </div>
+        </div>
+
+        <Skeleton className="h-[400px] w-full mx-4 sm:mx-6 lg:mx-8 rounded-xl" />
       </div>
     );
   }
@@ -470,228 +408,252 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
         nextEarnings={quote.earningsAnnouncement}
       />
       
-      {/* Technical Metrics Section */}
-      <div className="bg-secondary/60">
-        <div className="px-4 sm:px-6 py-4">
-          <SectionDivider className="mb-4" />
+      {/* Metrics Section - Card-based Layout */}
+      <div className="px-4 sm:px-6 lg:px-8 py-6 bg-slate-50 dark:bg-slate-950/50 border-y border-slate-200 dark:border-slate-800">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-5">
           
-          {/* Technical Analysis Metrics */}
-          <MetricRow className="mb-4">
-            {range5Day && (
-              <MetricDisplay
-                value={`${range5Day.averageDailyRange}% / $${safeFormat(range5Day.averageTrueRange)}`}
-                label="5 Day ADR/ATR"
-              />
-            )}
-            
-            {range21Day && (
-              <MetricDisplay
-                value={`${range21Day.averageDailyRange}% / $${safeFormat(range21Day.averageTrueRange)}`}
-                label="21 Day ADR/ATR"
-              />
-            )}
+          {/* Technical Analysis Card */}
+          <MetricCard 
+            title="Technical Analysis" 
+            icon={<Activity className="w-4 h-4" />}
+          >
+            <MetricGrid columns={2}>
+              {range5Day && (
+                <MetricDisplay
+                  value={`${range5Day.averageDailyRange}%`}
+                  label="5D ADR"
+                  tooltip={`5 Day Average Daily Range: ${range5Day.averageDailyRange}%`}
+                />
+              )}
+              {range5Day && (
+                <MetricDisplay
+                  value={`$${safeFormat(range5Day.averageTrueRange)}`}
+                  label="5D ATR"
+                  tooltip={`5 Day Average True Range: $${safeFormat(range5Day.averageTrueRange)}`}
+                />
+              )}
+              {range21Day && (
+                <MetricDisplay
+                  value={`${range21Day.averageDailyRange}%`}
+                  label="21D ADR"
+                  tooltip={`21 Day Average Daily Range: ${range21Day.averageDailyRange}%`}
+                />
+              )}
+              {range21Day && (
+                <MetricDisplay
+                  value={`$${safeFormat(range21Day.averageTrueRange)}`}
+                  label="21D ATR"
+                  tooltip={`21 Day Average True Range: $${safeFormat(range21Day.averageTrueRange)}`}
+                />
+              )}
+              {range21Day && twentyEma && !twentyEmaLoading && (
+                <MetricDisplay
+                  value={`${((quote.price - twentyEma) / range21Day.averageTrueRange).toFixed(2)}x`}
+                  label="ATR from 21 EMA"
+                  valueClassName={cn(
+                    quote.price > twentyEma ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                  )}
+                  tooltip={
+                    <div className="space-y-1 text-xs">
+                      <p>Current: ${safeFormat(quote.price)}</p>
+                      <p>21 EMA: ${safeFormat(twentyEma)}</p>
+                      <p>21 ATR: ${safeFormat(range21Day.averageTrueRange)}</p>
+                      <p className="text-slate-400 mt-1">Distance from 21 EMA in ATR units</p>
+                    </div>
+                  }
+                />
+              )}
+            </MetricGrid>
+          </MetricCard>
+          
+          {/* Fundamentals Card */}
+          <MetricCard 
+            title="Fundamentals" 
+            icon={<TrendingUp className="w-4 h-4" />}
+          >
+            <MetricGrid columns={2}>
+              {lastQuarterEpsChange && (
+                <MetricDisplay
+                  value={`${lastQuarterEpsChange.value > 0 ? "+" : ""}${lastQuarterEpsChange.value.toFixed(1)}%`}
+                  label={`EPS YoY (${lastQuarterEpsChange.period})`}
+                  valueClassName={cn(
+                    lastQuarterEpsChange.value > 0 
+                      ? "text-emerald-600 dark:text-emerald-400" 
+                      : lastQuarterEpsChange.value < 0 
+                        ? "text-rose-600 dark:text-rose-400" 
+                        : ""
+                  )}
+                  tooltip={
+                    <div className="space-y-1 text-xs">
+                      <p>Current: ${lastQuarterEpsChange.current.toFixed(4)}</p>
+                      <p>Previous: ${lastQuarterEpsChange.previous.toFixed(4)}</p>
+                      <p className="text-slate-400 mt-1">YoY comparison for {lastQuarterEpsChange.period} {lastQuarterEpsChange.year}</p>
+                    </div>
+                  }
+                />
+              )}
+              
+              {lastQuarterRevenueChange && (
+                <MetricDisplay
+                  value={`${lastQuarterRevenueChange.value > 0 ? "+" : ""}${lastQuarterRevenueChange.value.toFixed(1)}%`}
+                  label={`Rev YoY (${lastQuarterRevenueChange.period})`}
+                  valueClassName={cn(
+                    lastQuarterRevenueChange.value > 0 
+                      ? "text-emerald-600 dark:text-emerald-400" 
+                      : lastQuarterRevenueChange.value < 0 
+                        ? "text-rose-600 dark:text-rose-400" 
+                        : ""
+                  )}
+                  tooltip={
+                    <div className="space-y-1 text-xs">
+                      <p>Current: ${(lastQuarterRevenueChange.current / 1000000).toFixed(1)}M</p>
+                      <p>Previous: ${(lastQuarterRevenueChange.previous / 1000000).toFixed(1)}M</p>
+                      <p className="text-slate-400 mt-1">YoY comparison for {lastQuarterRevenueChange.period} {lastQuarterRevenueChange.year}</p>
+                    </div>
+                  }
+                />
+              )}
+              
+              {calculatedROE && (
+                <MetricDisplay
+                  value={`${calculatedROE.value.toFixed(1)}%`}
+                  label={`ROE (${calculatedROE.year})`}
+                  valueClassName={cn(
+                    calculatedROE.value > 15 
+                      ? "text-emerald-600 dark:text-emerald-400" 
+                      : calculatedROE.value < 5 
+                        ? "text-rose-600 dark:text-rose-400" 
+                        : ""
+                  )}
+                  tooltip={
+                    <div className="space-y-1 text-xs">
+                      <p>Net Income: ${(calculatedROE.annualNetIncome / 1000000).toFixed(1)}M</p>
+                      <p>Avg Equity: ${(calculatedROE.averageEquity / 1000000).toFixed(1)}M</p>
+                      <p className="text-slate-400 mt-1">{">"}15% excellent, {"<"}5% poor</p>
+                    </div>
+                  }
+                />
+              )}
 
-            {range21Day && twentyEma && !twentyEmaLoading && (
-              <MetricDisplay
-                value={`${((quote.price - twentyEma) / range21Day.averageTrueRange).toFixed(2)}x 21 ATR`}
-                label="ATR Units from 21 EMA"
-                valueClassName={cn(
-                  quote.price > twentyEma ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"
-                )}
-                tooltip={
-                  <div className="space-y-1">
-                    <p>Current Price: ${safeFormat(quote.price)}</p>
-                    <p>21 Day EMA: ${safeFormat(twentyEma)}</p>
-                    <p>21 Day ATR: ${safeFormat(range21Day.averageTrueRange)}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Shows how many ATR units the price is away from the 21 Day EMA</p>
-                  </div>
-                }
-              />
-            )}
-          </MetricRow>
+              {previousWeekChange && (
+                <MetricDisplay
+                  value={`${previousWeekChange.value > 0 ? "+" : ""}${previousWeekChange.value.toFixed(1)}%`}
+                  label="Prev Week"
+                  valueClassName={cn(
+                    previousWeekChange.value > 0 
+                      ? "text-emerald-600 dark:text-emerald-400" 
+                      : previousWeekChange.value < 0 
+                        ? "text-rose-600 dark:text-rose-400" 
+                        : ""
+                  )}
+                  tooltip={
+                    <div className="space-y-1 text-xs">
+                      <p>{previousWeekChange.startDate.toLocaleDateString()}: ${previousWeekChange.startPrice.toFixed(2)}</p>
+                      <p>{previousWeekChange.endDate.toLocaleDateString()}: ${previousWeekChange.endPrice.toFixed(2)}</p>
+                      <p className="text-slate-400 mt-1">Monday open to Friday close</p>
+                    </div>
+                  }
+                />
+              )}
+            </MetricGrid>
+          </MetricCard>
           
-          <SectionDivider className="my-4" />
+          {/* Market Data Card */}
+          <MetricCard 
+            title="Market Data" 
+            icon={<BarChart3 className="w-4 h-4" />}
+          >
+            <MetricGrid columns={2}>
+              <MetricDisplay
+                value={quote.marketCap ? formatMarketCap(quote.marketCap) : 'N/A'}
+                label="Market Cap"
+              />
+              
+              <MetricDisplay
+                value={formatLargeNumber(quote.volume || 0)}
+                label="Volume"
+              />
+              
+              <MetricDisplay
+                value={formatLargeNumber(quote.avgVolume)}
+                label="Avg Vol (50D)"
+              />
+              
+              {!floatLoading && floatData?.[0] && (
+                <MetricDisplay
+                  value={`${((quote.volume / floatData[0].floatShares) * 100).toFixed(2)}%`}
+                  label="% Float Traded"
+                />
+              )}
+            </MetricGrid>
+          </MetricCard>
           
-          {/* Fundamental Metrics */}
-          <MetricRow>
-            {lastQuarterEpsChange && (
-              <MetricDisplay
-                value={`${lastQuarterEpsChange.value > 0 ? "+" : ""}${lastQuarterEpsChange.value.toFixed(2)}%`}
-                label={`YoY EPS % Change (${lastQuarterEpsChange.period} ${lastQuarterEpsChange.year})`}
-                valueClassName={cn(
-                  lastQuarterEpsChange.value > 0 
-                    ? "text-emerald-500 dark:text-emerald-400" 
-                    : lastQuarterEpsChange.value < 0 
-                      ? "text-rose-500 dark:text-rose-400" 
-                      : ""
-                )}
-                tooltip={
-                  <div className="space-y-1">
-                    <p>Current: ${lastQuarterEpsChange.current.toFixed(6)}</p>
-                    <p>Previous: ${lastQuarterEpsChange.previous.toFixed(6)}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Year-over-year comparison for the most recent quarter</p>
-                  </div>
-                }
-              />
-            )}
-            
-            {lastQuarterRevenueChange && (
-              <MetricDisplay
-                value={`${lastQuarterRevenueChange.value > 0 ? "+" : ""}${lastQuarterRevenueChange.value.toFixed(2)}%`}
-                label={`YoY Revenue % Change (${lastQuarterRevenueChange.period} ${lastQuarterRevenueChange.year})`}
-                valueClassName={cn(
-                  lastQuarterRevenueChange.value > 0 
-                    ? "text-emerald-500 dark:text-emerald-400" 
-                    : lastQuarterRevenueChange.value < 0 
-                      ? "text-rose-500 dark:text-rose-400" 
-                      : ""
-                )}
-                tooltip={
-                  <div className="space-y-1">
-                    <p>Current: ${(lastQuarterRevenueChange.current / 1000000).toFixed(2)}M</p>
-                    <p>Previous: ${(lastQuarterRevenueChange.previous / 1000000).toFixed(2)}M</p>
-                    <p className="text-xs text-muted-foreground mt-1">Year-over-year comparison for the most recent quarter</p>
-                  </div>
-                }
-              />
-            )}
-            
-            {calculatedROE && (
-              <MetricDisplay
-                value={`${calculatedROE.value.toFixed(2)}%`}
-                label={`ROE (${calculatedROE.year})`}
-                valueClassName={cn(
-                  calculatedROE.value > 15 
-                    ? "text-emerald-500 dark:text-emerald-400" 
-                    : calculatedROE.value < 5 
-                      ? "text-rose-500 dark:text-rose-400" 
-                      : ""
-                )}
-                tooltip={
-                  <div className="space-y-1">
-                    <p>Annual Net Income ({calculatedROE.year}): ${(calculatedROE.annualNetIncome / 1000000).toFixed(2)}M</p>
-                    <p>Current Equity: ${(calculatedROE.currentEquity / 1000000).toFixed(2)}M</p>
-                    <p>Previous Equity: ${(calculatedROE.previousEquity / 1000000).toFixed(2)}M</p>
-                    <p>Average Equity: ${(calculatedROE.averageEquity / 1000000).toFixed(2)}M</p>
-                    <p className="text-xs text-muted-foreground mt-1">ROE = (Annual Net Income / Average Equity) × 100</p>
-                    <p className="text-xs mt-1">
-                      <span className="text-emerald-500 dark:text-emerald-400 font-medium">Above 15%</span>: Excellent |  
-                      <span className="text-rose-500 dark:text-rose-400 font-medium"> Below 5%</span>: Poor
-                    </p>
-                  </div>
-                }
-              />
-            )}
-
-            {previousWeekChange && (
-              <MetricDisplay
-                value={`${previousWeekChange.value > 0 ? "+" : ""}${previousWeekChange.value.toFixed(2)}%`}
-                label="Previous Week % Change"
-                valueClassName={cn(
-                  previousWeekChange.value > 0 
-                    ? "text-emerald-500 dark:text-emerald-400" 
-                    : previousWeekChange.value < 0 
-                      ? "text-rose-500 dark:text-rose-400" 
-                      : ""
-                )}
-                tooltip={
-                  <div className="space-y-1">
-                    <p>Start Date: {previousWeekChange.startDate.toLocaleDateString()}</p>
-                    <p>Opening Price: ${previousWeekChange.startPrice.toFixed(2)}</p>
-                    <p>End Date: {previousWeekChange.endDate.toLocaleDateString()}</p>
-                    <p>Closing Price: ${previousWeekChange.endPrice.toFixed(2)}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Calculated from Monday&apos;s open to Friday&apos;s close of the previous week. If market was closed, uses the next/previous trading day.</p>
-                  </div>
-                }
-              />
-            )}
-          </MetricRow>
-        </div>
-      </div>
-      
-      {/* Market Data Section */}
-      <div className="bg-secondary/60">
-        <div className="px-4 sm:px-6 py-4">
-          <SectionDivider className="mb-4" />
-          
-          <MetricRow>
-            <MetricDisplay
-              value={quote.marketCap ? formatMarketCap(quote.marketCap) : 'N/A'}
-              label="Market Cap"
-            />
-            
-            <MetricDisplay
-              value={formatLargeNumber(quote.volume || 0)}
-              label="Volume"
-            />
-            
-            <MetricDisplay
-              value={formatLargeNumber(quote.avgVolume)}
-              label="50 Day Avg Volume"
-            />
-            
-            {!floatLoading && floatData?.[0] && (
-              <MetricDisplay
-                value={`${((quote.volume / floatData[0].floatShares) * 100).toFixed(2)}%`}
-                label="% Float Traded"
-              />
-            )}
-            
-            {!floatLoading && floatData?.[0] && (
-              <MetricDisplay
-                value={`${floatData[0].freeFloat.toFixed(2)}%`}
-                label="Free Float"
-              />
-            )}
-            
-            {!floatLoading && floatData?.[0] && (
-              <MetricDisplay
-                value={formatLargeNumber(floatData[0].floatShares)}
-                label="Float"
-              />
-            )}
-            
-            {!floatLoading && floatData?.[0] && (
-              <MetricDisplay
-                value={formatLargeNumber(floatData[0].outstandingShares)}
-                label="Shares Outstanding"
-              />
-            )}
-          </MetricRow>
+          {/* Float & Shares Card */}
+          <MetricCard 
+            title="Float & Shares" 
+            icon={<Layers className="w-4 h-4" />}
+          >
+            <MetricGrid columns={2}>
+              {!floatLoading && floatData?.[0] && (
+                <>
+                  <MetricDisplay
+                    value={`${floatData[0].freeFloat.toFixed(1)}%`}
+                    label="Free Float"
+                  />
+                  
+                  <MetricDisplay
+                    value={formatLargeNumber(floatData[0].floatShares)}
+                    label="Float Shares"
+                  />
+                  
+                  <MetricDisplay
+                    value={formatLargeNumber(floatData[0].outstandingShares)}
+                    label="Outstanding"
+                  />
+                </>
+              )}
+              
+              {(floatLoading || !floatData?.[0]) && (
+                <>
+                  <MetricDisplay value="—" label="Free Float" />
+                  <MetricDisplay value="—" label="Float Shares" />
+                  <MetricDisplay value="—" label="Outstanding" />
+                </>
+              )}
+            </MetricGrid>
+          </MetricCard>
         </div>
       </div>
       
       {/* Company Info Section */}
-      <div className="bg-secondary/60">
-        <div className="px-4 sm:px-6 py-4">
-          <CompanyInfoSection
-            sector={companyData.profile.sector}
-            industry={companyData.profile.industry}
-            ceo={companyData.profile.ceo}
-            employees={companyData.profile.fullTimeEmployees}
-            city={companyData.profile.city}
-            state={companyData.profile.state}
-            website={companyData.profile.website}
-          />
-        </div>
+      <div className="px-4 sm:px-6 lg:px-8 py-5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+        <CompanyInfoSection
+          sector={companyData.profile.sector}
+          industry={companyData.profile.industry}
+          ceo={companyData.profile.ceo}
+          employees={companyData.profile.fullTimeEmployees}
+          city={companyData.profile.city}
+          state={companyData.profile.state}
+          website={companyData.profile.website}
+        />
       </div>
       
       {/* Content Section */}
-      <div className="bg-card">
-        <div className="p-4 sm:p-6 space-y-6">
+      <div className="bg-white dark:bg-slate-900">
+        <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           {/* Company Description */}
           {companyData.profile.description && (
-            <div className="border-b pb-4">
+            <div className="pb-6 border-b border-slate-200 dark:border-slate-800">
               <div className="relative">
                 <p className={cn(
-                  "text-sm text-muted-foreground",
+                  "text-sm leading-relaxed text-slate-600 dark:text-slate-400",
                   !isDescriptionExpanded && "line-clamp-2"
                 )}>
                   {companyData.profile.description}
                 </p>
                 <button
                   onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                  className="mt-2 flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+                  className="mt-2 flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
                 >
                   {isDescriptionExpanded ? (
                     <>
@@ -710,38 +672,38 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
           {/* Trading Stats, Moving Averages, and Risk Calculator Cards */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Trading Stats Card */}
-            <Card className="w-full border bg-card">
-              <CardHeader>
-                <CardTitle>Trading Stats</CardTitle>
+            <Card className="w-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-semibold">Trading Stats</CardTitle>
               </CardHeader>
-              <CardContent className="p-4">
-                <div className="space-y-2">
+              <CardContent className="p-4 pt-0">
+                <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Previous Close</span>
-                    <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                    <span className="font-medium">${safeFormat(quote.previousClose)}</span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Previous Close</span>
+                    <div className="border-b border-dashed border-slate-300 dark:border-slate-700 flex-grow mx-3"></div>
+                    <span className="font-semibold tabular-nums">${safeFormat(quote.previousClose)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Open</span>
-                    <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                    <span className="font-medium">${safeFormat(quote.open)}</span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Open</span>
+                    <div className="border-b border-dashed border-slate-300 dark:border-slate-700 flex-grow mx-3"></div>
+                    <span className="font-semibold tabular-nums">${safeFormat(quote.open)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Day&apos;s Low</span>
-                    <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                    <span className="font-medium">${safeFormat(quote.dayLow)}</span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Day&apos;s Low</span>
+                    <div className="border-b border-dashed border-slate-300 dark:border-slate-700 flex-grow mx-3"></div>
+                    <span className="font-semibold tabular-nums">${safeFormat(quote.dayLow)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Day&apos;s High</span>
-                    <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                    <span className="font-medium">${safeFormat(quote.dayHigh)}</span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">Day&apos;s High</span>
+                    <div className="border-b border-dashed border-slate-300 dark:border-slate-700 flex-grow mx-3"></div>
+                    <span className="font-semibold tabular-nums">${safeFormat(quote.dayHigh)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">52 Week Low</span>
-                    <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">52 Week Low</span>
+                    <div className="border-b border-dashed border-slate-300 dark:border-slate-700 flex-grow mx-3"></div>
                     <div className="text-right">
-                      <div className="font-medium">${safeFormat(quote.yearLow)}</div>
-                      <div className="mt-1">
+                      <div className="font-semibold tabular-nums">${safeFormat(quote.yearLow)}</div>
+                      <div className="mt-0.5">
                         <PercentageChange 
                           value={((quote.price - quote.yearLow) / quote.yearLow * 100)} 
                           size="sm"
@@ -750,11 +712,11 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">52 Week High</span>
-                    <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">52 Week High</span>
+                    <div className="border-b border-dashed border-slate-300 dark:border-slate-700 flex-grow mx-3"></div>
                     <div className="text-right">
-                      <div className="font-medium">${safeFormat(quote.yearHigh)}</div>
-                      <div className="mt-1">
+                      <div className="font-semibold tabular-nums">${safeFormat(quote.yearHigh)}</div>
+                      <div className="mt-0.5">
                         <PercentageChange 
                           value={((quote.price - quote.yearHigh) / quote.yearHigh * 100)} 
                           size="sm"
@@ -763,19 +725,19 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">RSI (14)</span>
-                    <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                    <span className={cn("font-medium", {
-                      "text-emerald-500 dark:text-emerald-400": rsi && rsi >= 70,
-                      "text-rose-500 dark:text-rose-400": rsi && rsi <= 30
+                    <span className="text-sm text-slate-500 dark:text-slate-400">RSI (14)</span>
+                    <div className="border-b border-dashed border-slate-300 dark:border-slate-700 flex-grow mx-3"></div>
+                    <span className={cn("font-semibold tabular-nums", {
+                      "text-emerald-600 dark:text-emerald-400": rsi && rsi >= 70,
+                      "text-rose-600 dark:text-rose-400": rsi && rsi <= 30
                     })}>
                       {rsiLoading ? "Loading..." : (rsi ? `${safeFormat(rsi)}` : 'N/A')}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">P/E Ratio</span>
-                    <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-                    <span className="font-medium">{quote.pe ? safeFormat(quote.pe) : 'N/A'}</span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400">P/E Ratio</span>
+                    <div className="border-b border-dashed border-slate-300 dark:border-slate-700 flex-grow mx-3"></div>
+                    <span className="font-semibold tabular-nums">{quote.pe ? safeFormat(quote.pe) : 'N/A'}</span>
                   </div>
                 </div>
               </CardContent>
@@ -789,45 +751,45 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
           </div>
 
           {/* Previous IntradayChart implementation preserved within the component file */}
-          <div className="relative mt-6 w-full overflow-hidden rounded-xl border border-border/40 bg-card/60 shadow-sm" style={{ minHeight: 480 }}>
+          <div className="relative mt-6 w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm" style={{ minHeight: 480 }}>
             <IntradayChart symbol={symbol} exchange={quote?.exchange ?? undefined} />
           </div>
         </div>
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="earnings" className="space-y-4 px-4 sm:px-6 bg-card">
+      <Tabs defaultValue="earnings" className="space-y-4 px-4 sm:px-6 lg:px-8 py-6 bg-white dark:bg-slate-900">
         <div className="relative">
-          <TabsList className="flex w-full overflow-x-auto scrollbar-hide pb-1 md:grid md:grid-cols-8 lg:grid-cols-8">
-            <TabsTrigger value="earnings" className="flex items-center gap-1.5 whitespace-nowrap">
+          <TabsList className="flex w-full overflow-x-auto scrollbar-hide pb-1 md:grid md:grid-cols-8 lg:grid-cols-8 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+            <TabsTrigger value="earnings" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm">
               <Calculator className="w-4 h-4" /> 
               <span className="hidden md:inline">Earnings</span>
             </TabsTrigger>
-            <TabsTrigger value="news" className="flex items-center gap-1.5 whitespace-nowrap">
+            <TabsTrigger value="news" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm">
               <Building2 className="w-4 h-4" /> 
               <span className="hidden md:inline">News</span>
             </TabsTrigger>
-            <TabsTrigger value="financials" className="flex items-center gap-1.5 whitespace-nowrap">
+            <TabsTrigger value="financials" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm">
               <DollarSign className="w-4 h-4" /> 
               <span className="hidden md:inline">Financials</span>
             </TabsTrigger>
-            <TabsTrigger value="keymetrics" className="flex items-center gap-1.5 whitespace-nowrap">
+            <TabsTrigger value="keymetrics" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm">
               <PieChart className="w-4 h-4" /> 
               <span className="hidden md:inline">Key Metrics</span>
             </TabsTrigger>
-            <TabsTrigger value="insiders" className="flex items-center gap-1.5 whitespace-nowrap">
+            <TabsTrigger value="insiders" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm">
               <Users className="w-4 h-4" /> 
               <span className="hidden md:inline">Insider Activity</span>
             </TabsTrigger>
-            <TabsTrigger value="executives" className="flex items-center gap-1.5 whitespace-nowrap">
+            <TabsTrigger value="executives" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm">
               <Users className="w-4 h-4" /> 
               <span className="hidden md:inline">Executives</span>
             </TabsTrigger>
-            <TabsTrigger value="dividends" className="flex items-center gap-1.5 whitespace-nowrap">
+            <TabsTrigger value="dividends" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm">
               <DollarSign className="w-4 h-4" /> 
               <span className="hidden md:inline">Dividends</span>
             </TabsTrigger>
-            <TabsTrigger value="pricehistory" className="flex items-center gap-1.5 whitespace-nowrap">
+            <TabsTrigger value="pricehistory" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm">
               <Activity className="w-4 h-4" /> 
               <span className="hidden md:inline">Price History</span>
             </TabsTrigger>

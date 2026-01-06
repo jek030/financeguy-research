@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { PriceChange, PercentageChange } from '@/components/ui/PriceIndicator';
 import { safeFormat } from '@/lib/formatters';
+import { Calendar, MapPin, Globe, Users, Building2, Briefcase } from 'lucide-react';
 import type { Ticker } from '@/lib/types';
 
 interface CompanyHeaderProps {
@@ -32,86 +33,109 @@ export function CompanyHeader({
   nextEarnings
 }: CompanyHeaderProps) {
   return (
-    <div className="bg-secondary/60">
-      <div className="px-4 sm:px-6 py-4">
-        <div className="flex flex-col gap-4">
-          {/* Main Header Row */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-between">
-            {/* Company Info and Price */}
-            <div className="flex gap-3 items-start">
-              {image && (
+    <div className="relative overflow-hidden">
+      {/* Background gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-900/95 dark:to-slate-800" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(120,119,198,0.1),transparent)] dark:bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(120,119,198,0.15),transparent)]" />
+      
+      <div className="relative px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
+        {/* Main Grid Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr,auto] gap-4 lg:gap-8">
+          {/* Left Section: Company Info */}
+          <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 items-start">
+            {/* Company Logo */}
+            {image && (
+              <div className="relative flex-shrink-0">
+                <div className="absolute -inset-1 bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-600 rounded-xl blur-sm opacity-50" />
                 <Image
                   src={image}
                   alt={companyName || 'Company logo'}
-                  width={56}
-                  height={56}
-                  className="rounded-lg object-cover flex-shrink-0"
+                  width={64}
+                  height={64}
+                  className="relative rounded-xl object-cover ring-1 ring-slate-200 dark:ring-slate-700 shadow-md"
                 />
-              )}
-              <div className="min-w-0 flex-1">
-                {/* Company Name and Price Row */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap">
-                  <h2 className="text-xl sm:text-2xl font-bold tracking-tight">
-                    {companyName}
-                  </h2>
+              </div>
+            )}
+            
+            {/* Company Details */}
+            <div className="flex-1 min-w-0">
+              {/* Company Name & Symbol */}
+              <div className="flex flex-col gap-1">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-slate-900 dark:text-white truncate">
+                  {companyName}
+                </h1>
+                <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">{symbol}</span>
+                  <span className="w-1 h-1 rounded-full bg-slate-400" />
+                  <span>{exchange || 'N/A'}</span>
+                  {quote.timestamp && (
+                    <>
+                      <span className="w-1 h-1 rounded-full bg-slate-400 hidden sm:block" />
+                      <span className="text-xs hidden sm:inline">
+                        Updated: {new Date(quote.timestamp * 1000).toLocaleString()}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+              
+              {/* Price Section */}
+              <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-3">
+                {/* Current Price */}
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl sm:text-4xl font-bold tabular-nums tracking-tight text-slate-900 dark:text-white">
+                    ${typeof quote.price === 'number' ? safeFormat(quote.price) : 'N/A'}
+                  </span>
                   
-                  <div className="flex items-center gap-2">
-                    <div className="hidden sm:block mx-2 h-5 w-px bg-border"></div>
-                    <span className="text-xl font-bold">
-                      ${typeof quote.price === 'number' ? safeFormat(quote.price) : 'N/A'}
-                    </span>
-                  </div>
-                  
-                  {/* Price Changes - Same Line */}
-                  {quote?.change && (
-                    <div className="flex gap-1.5 flex-wrap items-center">
-                      <PriceChange value={quote.change} />
-                      <PercentageChange value={quote.changesPercentage || 0} />
-                      
-                      {/* After Hours Price Change - Same Line */}
-                      {aftermarketChange && (
-                        <>
-                          <div className="text-xs text-muted-foreground self-center px-1">After Hours:</div>
-                          <div className="inline-flex items-center rounded-md px-2 py-1 text-sm font-medium border bg-muted/50 text-foreground border-border">
-                            ${aftermarketChange.price.toFixed(2)}
-                          </div>
-                          <PriceChange value={aftermarketChange.change} />
-                          <PercentageChange value={aftermarketChange.changePercentage} />
-                        </>
-                      )}
+                  {/* Price Changes */}
+                  {quote?.change !== undefined && (
+                    <div className="flex items-center gap-1.5">
+                      <PriceChange value={quote.change} showArrow={true} size="md" />
+                      <PercentageChange value={quote.changesPercentage || 0} size="md" />
                     </div>
                   )}
                 </div>
                 
-                {/* Symbol and Exchange Info */}
-                <div className="text-sm text-muted-foreground mt-2">
-                  {symbol} • {exchange || 'N/A'}
-                  {quote.timestamp && (
-                    <>
-                      <span className="mx-2">•</span>
-                      <span className="text-xs">Updated: {new Date(quote.timestamp * 1000).toLocaleString()}</span>
-                    </>
-                  )}
-                  {aftermarketChange && (
-                    <>
-                      <span className="mx-2">•</span>
-                      <span className="text-xs">After Hours: {new Date(aftermarketChange.timestamp).toLocaleString()}</span>
-                    </>
-                  )}
+                {/* After Hours */}
+                {aftermarketChange && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                      After Hours
+                    </span>
+                    <span className="text-base font-semibold tabular-nums text-slate-700 dark:text-slate-200">
+                      ${aftermarketChange.price.toFixed(2)}
+                    </span>
+                    <PriceChange value={aftermarketChange.change} showArrow={false} size="sm" />
+                    <PercentageChange value={aftermarketChange.changePercentage} size="sm" />
+                  </div>
+                )}
+              </div>
+              
+              {/* After Hours Timestamp - Mobile */}
+              {aftermarketChange && (
+                <div className="mt-2 text-xs text-slate-400 dark:text-slate-500 sm:hidden">
+                  After Hours: {new Date(aftermarketChange.timestamp).toLocaleString()}
                 </div>
-              </div>
+              )}
             </div>
-            
-            {/* Next Earnings */}
-            {nextEarnings && (
-              <div className="text-right flex-shrink-0">
-                <h3 className="text-xs font-medium text-muted-foreground">Next Earnings</h3>
-                <p className="text-sm font-medium">
-                  {new Date(nextEarnings).toLocaleDateString()}
-                </p>
-              </div>
-            )}
           </div>
+          
+          {/* Right Section: Next Earnings */}
+          {nextEarnings && (
+            <div className="lg:text-right flex lg:flex-col items-center lg:items-end gap-2 lg:gap-1 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-200 dark:border-slate-700/50 mt-2 lg:mt-0">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Next Earnings</span>
+              </div>
+              <p className="text-base sm:text-lg font-semibold text-slate-900 dark:text-white">
+                {new Date(nextEarnings).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -141,93 +165,90 @@ export function CompanyInfoSection({
   
   if (!hasAnyInfo) return null;
 
-  const infoItems = [];
-  
-  if (sector) {
-    infoItems.push(
-      <div key="sector" className="flex flex-col">
-        <Link
-          href={`/scans/sectors/${encodeURIComponent(sector)}`}
-          className="hover:underline text-blue-600 dark:text-blue-400 font-medium"
-        >
-          {sector}
-        </Link>
-        <div className="text-xs text-muted-foreground">Sector</div>
-      </div>
-    );
-  }
-  
-  if (industry) {
-    infoItems.push(
-      <div key="industry" className="flex flex-col">
-        <Link
-          href={`/scans/sectors/${encodeURIComponent(sector || '')}/industry/${encodeURIComponent(industry)}`}
-          className="hover:underline text-blue-600 dark:text-blue-400 font-medium"
-        >
-          {industry}
-        </Link>
-        <div className="text-xs text-muted-foreground">Industry</div>
-      </div>
-    );
-  }
-  
-  if (ceo) {
-    infoItems.push(
-      <div key="ceo" className="flex flex-col">
-        <div className="font-medium">{ceo}</div>
-        <div className="text-xs text-muted-foreground">CEO</div>
-      </div>
-    );
-  }
-  
-  if (employees) {
-    infoItems.push(
-      <div key="employees" className="flex flex-col">
-        <div className="font-medium">{employees}</div>
-        <div className="text-xs text-muted-foreground">Employees</div>
-      </div>
-    );
-  }
-  
-  if (city || state) {
-    infoItems.push(
-      <div key="location" className="flex flex-col">
-        <div className="font-medium">
-          {city && state ? `${city}, ${state}` : city || state}
-        </div>
-        <div className="text-xs text-muted-foreground">Location</div>
-      </div>
-    );
-  }
-  
-  if (website) {
-    infoItems.push(
-      <div key="website" className="flex flex-col">
-        <Link 
-          className="hover:underline text-blue-600 dark:text-blue-400 font-medium truncate"
-          href={website}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          {website.replace(/^https?:\/\//, '')}
-        </Link>
-        <div className="text-xs text-muted-foreground">Website</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="border-t border-border/40 pt-4">
-      <div className="flex items-center gap-3 sm:gap-6 flex-wrap justify-center sm:justify-start">
-        {infoItems.map((item, index) => (
-          <React.Fragment key={item.key}>
-            {item}
-            {index < infoItems.length - 1 && (
-              <div className="mx-1 h-5 w-px bg-border self-center hidden sm:block"></div>
-            )}
-          </React.Fragment>
-        ))}
-      </div>
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6">
+      {sector && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+            <Building2 className="w-3.5 h-3.5" />
+            <span>Sector</span>
+          </div>
+          <Link
+            href={`/scans/sectors/${encodeURIComponent(sector)}`}
+            className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline underline-offset-2 transition-colors"
+          >
+            {sector}
+          </Link>
+        </div>
+      )}
+      
+      {industry && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+            <Briefcase className="w-3.5 h-3.5" />
+            <span>Industry</span>
+          </div>
+          <Link
+            href={`/scans/sectors/${encodeURIComponent(sector || '')}/industry/${encodeURIComponent(industry)}`}
+            className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline underline-offset-2 transition-colors line-clamp-2"
+          >
+            {industry}
+          </Link>
+        </div>
+      )}
+      
+      {ceo && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+            <Users className="w-3.5 h-3.5" />
+            <span>CEO</span>
+          </div>
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            {ceo}
+          </span>
+        </div>
+      )}
+      
+      {employees && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+            <Users className="w-3.5 h-3.5" />
+            <span>Employees</span>
+          </div>
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-200 tabular-nums">
+            {new Intl.NumberFormat('en-US').format(Number(employees) || 0)}
+          </span>
+        </div>
+      )}
+      
+      {(city || state) && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+            <MapPin className="w-3.5 h-3.5" />
+            <span>Location</span>
+          </div>
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+            {city && state ? `${city}, ${state}` : city || state}
+          </span>
+        </div>
+      )}
+      
+      {website && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+            <Globe className="w-3.5 h-3.5" />
+            <span>Website</span>
+          </div>
+          <Link 
+            className="text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 hover:underline underline-offset-2 transition-colors truncate"
+            href={website}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {website.replace(/^https?:\/\//, '')}
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
