@@ -312,7 +312,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
       <div>
         {/* Header Skeleton */}
         <div className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-900/95 dark:to-slate-800" />
+          <div className="absolute inset-0 bg-gradient-to-br from-neutral-50 via-white to-neutral-100 dark:from-neutral-950 dark:via-neutral-950 dark:to-neutral-900" />
           <div className="relative px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
             <div className="flex flex-col gap-4">
               <div className="flex gap-4 justify-between">
@@ -334,10 +334,10 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
         </div>
         
         {/* Metrics Cards Skeleton */}
-        <div className="px-4 sm:px-6 lg:px-8 py-6 bg-slate-50 dark:bg-slate-900/50">
+        <div className="px-4 sm:px-6 lg:px-8 py-6 bg-neutral-50 dark:bg-neutral-950">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-5">
+              <div key={i} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5">
                 <Skeleton className="h-5 w-32 mb-4" />
                 <div className="grid grid-cols-2 gap-4">
                   {[...Array(4)].map((_, j) => (
@@ -409,7 +409,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
       />
       
       {/* Metrics Section - Card-based Layout */}
-      <div className="px-4 sm:px-6 lg:px-8 py-6 bg-slate-50 dark:bg-slate-950/50 border-y border-slate-200 dark:border-slate-800">
+      <div className="px-4 sm:px-6 lg:px-8 py-6 bg-neutral-50 dark:bg-neutral-950 border-y border-neutral-200 dark:border-neutral-800">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-5">
           
           {/* Technical Analysis Card */}
@@ -458,7 +458,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                       <p>Current: ${safeFormat(quote.price)}</p>
                       <p>21 EMA: ${safeFormat(twentyEma)}</p>
                       <p>21 ATR: ${safeFormat(range21Day.averageTrueRange)}</p>
-                      <p className="text-slate-400 mt-1">Distance from 21 EMA in ATR units</p>
+                      <p className="text-neutral-400 mt-1">Distance from 21 EMA in ATR units</p>
                     </div>
                   }
                 />
@@ -487,7 +487,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                     <div className="space-y-1 text-xs">
                       <p>Current: ${lastQuarterEpsChange.current.toFixed(4)}</p>
                       <p>Previous: ${lastQuarterEpsChange.previous.toFixed(4)}</p>
-                      <p className="text-slate-400 mt-1">YoY comparison for {lastQuarterEpsChange.period} {lastQuarterEpsChange.year}</p>
+                      <p className="text-neutral-400 mt-1">YoY comparison for {lastQuarterEpsChange.period} {lastQuarterEpsChange.year}</p>
                     </div>
                   }
                 />
@@ -508,7 +508,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                     <div className="space-y-1 text-xs">
                       <p>Current: ${(lastQuarterRevenueChange.current / 1000000).toFixed(1)}M</p>
                       <p>Previous: ${(lastQuarterRevenueChange.previous / 1000000).toFixed(1)}M</p>
-                      <p className="text-slate-400 mt-1">YoY comparison for {lastQuarterRevenueChange.period} {lastQuarterRevenueChange.year}</p>
+                      <p className="text-neutral-400 mt-1">YoY comparison for {lastQuarterRevenueChange.period} {lastQuarterRevenueChange.year}</p>
                     </div>
                   }
                 />
@@ -529,7 +529,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                     <div className="space-y-1 text-xs">
                       <p>Net Income: ${(calculatedROE.annualNetIncome / 1000000).toFixed(1)}M</p>
                       <p>Avg Equity: ${(calculatedROE.averageEquity / 1000000).toFixed(1)}M</p>
-                      <p className="text-slate-400 mt-1">{">"}15% excellent, {"<"}5% poor</p>
+                      <p className="text-neutral-400 mt-1">{">"}15% excellent, {"<"}5% poor</p>
                     </div>
                   }
                 />
@@ -550,7 +550,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                     <div className="space-y-1 text-xs">
                       <p>{previousWeekChange.startDate.toLocaleDateString()}: ${previousWeekChange.startPrice.toFixed(2)}</p>
                       <p>{previousWeekChange.endDate.toLocaleDateString()}: ${previousWeekChange.endPrice.toFixed(2)}</p>
-                      <p className="text-slate-400 mt-1">Monday open to Friday close</p>
+                      <p className="text-neutral-400 mt-1">Monday open to Friday close</p>
                     </div>
                   }
                 />
@@ -626,7 +626,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
       </div>
       
       {/* Company Info Section */}
-      <div className="px-4 sm:px-6 lg:px-8 py-5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+      <div className="px-4 sm:px-6 lg:px-8 py-5 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800">
         <CompanyInfoSection
           sector={companyData.profile.sector}
           industry={companyData.profile.industry}
@@ -639,21 +639,21 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
       </div>
       
       {/* Content Section */}
-      <div className="bg-white dark:bg-slate-900">
+      <div className="bg-white dark:bg-neutral-900">
         <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           {/* Company Description */}
           {companyData.profile.description && (
-            <div className="pb-6 border-b border-slate-200 dark:border-slate-800">
+            <div className="pb-6 border-b border-neutral-200 dark:border-neutral-800">
               <div className="relative">
                 <p className={cn(
-                  "text-sm leading-relaxed text-slate-600 dark:text-slate-400",
+                  "text-sm leading-relaxed text-neutral-600 dark:text-neutral-400",
                   !isDescriptionExpanded && "line-clamp-2"
                 )}>
                   {companyData.profile.description}
                 </p>
                 <button
                   onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                  className="mt-2 flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                  className="mt-2 flex items-center gap-1 text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors"
                 >
                   {isDescriptionExpanded ? (
                     <>
@@ -672,35 +672,35 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
           {/* Trading Stats, Moving Averages, and Risk Calculator Cards */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Trading Stats Card */}
-            <Card className="w-full border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+            <Card className="w-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold">Trading Stats</CardTitle>
               </CardHeader>
               <CardContent className="p-4 pt-0">
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500 dark:text-slate-400">Previous Close</span>
-                    <div className="border-b border-dashed border-slate-300 dark:border-slate-700 flex-grow mx-3"></div>
+                    <span className="text-sm text-neutral-500 dark:text-neutral-400">Previous Close</span>
+                    <div className="border-b border-dashed border-neutral-300 dark:border-neutral-700 flex-grow mx-3"></div>
                     <span className="font-semibold tabular-nums">${safeFormat(quote.previousClose)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500 dark:text-slate-400">Open</span>
-                    <div className="border-b border-dashed border-slate-300 dark:border-slate-700 flex-grow mx-3"></div>
+                    <span className="text-sm text-neutral-500 dark:text-neutral-400">Open</span>
+                    <div className="border-b border-dashed border-neutral-300 dark:border-neutral-700 flex-grow mx-3"></div>
                     <span className="font-semibold tabular-nums">${safeFormat(quote.open)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500 dark:text-slate-400">Day&apos;s Low</span>
-                    <div className="border-b border-dashed border-slate-300 dark:border-slate-700 flex-grow mx-3"></div>
+                    <span className="text-sm text-neutral-500 dark:text-neutral-400">Day&apos;s Low</span>
+                    <div className="border-b border-dashed border-neutral-300 dark:border-neutral-700 flex-grow mx-3"></div>
                     <span className="font-semibold tabular-nums">${safeFormat(quote.dayLow)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500 dark:text-slate-400">Day&apos;s High</span>
-                    <div className="border-b border-dashed border-slate-300 dark:border-slate-700 flex-grow mx-3"></div>
+                    <span className="text-sm text-neutral-500 dark:text-neutral-400">Day&apos;s High</span>
+                    <div className="border-b border-dashed border-neutral-300 dark:border-neutral-700 flex-grow mx-3"></div>
                     <span className="font-semibold tabular-nums">${safeFormat(quote.dayHigh)}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500 dark:text-slate-400">52 Week Low</span>
-                    <div className="border-b border-dashed border-slate-300 dark:border-slate-700 flex-grow mx-3"></div>
+                    <span className="text-sm text-neutral-500 dark:text-neutral-400">52 Week Low</span>
+                    <div className="border-b border-dashed border-neutral-300 dark:border-neutral-700 flex-grow mx-3"></div>
                     <div className="text-right">
                       <div className="font-semibold tabular-nums">${safeFormat(quote.yearLow)}</div>
                       <div className="mt-0.5">
@@ -712,8 +712,8 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500 dark:text-slate-400">52 Week High</span>
-                    <div className="border-b border-dashed border-slate-300 dark:border-slate-700 flex-grow mx-3"></div>
+                    <span className="text-sm text-neutral-500 dark:text-neutral-400">52 Week High</span>
+                    <div className="border-b border-dashed border-neutral-300 dark:border-neutral-700 flex-grow mx-3"></div>
                     <div className="text-right">
                       <div className="font-semibold tabular-nums">${safeFormat(quote.yearHigh)}</div>
                       <div className="mt-0.5">
@@ -725,8 +725,8 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                     </div>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500 dark:text-slate-400">RSI (14)</span>
-                    <div className="border-b border-dashed border-slate-300 dark:border-slate-700 flex-grow mx-3"></div>
+                    <span className="text-sm text-neutral-500 dark:text-neutral-400">RSI (14)</span>
+                    <div className="border-b border-dashed border-neutral-300 dark:border-neutral-700 flex-grow mx-3"></div>
                     <span className={cn("font-semibold tabular-nums", {
                       "text-emerald-600 dark:text-emerald-400": rsi && rsi >= 70,
                       "text-rose-600 dark:text-rose-400": rsi && rsi <= 30
@@ -735,8 +735,8 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-slate-500 dark:text-slate-400">P/E Ratio</span>
-                    <div className="border-b border-dashed border-slate-300 dark:border-slate-700 flex-grow mx-3"></div>
+                    <span className="text-sm text-neutral-500 dark:text-neutral-400">P/E Ratio</span>
+                    <div className="border-b border-dashed border-neutral-300 dark:border-neutral-700 flex-grow mx-3"></div>
                     <span className="font-semibold tabular-nums">{quote.pe ? safeFormat(quote.pe) : 'N/A'}</span>
                   </div>
                 </div>
@@ -751,45 +751,45 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
           </div>
 
           {/* Previous IntradayChart implementation preserved within the component file */}
-          <div className="relative mt-6 w-full overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm" style={{ minHeight: 480 }}>
+          <div className="relative mt-6 w-full overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm" style={{ minHeight: 480 }}>
             <IntradayChart symbol={symbol} exchange={quote?.exchange ?? undefined} />
           </div>
         </div>
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="earnings" className="space-y-4 px-4 sm:px-6 lg:px-8 py-6 bg-white dark:bg-slate-900">
+      <Tabs defaultValue="earnings" className="space-y-4 px-4 sm:px-6 lg:px-8 py-6 bg-white dark:bg-neutral-900">
         <div className="relative">
-          <TabsList className="flex w-full overflow-x-auto scrollbar-hide pb-1 md:grid md:grid-cols-8 lg:grid-cols-8 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
-            <TabsTrigger value="earnings" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm">
+          <TabsList className="flex w-full overflow-x-auto scrollbar-hide pb-1 md:grid md:grid-cols-8 lg:grid-cols-8 bg-neutral-100 dark:bg-neutral-800 rounded-lg p-1">
+            <TabsTrigger value="earnings" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-sm">
               <Calculator className="w-4 h-4" /> 
               <span className="hidden md:inline">Earnings</span>
             </TabsTrigger>
-            <TabsTrigger value="news" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm">
+            <TabsTrigger value="news" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-sm">
               <Building2 className="w-4 h-4" /> 
               <span className="hidden md:inline">News</span>
             </TabsTrigger>
-            <TabsTrigger value="financials" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm">
+            <TabsTrigger value="financials" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-sm">
               <DollarSign className="w-4 h-4" /> 
               <span className="hidden md:inline">Financials</span>
             </TabsTrigger>
-            <TabsTrigger value="keymetrics" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm">
+            <TabsTrigger value="keymetrics" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-sm">
               <PieChart className="w-4 h-4" /> 
               <span className="hidden md:inline">Key Metrics</span>
             </TabsTrigger>
-            <TabsTrigger value="insiders" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm">
+            <TabsTrigger value="insiders" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-sm">
               <Users className="w-4 h-4" /> 
               <span className="hidden md:inline">Insider Activity</span>
             </TabsTrigger>
-            <TabsTrigger value="executives" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm">
+            <TabsTrigger value="executives" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-sm">
               <Users className="w-4 h-4" /> 
               <span className="hidden md:inline">Executives</span>
             </TabsTrigger>
-            <TabsTrigger value="dividends" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm">
+            <TabsTrigger value="dividends" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-sm">
               <DollarSign className="w-4 h-4" /> 
               <span className="hidden md:inline">Dividends</span>
             </TabsTrigger>
-            <TabsTrigger value="pricehistory" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:shadow-sm">
+            <TabsTrigger value="pricehistory" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-sm">
               <Activity className="w-4 h-4" /> 
               <span className="hidden md:inline">Price History</span>
             </TabsTrigger>

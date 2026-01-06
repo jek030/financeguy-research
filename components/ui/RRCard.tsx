@@ -92,16 +92,15 @@ const RRCard: React.FC<RRCalculationCardProps> = ({ price, dayLow }) => {
   };
 
   return (
-    <Card className="w-full h-full">
-      <CardHeader>
-        <CardTitle>Risk Calculator</CardTitle>
-        <div className="w-full h-px bg-border" />
+    <Card className="w-full h-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold">Risk Calculator</CardTitle>
       </CardHeader>
       
-      <CardContent>
+      <CardContent className="p-4 pt-0">
         <form onSubmit={calculateResult} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1" htmlFor="value1">
+            <label className="block text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-1.5" htmlFor="value1">
               Price Target
             </label>
             <div className="flex items-center gap-2">
@@ -113,7 +112,7 @@ const RRCard: React.FC<RRCalculationCardProps> = ({ price, dayLow }) => {
                 onChange={handleChange}
                 placeholder="Enter first value"
                 required
-                className="bg-background"
+                className="bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 focus:border-neutral-400 dark:focus:border-neutral-600"
               />
               {values.value1 && values.value2 && (
                 <PercentageChange 
@@ -124,7 +123,7 @@ const RRCard: React.FC<RRCalculationCardProps> = ({ price, dayLow }) => {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1" htmlFor="value2">
+            <label className="block text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-1.5" htmlFor="value2">
               Price
             </label>
             <Input
@@ -135,11 +134,11 @@ const RRCard: React.FC<RRCalculationCardProps> = ({ price, dayLow }) => {
               onChange={handleChange}
               placeholder="Enter second value"
               required
-              className="bg-background"
+              className="bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 focus:border-neutral-400 dark:focus:border-neutral-600"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1" htmlFor="value3">
+            <label className="block text-sm font-medium text-neutral-500 dark:text-neutral-400 mb-1.5" htmlFor="value3">
               Stop Loss
             </label>
             <div className="flex items-center gap-2">
@@ -151,7 +150,7 @@ const RRCard: React.FC<RRCalculationCardProps> = ({ price, dayLow }) => {
                 onChange={handleChange}
                 placeholder="Enter third value"
                 required
-                className="bg-background"
+                className="bg-neutral-50 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 focus:border-neutral-400 dark:focus:border-neutral-600"
               />
               {values.value3 && values.value2 && (
                 <PercentageChange 
@@ -161,15 +160,15 @@ const RRCard: React.FC<RRCalculationCardProps> = ({ price, dayLow }) => {
               )}
             </div>
           </div>
-          <Button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+          <Button type="submit" className="w-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 font-medium">
             Calculate
           </Button>
         </form>
       </CardContent>
-      <CardFooter className="flex flex-col items-start gap-4 w-full">
-        <div className="w-full flex justify-between items-center border-t border-border pt-4">
-          <label className="text-sm font-medium text-muted-foreground">Result:</label>
-          <span className="text-lg font-semibold text-foreground">
+      <CardFooter className="flex flex-col items-start gap-4 w-full px-4 pb-4">
+        <div className="w-full flex justify-between items-center border-t border-neutral-200 dark:border-neutral-800 pt-4">
+          <label className="text-sm font-medium text-neutral-500 dark:text-neutral-400">Result:</label>
+          <span className="text-lg font-bold tabular-nums text-neutral-900 dark:text-white">
             {result !== null ? result.value.toFixed(1) + "R" : '—'}
           </span>
         </div>
@@ -177,23 +176,23 @@ const RRCard: React.FC<RRCalculationCardProps> = ({ price, dayLow }) => {
         {/* 2R and 5R Display */}
         <div className="w-full space-y-2">
           <div className="flex justify-between items-center">
-            <label className="text-sm font-medium text-muted-foreground">2R Target:</label>
-            <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-            <span className="text-sm font-medium text-foreground">
+            <label className="text-sm font-medium text-neutral-500 dark:text-neutral-400">2R Target:</label>
+            <div className="border-b border-dashed border-neutral-300 dark:border-neutral-700 flex-grow mx-3"></div>
+            <span className="text-sm font-semibold tabular-nums text-neutral-900 dark:text-white">
               {calculate2R() !== null ? `$${calculate2R()!.toFixed(2)}` : '—'}
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <label className="text-sm font-medium text-muted-foreground">5R Target:</label>
-            <div className="border-b border-dashed border-muted-foreground/50 flex-grow mx-2"></div>
-            <span className="text-sm font-medium text-foreground">
+            <label className="text-sm font-medium text-neutral-500 dark:text-neutral-400">5R Target:</label>
+            <div className="border-b border-dashed border-neutral-300 dark:border-neutral-700 flex-grow mx-3"></div>
+            <span className="text-sm font-semibold tabular-nums text-neutral-900 dark:text-white">
               {calculate5R() !== null ? `$${calculate5R()!.toFixed(2)}` : '—'}
             </span>
           </div>
         </div>
         
         {error && (
-          <p className="text-sm text-negative">{error}</p>
+          <p className="text-sm text-rose-600 dark:text-rose-400 font-medium">{error}</p>
         )}
       </CardFooter>
     </Card>

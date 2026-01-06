@@ -29,8 +29,8 @@ export function MetricDisplay({
   if (isLoading) {
     return (
       <div className={cn("animate-pulse", className)}>
-        <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded w-20 mb-1.5"></div>
-        <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-14"></div>
+        <div className="h-5 bg-neutral-200 dark:bg-neutral-700 rounded w-20 mb-1.5"></div>
+        <div className="h-3 bg-neutral-200 dark:bg-neutral-700 rounded w-14"></div>
       </div>
     );
   }
@@ -38,9 +38,9 @@ export function MetricDisplay({
   return (
     <div className={cn("flex flex-col gap-0.5", className)}>
       <div className="flex items-center gap-1.5">
-        {icon && <span className="text-slate-400 dark:text-slate-500">{icon}</span>}
+        {icon && <span className="text-neutral-400 dark:text-neutral-500">{icon}</span>}
         <div className={cn(
-          "text-base sm:text-lg font-semibold tabular-nums text-slate-900 dark:text-white",
+          "text-base sm:text-lg font-semibold tabular-nums text-neutral-900 dark:text-white",
           valueClassName
         )}>
           {value}
@@ -50,7 +50,7 @@ export function MetricDisplay({
             <Tooltip>
               <TooltipTrigger asChild>
                 <button className="inline-flex opacity-60 hover:opacity-100 transition-opacity">
-                  <InfoIcon className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
+                  <InfoIcon className="h-3.5 w-3.5 text-neutral-400 dark:text-neutral-500" />
                 </button>
               </TooltipTrigger>
               <TooltipContent side="top" sideOffset={5} className="max-w-xs">
@@ -60,13 +60,13 @@ export function MetricDisplay({
           </TooltipProvider>
         )}
       </div>
-      <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+      <div className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
         {label}
       </div>
       {subValue && (
         <div className="mt-0.5">
           {typeof subValue === 'string' ? (
-            <div className="text-xs text-slate-400 dark:text-slate-500">{subValue}</div>
+            <div className="text-xs text-neutral-400 dark:text-neutral-500">{subValue}</div>
           ) : (
             subValue
           )}
@@ -110,16 +110,16 @@ interface MetricCardProps {
 export function MetricCard({ title, icon, children, className }: MetricCardProps) {
   return (
     <div className={cn(
-      "rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-4 sm:p-5",
+      "rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 sm:p-5",
       className
     )}>
       <div className="flex items-center gap-2 mb-4">
         {icon && (
-          <div className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+          <div className="p-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400">
             {icon}
           </div>
         )}
-        <h3 className="text-sm font-semibold text-slate-900 dark:text-white uppercase tracking-wide">
+        <h3 className="text-sm font-semibold text-neutral-900 dark:text-white uppercase tracking-wide">
           {title}
         </h3>
       </div>
@@ -157,7 +157,7 @@ interface SectionDividerProps {
 }
 
 export function SectionDivider({ className }: SectionDividerProps) {
-  return <div className={cn("border-t border-slate-200 dark:border-slate-800", className)} />;
+  return <div className={cn("border-t border-neutral-200 dark:border-neutral-800", className)} />;
 }
 
 // Preset Icons for common metric types

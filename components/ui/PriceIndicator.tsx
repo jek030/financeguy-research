@@ -43,8 +43,8 @@ export function PriceIndicator({
     "inline-flex items-center gap-1 rounded-md font-medium border",
     sizeClasses[size],
     isPositive 
-      ? "bg-emerald-500/5 text-emerald-600 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-800" 
-      : "bg-rose-500/5 text-rose-600 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-800",
+      ? "bg-emerald-500/10 text-emerald-600 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-400 dark:border-emerald-800" 
+      : "bg-rose-500/10 text-rose-600 border-rose-200 dark:bg-rose-500/15 dark:text-rose-400 dark:border-rose-800",
     className
   );
 

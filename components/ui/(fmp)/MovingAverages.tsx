@@ -86,25 +86,25 @@ export function MovingAverages({ companyData, symbol }: MovingAveragesProps) {
   const movingAverages = useMovingAverages(symbol, currentPrice)
 
   return (
-    <Card className="w-full bg-card border h-full">
-      <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-1.5">Moving Averages</CardTitle>
-            <CardDescription className="text-sm">
-              Current Price: ${formatter.format(currentPrice)}
-            </CardDescription>
+    <Card className="w-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm h-full">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-semibold">Moving Averages</CardTitle>
+        <CardDescription className="text-sm text-neutral-500 dark:text-neutral-400">
+          Current Price: ${formatter.format(currentPrice)}
+        </CardDescription>
       </CardHeader>
       
-      <CardContent className="p-3">
+      <CardContent className="p-4 pt-0">
         <TooltipProvider>
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden">
             <div className="overflow-x-auto">
               <Table className="text-xs [&_th]:!text-xs [&_td]:!text-xs [&_th]:!sm:text-xs [&_td]:!sm:text-xs">
                 <TableHeader>
-                  <TableRow className="hover:bg-muted/50">
-                    <TableHead className="w-[80px] text-xs p-2 !sm:text-xs">Status</TableHead>
-                    <TableHead className="text-xs p-2 !sm:text-xs">Period</TableHead>
-                    <TableHead className="text-xs p-2 !sm:text-xs">Value</TableHead>
-                    <TableHead className="text-xs p-2 !sm:text-xs">Difference</TableHead>
+                  <TableRow className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50 border-b border-neutral-200 dark:border-neutral-800">
+                    <TableHead className="w-[80px] text-xs p-2 !sm:text-xs text-neutral-500 dark:text-neutral-400">Status</TableHead>
+                    <TableHead className="text-xs p-2 !sm:text-xs text-neutral-500 dark:text-neutral-400">Period</TableHead>
+                    <TableHead className="text-xs p-2 !sm:text-xs text-neutral-500 dark:text-neutral-400">Value</TableHead>
+                    <TableHead className="text-xs p-2 !sm:text-xs text-neutral-500 dark:text-neutral-400">Difference</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody className="text-xs">
@@ -115,12 +115,12 @@ export function MovingAverages({ companyData, symbol }: MovingAveragesProps) {
                       <TableRow 
                         key={key} 
                         className={cn(
-                          "group hover:bg-muted/50",
+                          "group border-b border-neutral-100 dark:border-neutral-800 last:border-b-0",
                           isLoading 
-                            ? "bg-muted/50"
+                            ? "bg-neutral-50 dark:bg-neutral-800/50"
                             : isAbove 
-                              ? "bg-emerald-500/5 dark:bg-emerald-500/10" 
-                              : "bg-rose-500/5 dark:bg-rose-500/10"
+                              ? "bg-emerald-500/5 dark:bg-emerald-500/10 hover:bg-emerald-500/10 dark:hover:bg-emerald-500/15" 
+                              : "bg-rose-500/5 dark:bg-rose-500/10 hover:bg-rose-500/10 dark:hover:bg-rose-500/15"
                         )}
                       >
                         <TableCell className="whitespace-nowrap text-xs p-2 !sm:text-xs">
@@ -132,36 +132,36 @@ export function MovingAverages({ companyData, symbol }: MovingAveragesProps) {
                             <StatusIndicator isPositive={isAbove} />
                           )}
                         </TableCell>
-                        <TableCell className="text-muted-foreground whitespace-nowrap text-xs p-2 !sm:text-xs">
+                        <TableCell className="text-neutral-600 dark:text-neutral-300 whitespace-nowrap text-xs p-2 !sm:text-xs font-medium">
                           {LABELS[key as keyof typeof LABELS]}
                         </TableCell>
-                        <TableCell className="font-mono text-muted-foreground whitespace-nowrap text-xs p-2 !sm:text-xs">
+                        <TableCell className="font-mono text-neutral-600 dark:text-neutral-300 whitespace-nowrap text-xs p-2 !sm:text-xs">
                           {isLoading ? "..." : `$${formatter.format(ma)}`}
                         </TableCell>
                         <TableCell className="whitespace-nowrap text-xs p-2 !sm:text-xs">
                           {isLoading ? (
-                            <div className="text-muted-foreground">Loading...</div>
+                            <div className="text-neutral-400 dark:text-neutral-500">Loading...</div>
                           ) : (
                             <div className="flex items-center gap-1">
                               <div className={cn(
                                 "flex items-center gap-0.5",
                                 isAbove 
-                                  ? "text-emerald-500 dark:text-emerald-400" 
-                                  : "text-rose-500 dark:text-rose-400"
+                                  ? "text-emerald-600 dark:text-emerald-400" 
+                                  : "text-rose-600 dark:text-rose-400"
                               )}>
                                 {isAbove ? (
                                   <ArrowUpIcon className="h-3 w-3" />
                                 ) : (
                                   <ArrowDownIcon className="h-3 w-3" />
                                 )}
-                                <span className="font-mono text-xs">
+                                <span className="font-mono text-xs font-medium">
                                   ${formatter.format(difference)}
                                 </span>
                               </div>
                               <TooltipProvider delayDuration={0}>
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <button className="inline-flex text-xs text-muted-foreground hover:text-foreground transition-colors">
+                                    <button className="inline-flex text-xs text-neutral-500 dark:text-neutral-400 hover:text-neutral-700 dark:hover:text-neutral-200 transition-colors">
                                       ({formatter.format(percentDiff)}%)
                                     </button>
                                   </TooltipTrigger>
