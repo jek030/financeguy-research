@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { WatchlistCard } from '@/components/watchlist/types';
 import { Ticker } from '@/lib/types';
 import { supabase, SupabaseWatchlist, SupabaseTicker } from '@/lib/supabase';
@@ -19,6 +19,14 @@ export function useWatchlist() {
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const { defaultWatchlistId, setDefaultWatchlist, isLoading: prefsLoading } = useUserPreferences();
+  
+  // Track if we've done the initial watchlist selection to prevent re-selecting on navigation
+  const hasInitiallySelected = useRef(false);
+  
+  // Reset the initial selection flag when user changes (logout/login)
+  useEffect(() => {
+    hasInitiallySelected.current = false;
+  }, [user]);
 
   // Convert Supabase watchlist to our app's format
   const mapSupabaseToWatchlist = (data: SupabaseWatchlist): WatchlistCard => ({
@@ -90,14 +98,22 @@ export function useWatchlist() {
           setNewTickerInputs(tickerInputs);
           setEditNameInputs(nameInputs);
           
-          // Select default watchlist or first watchlist if available and none selected
-          if (mappedWatchlists.length > 0 && !selectedWatchlist) {
-            // Check if user has a default watchlist set
-            if (defaultWatchlistId && mappedWatchlists.some(w => w.id === defaultWatchlistId)) {
-              setSelectedWatchlist(defaultWatchlistId);
-            } else {
-              setSelectedWatchlist(mappedWatchlists[0].id);
+          // Only auto-select on initial load, not on subsequent renders
+          // This prevents re-selecting when user navigates back to the list on mobile
+          if (mappedWatchlists.length > 0 && !hasInitiallySelected.current) {
+            hasInitiallySelected.current = true;
+            
+            // On mobile/small screens (< 768px), show the list first instead of auto-selecting
+            const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+            if (!isMobile) {
+              // Check if user has a default watchlist set
+              if (defaultWatchlistId && mappedWatchlists.some(w => w.id === defaultWatchlistId)) {
+                setSelectedWatchlist(defaultWatchlistId);
+              } else {
+                setSelectedWatchlist(mappedWatchlists[0].id);
+              }
             }
+            // On mobile, selectedWatchlist stays null so the list is shown first
           }
         }
       } catch (err) {
@@ -112,7 +128,9 @@ export function useWatchlist() {
     if (!prefsLoading) {
       fetchWatchlists();
     }
-  }, [user, selectedWatchlist, defaultWatchlistId, prefsLoading]);
+    // Note: selectedWatchlist intentionally excluded to prevent re-fetch on navigation
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, defaultWatchlistId, prefsLoading]);
 
   // Add a new watchlist
   const addWatchlist = async () => {

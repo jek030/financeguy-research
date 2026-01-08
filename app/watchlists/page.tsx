@@ -219,6 +219,15 @@ export default function WatchlistPage() {
     );
   }
 
+  // Loading state - show while fetching watchlists
+  if (isWatchlistLoading || isAuthLoading) {
+    return (
+      <div className={`flex items-center justify-center h-[calc(100vh-4rem)] ${pageStyles.gradientBg}`}>
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   // Error state
   if (error && !isWatchlistLoading) {
     return (
