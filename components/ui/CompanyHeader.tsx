@@ -111,7 +111,7 @@ export function CompanyHeader({
               {/* After Hours Section */}
               {aftermarketChange && (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
+                  <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400 tracking-wide">
                     After Hours:
                   </span>
                   <span className="text-lg font-semibold tabular-nums text-neutral-700 dark:text-neutral-200">

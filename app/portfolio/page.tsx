@@ -1932,10 +1932,12 @@ export default function Portfolio() {
                 <SelectContent>
                   {portfolios.map((record) => (
                     <SelectItem key={record.portfolio_key} value={String(record.portfolio_key)}>
-                      <span className="flex items-center gap-2">
-                        {record.portfolio_name || `Portfolio ${record.portfolio_key}`}
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="truncate">
+                          {record.portfolio_name || `Portfolio ${record.portfolio_key}`}
+                        </span>
                         {defaultPortfolioKey === Number(record.portfolio_key) && (
-                          <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                          <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
                         )}
                       </span>
                     </SelectItem>
