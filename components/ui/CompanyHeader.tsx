@@ -32,16 +32,24 @@ export function CompanyHeader({
   aftermarketChange,
   nextEarnings
 }: CompanyHeaderProps) {
+  // Determine which timestamp to show
+  const displayTimestamp = aftermarketChange?.timestamp 
+    ? new Date(aftermarketChange.timestamp).toLocaleString()
+    : quote.timestamp 
+      ? new Date(quote.timestamp * 1000).toLocaleString()
+      : null;
+
   return (
     <div className="relative overflow-hidden">
-      {/* Background - neutral greys */}
-      <div className="absolute inset-0 bg-gradient-to-br from-neutral-50 via-white to-neutral-100 dark:from-neutral-950 dark:via-neutral-950 dark:to-neutral-900" />
+      {/* Background gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br border-b border-neutral-200 dark:border-neutral-800 from-neutral-50 via-white to-neutral-100 dark:from-neutral-950 dark:via-neutral-950 dark:to-neutral-900" />
       
       <div className="relative px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
-        {/* Main Grid Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr,auto] gap-4 lg:gap-8">
+          
           {/* Left Section: Company Info */}
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 items-start">
+            
             {/* Company Logo */}
             {image && (
               <div className="relative flex-shrink-0">
@@ -58,6 +66,7 @@ export function CompanyHeader({
             
             {/* Company Details */}
             <div className="flex-1 min-w-0">
+              
               {/* Company Name & Symbol */}
               <div className="flex flex-col gap-1">
                 <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white truncate">
@@ -67,26 +76,26 @@ export function CompanyHeader({
                   <span className="font-semibold text-neutral-700 dark:text-neutral-300">{symbol}</span>
                   <span className="w-1 h-1 rounded-full bg-neutral-400" />
                   <span>{exchange || 'N/A'}</span>
-                  {quote.timestamp && (
+                  {displayTimestamp && (
                     <>
                       <span className="w-1 h-1 rounded-full bg-neutral-400 hidden sm:block" />
                       <span className="text-xs hidden sm:inline">
-                        Updated: {new Date(quote.timestamp * 1000).toLocaleString()}
+                        Updated: {displayTimestamp}
                       </span>
                     </>
                   )}
                 </div>
               </div>
               
-              {/* Price Section */}
-              <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-3">
-                {/* Current Price */}
-                <div className="flex items-baseline gap-2">
+              {/* Price Section - Flexbox row that wraps */}
+              <div className="mt-3 sm:mt-4 flex flex-wrap items-start gap-4 lg:gap-6">
+                
+                {/* Current Price & Regular Hours Changes */}
+                <div className="flex items-baseline gap-2 flex-wrap">
                   <span className="text-3xl sm:text-4xl font-bold tabular-nums tracking-tight text-neutral-900 dark:text-white">
                     ${typeof quote.price === 'number' ? safeFormat(quote.price) : 'N/A'}
                   </span>
                   
-                  {/* Price Changes */}
                   {quote?.change !== undefined && (
                     <div className="flex items-center gap-1.5">
                       <PriceChange value={quote.change} showArrow={true} size="md" />
@@ -95,25 +104,25 @@ export function CompanyHeader({
                   )}
                 </div>
                 
-                {/* After Hours */}
+                {/* After Hours Section - Next to price on larger screens */}
                 {aftermarketChange && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-neutral-100 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
-                      After Hours
+                      After Hours:
                     </span>
                     <span className="text-base font-semibold tabular-nums text-neutral-700 dark:text-neutral-200">
                       ${aftermarketChange.price.toFixed(2)}
                     </span>
-                    <PriceChange value={aftermarketChange.change} showArrow={false} size="sm" />
-                    <PercentageChange value={aftermarketChange.changePercentage} size="sm" />
+                    <PriceChange value={aftermarketChange.change} showArrow={true} size="md" />
+                    <PercentageChange value={aftermarketChange.changePercentage} size="md" />
                   </div>
                 )}
               </div>
               
-              {/* After Hours Timestamp - Mobile */}
-              {aftermarketChange && (
+              {/* Updated timestamp - Mobile only */}
+              {displayTimestamp && (
                 <div className="mt-2 text-xs text-neutral-400 dark:text-neutral-500 sm:hidden">
-                  After Hours: {new Date(aftermarketChange.timestamp).toLocaleString()}
+                  Updated: {displayTimestamp}
                 </div>
               )}
             </div>
@@ -151,6 +160,13 @@ interface CompanyInfoSectionProps {
   website?: string;
 }
 
+interface InfoItem {
+  key: string;
+  icon: React.ReactNode;
+  label: string;
+  value: React.ReactNode;
+}
+
 export function CompanyInfoSection({
   sector,
   industry,
@@ -160,94 +176,107 @@ export function CompanyInfoSection({
   state,
   website
 }: CompanyInfoSectionProps) {
-  const hasAnyInfo = sector || industry || ceo || employees || city || website;
+  // Build array of info items
+  const infoItems: InfoItem[] = [];
   
-  if (!hasAnyInfo) return null;
+  if (sector) {
+    infoItems.push({
+      key: 'sector',
+      icon: <Building2 className="w-3.5 h-3.5" />,
+      label: 'Sector',
+      value: (
+        <Link
+          href={`/scans/sectors/${encodeURIComponent(sector)}`}
+          className="text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 hover:underline underline-offset-2 transition-colors"
+        >
+          {sector}
+        </Link>
+      )
+    });
+  }
+  
+  if (industry) {
+    infoItems.push({
+      key: 'industry',
+      icon: <Briefcase className="w-3.5 h-3.5" />,
+      label: 'Industry',
+      value: (
+        <Link
+          href={`/scans/sectors/${encodeURIComponent(sector || '')}/industry/${encodeURIComponent(industry)}`}
+          className="text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 hover:underline underline-offset-2 transition-colors line-clamp-2"
+        >
+          {industry}
+        </Link>
+      )
+    });
+  }
+  
+  if (ceo) {
+    infoItems.push({
+      key: 'ceo',
+      icon: <Users className="w-3.5 h-3.5" />,
+      label: 'CEO',
+      value: <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{ceo}</span>
+    });
+  }
+  
+  if (employees) {
+    infoItems.push({
+      key: 'employees',
+      icon: <Users className="w-3.5 h-3.5" />,
+      label: 'Employees',
+      value: (
+        <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200 tabular-nums">
+          {new Intl.NumberFormat('en-US').format(Number(employees) || 0)}
+        </span>
+      )
+    });
+  }
+  
+  if (city || state) {
+    infoItems.push({
+      key: 'location',
+      icon: <MapPin className="w-3.5 h-3.5" />,
+      label: 'Location',
+      value: (
+        <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">
+          {city && state ? `${city}, ${state}` : city || state}
+        </span>
+      )
+    });
+  }
+  
+  if (website) {
+    infoItems.push({
+      key: 'website',
+      icon: <Globe className="w-3.5 h-3.5" />,
+      label: 'Website',
+      value: (
+        <Link 
+          className="text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 hover:underline underline-offset-2 transition-colors truncate"
+          href={website}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {website.replace(/^https?:\/\//, '')}
+        </Link>
+      )
+    });
+  }
+
+  if (infoItems.length === 0) return null;
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 sm:gap-6">
-      {sector && (
-        <div className="flex flex-col gap-1.5">
+      {infoItems.map(item => (
+        <div key={item.key} className="flex flex-col gap-1.5">
           <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
-            <Building2 className="w-3.5 h-3.5" />
-            <span>Sector</span>
+            {item.icon}
+            <span>{item.label}</span>
           </div>
-          <Link
-            href={`/scans/sectors/${encodeURIComponent(sector)}`}
-            className="text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 hover:underline underline-offset-2 transition-colors"
-          >
-            {sector}
-          </Link>
+          {item.value}
         </div>
-      )}
-      
-      {industry && (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
-            <Briefcase className="w-3.5 h-3.5" />
-            <span>Industry</span>
-          </div>
-          <Link
-            href={`/scans/sectors/${encodeURIComponent(sector || '')}/industry/${encodeURIComponent(industry)}`}
-            className="text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 hover:underline underline-offset-2 transition-colors line-clamp-2"
-          >
-            {industry}
-          </Link>
-        </div>
-      )}
-      
-      {ceo && (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
-            <Users className="w-3.5 h-3.5" />
-            <span>CEO</span>
-          </div>
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">
-            {ceo}
-          </span>
-        </div>
-      )}
-      
-      {employees && (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
-            <Users className="w-3.5 h-3.5" />
-            <span>Employees</span>
-          </div>
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200 tabular-nums">
-            {new Intl.NumberFormat('en-US').format(Number(employees) || 0)}
-          </span>
-        </div>
-      )}
-      
-      {(city || state) && (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
-            <MapPin className="w-3.5 h-3.5" />
-            <span>Location</span>
-          </div>
-          <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">
-            {city && state ? `${city}, ${state}` : city || state}
-          </span>
-        </div>
-      )}
-      
-      {website && (
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
-            <Globe className="w-3.5 h-3.5" />
-            <span>Website</span>
-          </div>
-          <Link 
-            className="text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 hover:underline underline-offset-2 transition-colors truncate"
-            href={website}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {website.replace(/^https?:\/\//, '')}
-          </Link>
-        </div>
-      )}
+      ))}
     </div>
   );
 }

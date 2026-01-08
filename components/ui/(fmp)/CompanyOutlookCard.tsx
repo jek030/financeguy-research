@@ -408,8 +408,49 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
         nextEarnings={quote.earningsAnnouncement}
       />
       
+      {/* Company Info Section */}
+      <div className="px-4 sm:px-6 lg:px-8 py-5 bg-gradient-to-br dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 from-neutral-50 via-white to-neutral-100 dark:from-neutral-950 dark:via-neutral-950 dark:to-neutral-900">
+        <CompanyInfoSection
+          sector={companyData.profile.sector}
+          industry={companyData.profile.industry}
+          ceo={companyData.profile.ceo}
+          employees={companyData.profile.fullTimeEmployees}
+          city={companyData.profile.city}
+          state={companyData.profile.state}
+          website={companyData.profile.website}
+        />
+      </div>
+      
+      {/* Company Description */}
+      {companyData.profile.description && (
+        <div className="px-4 sm:px-6 lg:px-8 py-5 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800">
+          <div className="relative">
+            <p className={cn(
+              "text-sm leading-relaxed text-neutral-600 dark:text-neutral-400",
+              !isDescriptionExpanded && "line-clamp-2"
+            )}>
+              {companyData.profile.description}
+            </p>
+            <button
+              onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+              className="mt-2 flex items-center gap-1 text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors"
+            >
+              {isDescriptionExpanded ? (
+                <>
+                  Show Less <ChevronUp className="h-4 w-4" />
+                </>
+              ) : (
+                <>
+                  Read More <ChevronDown className="h-4 w-4" />
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+      
       {/* Metrics Section - Card-based Layout */}
-      <div className="px-4 sm:px-6 lg:px-8 py-6 bg-neutral-50 dark:bg-neutral-950 border-y border-neutral-200 dark:border-neutral-800">
+      <div className="px-4 sm:px-6 lg:px-8 py-6 bg-neutral-50 dark:bg-neutral-950 border-b border-neutral-200 dark:border-neutral-800">
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-5">
           
           {/* Technical Analysis Card */}
@@ -625,50 +666,9 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
         </div>
       </div>
       
-      {/* Company Info Section */}
-      <div className="px-4 sm:px-6 lg:px-8 py-5 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800">
-        <CompanyInfoSection
-          sector={companyData.profile.sector}
-          industry={companyData.profile.industry}
-          ceo={companyData.profile.ceo}
-          employees={companyData.profile.fullTimeEmployees}
-          city={companyData.profile.city}
-          state={companyData.profile.state}
-          website={companyData.profile.website}
-        />
-      </div>
-      
       {/* Content Section */}
       <div className="bg-white dark:bg-neutral-900">
         <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-          {/* Company Description */}
-          {companyData.profile.description && (
-            <div className="pb-6 border-b border-neutral-200 dark:border-neutral-800">
-              <div className="relative">
-                <p className={cn(
-                  "text-sm leading-relaxed text-neutral-600 dark:text-neutral-400",
-                  !isDescriptionExpanded && "line-clamp-2"
-                )}>
-                  {companyData.profile.description}
-                </p>
-                <button
-                  onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                  className="mt-2 flex items-center gap-1 text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 transition-colors"
-                >
-                  {isDescriptionExpanded ? (
-                    <>
-                      Show Less <ChevronUp className="h-4 w-4" />
-                    </>
-                  ) : (
-                    <>
-                      Read More <ChevronDown className="h-4 w-4" />
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Trading Stats, Moving Averages, and Risk Calculator Cards */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Trading Stats Card */}
