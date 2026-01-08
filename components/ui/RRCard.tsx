@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { PercentageChange } from '@/components/ui/PriceIndicator';
+import { pageStyles } from '@/components/ui/CompanyHeader';
 
 interface FormValues {
   value1: string;
@@ -92,7 +93,7 @@ const RRCard: React.FC<RRCalculationCardProps> = ({ price, dayLow }) => {
   };
 
   return (
-    <Card className="w-full h-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+    <Card className={`w-full h-full ${pageStyles.card}`}>
       <CardHeader className="pb-3">
         <CardTitle className="text-base font-semibold">Risk Calculator</CardTitle>
       </CardHeader>

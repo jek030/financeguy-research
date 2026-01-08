@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import RRCard from '@/components/ui/RRCard';
 import {  PercentageChange } from "@/components/ui/PriceIndicator";
 import { MetricDisplay, MetricCard, MetricGrid } from "@/components/ui/MetricDisplay";
-import { CompanyHeader, CompanyInfoSection } from "@/components/ui/CompanyHeader";
+import { CompanyHeader, CompanyInfoSection, pageStyles } from "@/components/ui/CompanyHeader";
 import { FetchErrorDisplay, InvalidSymbolDisplay } from "@/components/ui/ErrorDisplay";
 
 //FMP Hooks
@@ -409,7 +409,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
       />
       
       {/* Company Info Section */}
-      <div className="px-4 sm:px-6 lg:px-8 py-5 bg-gradient-to-br dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 from-neutral-50 via-white to-neutral-100 dark:from-neutral-950 dark:via-neutral-950 dark:to-neutral-900">
+      <div className={`${pageStyles.sectionPadding} ${pageStyles.gradientBg} ${pageStyles.borderBottom}`}>
         <CompanyInfoSection
           sector={companyData.profile.sector}
           industry={companyData.profile.industry}
@@ -423,7 +423,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
       
       {/* Company Description */}
       {companyData.profile.description && (
-        <div className="px-4 sm:px-6 lg:px-8 py-5 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800">
+        <div className={`${pageStyles.sectionPadding} ${pageStyles.gradientBg} ${pageStyles.borderBottom}`}>
           <div className="relative">
             <p className={cn(
               "text-sm leading-relaxed text-neutral-600 dark:text-neutral-400",
@@ -450,7 +450,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
       )}
       
       {/* Metrics Section - Card-based Layout */}
-      <div className="px-4 sm:px-6 lg:px-8 py-6 bg-neutral-50 dark:bg-neutral-950 border-b border-neutral-200 dark:border-neutral-800">
+      <div className={`${pageStyles.sectionPadding} py-6 ${pageStyles.gradientBg} ${pageStyles.borderBottom}`}>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-5">
           
           {/* Technical Analysis Card */}
@@ -667,12 +667,12 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
       </div>
       
       {/* Content Section */}
-      <div className="bg-white dark:bg-neutral-900">
-        <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className={`${pageStyles.gradientBg}`}>
+        <div className={`${pageStyles.sectionPadding} py-6 space-y-6`}>
           {/* Trading Stats, Moving Averages, and Risk Calculator Cards */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Trading Stats Card */}
-            <Card className="w-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm">
+            <Card className={`w-full ${pageStyles.card}`}>
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold">Trading Stats</CardTitle>
               </CardHeader>
@@ -750,15 +750,15 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
             <RRCard price={quote.price || 0} dayLow={quote.dayLow || 0} />
           </div>
 
-          {/* Previous IntradayChart implementation preserved within the component file */}
-          <div className="relative mt-6 w-full overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm" style={{ minHeight: 480 }}>
+          {/* Chart */}
+          <div className={`relative mt-6 w-full overflow-hidden ${pageStyles.card}`} style={{ minHeight: 480 }}>
             <IntradayChart symbol={symbol} exchange={quote?.exchange ?? undefined} />
           </div>
         </div>
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="earnings" className="space-y-4 px-4 sm:px-6 lg:px-8 py-6 bg-white dark:bg-neutral-900">
+      <Tabs defaultValue="earnings" className={`space-y-4 ${pageStyles.sectionPadding} py-6 ${pageStyles.gradientBg}`}>
         <div className="relative">
           <TabsList className="flex w-full overflow-x-auto scrollbar-hide pb-1 md:grid md:grid-cols-8 lg:grid-cols-8 bg-neutral-100 dark:bg-neutral-800 rounded-lg p-1">
             <TabsTrigger value="earnings" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-sm">

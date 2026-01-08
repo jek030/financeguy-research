@@ -4,6 +4,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/Tooltip";
 import { InfoIcon, TrendingUp, BarChart3, DollarSign, Activity, PieChart, Layers } from 'lucide-react';
+import { pageStyles } from '@/components/ui/CompanyHeader';
 
 interface MetricDisplayProps {
   label: string;
@@ -110,7 +111,8 @@ interface MetricCardProps {
 export function MetricCard({ title, icon, children, className }: MetricCardProps) {
   return (
     <div className={cn(
-      "rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-4 sm:p-5",
+      pageStyles.card,
+      "p-4 sm:p-5",
       className
     )}>
       <div className="flex items-center gap-2 mb-4">

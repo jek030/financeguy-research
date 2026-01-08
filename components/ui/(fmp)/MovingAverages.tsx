@@ -11,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
 import { Badge } from '@/components/ui/Badge';
 import { StatusIndicator } from '@/components/ui/PriceIndicator';
+import { pageStyles } from '@/components/ui/CompanyHeader';
 
 import { useMovingAverageData } from '@/hooks/FMP/useMovingAverage';
 
@@ -86,7 +87,7 @@ export function MovingAverages({ companyData, symbol }: MovingAveragesProps) {
   const movingAverages = useMovingAverages(symbol, currentPrice)
 
   return (
-    <Card className="w-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm h-full">
+    <Card className={`w-full h-full ${pageStyles.card}`}>
       <CardHeader className="pb-3">
         <CardTitle className="text-base font-semibold">Moving Averages</CardTitle>
         <CardDescription className="text-sm text-neutral-500 dark:text-neutral-400">
