@@ -60,7 +60,7 @@ function Chart({ symbol, exchange, height = 480 }: ChartProps) {
       gridColor,
       watchlist: [],
       withdateranges: false,
-      range: "YTD",
+      range: "12M",
       compareSymbols: [],
       studies: ["STD;RSI"]
     } satisfies Record<string, unknown>;
