@@ -21,6 +21,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/lib/context/auth-context';
 import { supabase } from '@/lib/supabase';
 import { formatMarketCap } from '@/lib/utils';
+import { pageStyles } from '@/components/ui/CompanyHeader';
 interface CryptoData {
   symbol: string;
   name: string;
@@ -279,7 +280,7 @@ export default function CryptoPage() {
   };
 
   return (
-    <div className="container mx-auto p-2 space-y-8 animate-in fade-in-50 duration-500">
+    <div className={`container mx-auto p-2 space-y-8 animate-in fade-in-50 duration-500 min-h-screen ${pageStyles.gradientBg}`}>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-2 border-b">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">Crypto Dashboard</h1>
@@ -292,7 +293,7 @@ export default function CryptoPage() {
       {(isLoading && Object.keys(cryptoQuotes).length === 0) || isAuthLoading ? (
         <Skeleton className="h-[600px] w-full rounded-md" />
       ) : (
-        <Card>
+        <Card className={pageStyles.card}>
             
           <CardContent className="p-0">
             {/* Add crypto form */}

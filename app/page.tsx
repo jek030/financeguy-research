@@ -7,9 +7,9 @@ import { cn } from "@/lib/utils";
 import { useMovingAverageData } from '@/hooks/FMP/useMovingAverage';
 import type { Ticker } from "@/lib/types";
 import SectorReturns from "@/components/SectorReturns";
-// import TVWTickers from "@/components/TVWTickers";
 import SectorOverviewChart from "@/components/SectorOverviewChart";
 import { useSupabaseSectorData } from "@/hooks/useSupabaseSectorData";
+import { pageStyles } from "@/components/ui/CompanyHeader";
 
 interface MovingAverageData {
   ma: number;
@@ -95,7 +95,7 @@ export default function Home() {
     const movingAverages = useMovingAverages(symbol, data?.price || 0);
 
     return (
-      <Card>
+      <Card className={pageStyles.card}>
         <CardHeader className="pb-0 pt-2 px-2">
           <CardTitle className="text-base font-medium text-foreground/90">{title} ({symbol})</CardTitle>
         </CardHeader>
@@ -111,7 +111,7 @@ export default function Home() {
                 <span className="text-2xl font-bold">${formatNumber(data.price)}</span>
                 <div className={cn(
                   "inline-flex items-center space-x-1 text-sm font-medium rounded-full px-1.5 py-0.5 whitespace-nowrap",
-                  data.change >= 0 ? "bg-positive/10 text-positive" : "bg-negative/10 text-negative"
+                  data.change >= 0 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
                 )}>
                   {data.change >= 0 ? (
                     <ArrowUp className="h-3 w-3 flex-shrink-0" />
@@ -129,7 +129,7 @@ export default function Home() {
                     <p className="text-muted-foreground font-medium">52Wk High</p>
                     <span className={cn(
                       "text-[10px] font-medium px-1 py-0.5 rounded-full whitespace-nowrap",
-                      data.price >= data.yearHigh ? "bg-positive/10 text-positive" : "bg-negative/10 text-negative"
+                      data.price >= data.yearHigh ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
                     )}>
                       {formatPercentage(calculatePercentDiff(data.price, data.yearHigh))}
                     </span>
@@ -141,7 +141,7 @@ export default function Home() {
                     <p className="text-muted-foreground font-medium">52Wk Low</p>
                     <span className={cn(
                       "text-[10px] font-medium px-1 py-0.5 rounded-full whitespace-nowrap",
-                      data.price >= data.yearLow ? "bg-positive/10 text-positive" : "bg-negative/10 text-negative"
+                      data.price >= data.yearLow ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
                     )}>
                       {formatPercentage(calculatePercentDiff(data.price, data.yearLow))}
                     </span>
@@ -159,14 +159,14 @@ export default function Home() {
                     <div className={cn(
                       "rounded-lg p-1.5",
                       movingAverages.ema21.data.isAbove 
-                        ? "bg-positive/5 border border-positive/10" 
-                        : "bg-negative/5 border border-negative/10"
+                        ? "bg-emerald-500/5 border border-emerald-500/10" 
+                        : "bg-rose-500/5 border border-rose-500/10"
                     )}>
                       <div className="text-[10px] text-muted-foreground font-medium">21 EMA</div>
                       <div className="text-xs font-medium">${formatNumber(movingAverages.ema21.data.value)}</div>
                       <div className={cn(
                         "flex items-center gap-0.5 text-[10px] mt-0.5 whitespace-nowrap",
-                        movingAverages.ema21.data.isAbove ? "text-positive" : "text-negative"
+                        movingAverages.ema21.data.isAbove ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                       )}>
                         {movingAverages.ema21.data.isAbove ? (
                           <ArrowUp className="h-2.5 w-2.5 flex-shrink-0" />
@@ -185,14 +185,14 @@ export default function Home() {
                     <div className={cn(
                       "rounded-lg p-1.5",
                       movingAverages.ema50.data.isAbove 
-                        ? "bg-positive/5 border border-positive/10" 
-                        : "bg-negative/5 border border-negative/10"
+                        ? "bg-emerald-500/5 border border-emerald-500/10" 
+                        : "bg-rose-500/5 border border-rose-500/10"
                     )}>
                       <div className="text-[10px] text-muted-foreground font-medium">50 EMA</div>
                       <div className="text-xs font-medium">${formatNumber(movingAverages.ema50.data.value)}</div>
                       <div className={cn(
                         "flex items-center gap-0.5 text-[10px] mt-0.5 whitespace-nowrap",
-                        movingAverages.ema50.data.isAbove ? "text-positive" : "text-negative"
+                        movingAverages.ema50.data.isAbove ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                       )}>
                         {movingAverages.ema50.data.isAbove ? (
                           <ArrowUp className="h-2.5 w-2.5 flex-shrink-0" />
@@ -211,14 +211,14 @@ export default function Home() {
                     <div className={cn(
                       "rounded-lg p-1.5",
                       movingAverages.sma200.data.isAbove 
-                        ? "bg-positive/5 border border-positive/10" 
-                        : "bg-negative/5 border border-negative/10"
+                        ? "bg-emerald-500/5 border border-emerald-500/10" 
+                        : "bg-rose-500/5 border border-rose-500/10"
                     )}>
                       <div className="text-[10px] text-muted-foreground font-medium">200 SMA</div>
                       <div className="text-xs font-medium">${formatNumber(movingAverages.sma200.data.value)}</div>
                       <div className={cn(
                         "flex items-center gap-0.5 text-[10px] mt-0.5 whitespace-nowrap",
-                        movingAverages.sma200.data.isAbove ? "text-positive" : "text-negative"
+                        movingAverages.sma200.data.isAbove ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                       )}>
                         {movingAverages.sma200.data.isAbove ? (
                           <ArrowUp className="h-2.5 w-2.5 flex-shrink-0" />
@@ -240,11 +240,10 @@ export default function Home() {
   };
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className={`flex flex-col min-h-screen ${pageStyles.gradientBg}`}>
       <main className="flex-1">
         <div className="flex h-full">
-          <div className="flex-1 min-w-0 p-2 md:p-2">
-            {/* <TVWTickers /> */}
+          <div className="flex-1 min-w-0 p-2 md:p-4">
             {/* Market Data Cards */}
             <div className="max-w-8xl">
               <div className="flex overflow-x-auto pb-2 gap-3 md:gap-2 -mx-2 md:-mx-3 px-2 md:px-3">

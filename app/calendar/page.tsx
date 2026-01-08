@@ -14,6 +14,7 @@ import { ScrollArea } from '@/components/ui/ScrollArea';
 import { Switch } from '@/components/ui/Switch';
 import { Label } from '@/components/ui/Label';
 import { useRouter } from 'next/navigation';
+import { pageStyles } from '@/components/ui/CompanyHeader';
 
 interface EventCategory {
   name: string;
@@ -768,7 +769,7 @@ const CalendarPage: React.FC = () => {
 
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className={`flex flex-col min-h-screen ${pageStyles.gradientBg}`}>
       <main className="w-full p-4 md:p-6">
         <div className="flex flex-col gap-6">
           {/* Page Header */}
@@ -833,7 +834,7 @@ const CalendarPage: React.FC = () => {
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card className="bg-gradient-to-br from-card to-card/50 border-border/50">
+            <Card className={pageStyles.card}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-xl bg-primary/10">
@@ -847,35 +848,35 @@ const CalendarPage: React.FC = () => {
               </CardContent>
             </Card>
             
-            <Card className="bg-gradient-to-br from-card to-card/50 border-border/50">
+            <Card className={pageStyles.card}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-xl bg-emerald-500/10">
-                    <TrendingUp className="w-5 h-5 text-emerald-500" />
+                    <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-emerald-500">{stats.beatCount}</div>
+                    <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.beatCount}</div>
                     <div className="text-xs text-muted-foreground uppercase tracking-wide">Beats</div>
                   </div>
                 </div>
               </CardContent>
             </Card>
             
-            <Card className="bg-gradient-to-br from-card to-card/50 border-border/50">
+            <Card className={pageStyles.card}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-red-500/10">
-                    <TrendingDown className="w-5 h-5 text-red-500" />
+                  <div className="p-2 rounded-xl bg-rose-500/10">
+                    <TrendingDown className="w-5 h-5 text-rose-600 dark:text-rose-400" />
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-red-500">{stats.missCount}</div>
+                    <div className="text-2xl font-bold text-rose-600 dark:text-rose-400">{stats.missCount}</div>
                     <div className="text-xs text-muted-foreground uppercase tracking-wide">Misses</div>
                   </div>
                 </div>
               </CardContent>
             </Card>
             
-            <Card className="bg-gradient-to-br from-card to-card/50 border-border/50">
+            <Card className={pageStyles.card}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2 rounded-xl bg-amber-500/10">
@@ -893,7 +894,7 @@ const CalendarPage: React.FC = () => {
           {/* Main Content Grid */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             {/* Calendar Section */}
-            <Card className="xl:col-span-2 bg-gradient-to-br from-card to-card/50 border-border/50">
+            <Card className={`xl:col-span-2 ${pageStyles.card}`}>
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <button
@@ -932,7 +933,7 @@ const CalendarPage: React.FC = () => {
             </Card>
 
             {/* Earnings List Section */}
-            <Card className="bg-gradient-to-br from-card to-card/50 border-border/50 flex flex-col max-h-[1000px] overflow-hidden">
+            <Card className={`${pageStyles.card} flex flex-col max-h-[1000px] overflow-hidden`}>
               <CardHeader className="pb-3 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg">Earnings Reports</CardTitle>

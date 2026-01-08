@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { toast } from "sonner";
 import { Pencil, X, Check } from "lucide-react";
+import { pageStyles } from "@/components/ui/CompanyHeader";
 
 export default function SettingsPage() {
   const { user, isLoading: authLoading } = useAuth();
@@ -74,7 +75,7 @@ export default function SettingsPage() {
 
   if (authLoading) {
     return (
-      <div className="container mx-auto p-6 space-y-6">
+      <div className={`container mx-auto p-6 space-y-6 min-h-screen ${pageStyles.gradientBg}`}>
         <div className="space-y-2">
           <Skeleton className="h-8 w-[200px]" />
           <Skeleton className="h-4 w-[300px]" />
@@ -86,8 +87,8 @@ export default function SettingsPage() {
 
   if (!user) {
     return (
-      <div className="container mx-auto p-6">
-        <Card>
+      <div className={`container mx-auto p-6 min-h-screen ${pageStyles.gradientBg}`}>
+        <Card className={pageStyles.card}>
             <CardHeader>
                 <CardTitle>Settings</CardTitle>
                 <CardDescription>Please sign in to view your settings.</CardDescription>
@@ -98,13 +99,13 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className={`container mx-auto p-6 space-y-6 min-h-screen ${pageStyles.gradientBg}`}>
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">Manage your account settings and preferences.</p>
       </div>
 
-      <Card>
+      <Card className={pageStyles.card}>
         <CardHeader>
           <CardTitle>Profile Information</CardTitle>
           <CardDescription>Your personal account details.</CardDescription>
@@ -169,7 +170,7 @@ export default function SettingsPage() {
       </Card>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <Card>
+        <Card className={pageStyles.card}>
           <CardHeader>
             <CardTitle>Portfolios</CardTitle>
             <div className="text-sm text-muted-foreground">
@@ -201,7 +202,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className={pageStyles.card}>
           <CardHeader>
             <CardTitle>Watchlists</CardTitle>
             <div className="text-sm text-muted-foreground">

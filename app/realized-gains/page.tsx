@@ -33,6 +33,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import PnlBarChart from '@/components/ui/(realized-gains)/PnlBarChart';
 import TimePeriodStatsTable from '@/components/ui/(realized-gains)/TimePeriodStatsTable';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { pageStyles } from '@/components/ui/CompanyHeader';
 
 export default function RealizedGainsPage() {
   const [csvData, setCsvData] = useState<CSVFileData>({ summary: '', trades: [] });
@@ -187,7 +188,7 @@ export default function RealizedGainsPage() {
   const hasFinalData = finalFilteredTrades.length > 0;
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-8 max-w-none">
+    <div className={`container mx-auto px-4 py-8 space-y-8 max-w-none min-h-screen ${pageStyles.gradientBg}`}>
       {/* Header */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -244,7 +245,7 @@ export default function RealizedGainsPage() {
 
       {/* Date Range Filter - only show if we have data */}
       {hasData && (
-        <Card>
+        <Card className={pageStyles.card}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">

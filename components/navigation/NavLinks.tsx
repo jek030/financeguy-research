@@ -4,7 +4,6 @@ import {
   CalendarIcon,
   EyeIcon,
   CurrencyDollarIcon,
-  BookmarkIcon,
   MapIcon,
   ChartBarIcon,
   BriefcaseIcon,
@@ -57,16 +56,6 @@ const marketLinks = [
     name: 'Crypto',
     href: '/crypto',
     icon: CurrencyDollarIcon,
-  },
-  /*{
-    name: 'CANSLIM',
-    href: '/canslim',
-    icon: BookOpenIcon,
-  },*/
-  {
-    name: 'Resources',
-    href: '/resources',
-    icon: BookmarkIcon,
   },
 ];
 

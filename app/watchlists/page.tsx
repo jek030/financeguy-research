@@ -26,6 +26,7 @@ import { useAuth } from '@/lib/context/auth-context';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
+import { pageStyles } from '@/components/ui/CompanyHeader';
 
 export default function WatchlistPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -228,7 +229,7 @@ export default function WatchlistPage() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] w-full max-w-full overflow-hidden">
+    <div className={`flex flex-col h-[calc(100vh-4rem)] w-full max-w-full overflow-hidden ${pageStyles.gradientBg}`}>
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}

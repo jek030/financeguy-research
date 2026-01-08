@@ -19,6 +19,7 @@ import { useQuote } from '@/hooks/FMP/useQuote';
 import { usePortfolio, type StockPosition } from '@/hooks/usePortfolio';
 import { useAuth } from '@/lib/context/auth-context';
 import Link from 'next/link';
+import { pageStyles } from '@/components/ui/CompanyHeader';
 
 // Helper function to format currency
 const formatCurrency = (value: number) => {
@@ -1658,7 +1659,7 @@ export default function Portfolio() {
   };
 
   return (
-    <div className="w-full p-4 sm:p-4">
+    <div className={`w-full p-4 sm:p-4 min-h-screen ${pageStyles.gradientBg}`}>
       <div className="grid gap-4">
       {/* Portfolio tools */}
       <div className="order-last grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
