@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase, SupabasePortfolio, SupabasePortfolioPosition } from '@/lib/supabase';
 import { useAuth } from '@/lib/context/auth-context';
+import { useUserPreferences } from './useUserPreferences';
 
 const SELECTED_PORTFOLIO_STORAGE_KEY = 'financeguy-selected-portfolio';
 
@@ -37,6 +38,7 @@ export function usePortfolio() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { defaultPortfolioKey, setDefaultPortfolio, isLoading: prefsLoading } = useUserPreferences();
 
   // Helper function to parse date string as local date (not UTC)
   const parseLocalDate = (dateString: string): Date => {
@@ -258,8 +260,12 @@ export function usePortfolio() {
         }
       }
 
+      // Priority: overridePortfolioKey > defaultPortfolioKey > localStorage > selectedPortfolioKey > first portfolio
       let targetKey =
         overridePortfolioKey ??
+        (defaultPortfolioKey && normalizedPortfolios.some(p => normalizePortfolioKey(p.portfolio_key) === defaultPortfolioKey)
+          ? defaultPortfolioKey
+          : null) ??
         storedSelectedKey ??
         selectedPortfolioKey ??
         (normalizedPortfolios.length > 0
@@ -635,10 +641,28 @@ export function usePortfolio() {
     }
   };
 
-  // Fetch portfolio on mount
+  // Fetch portfolio on mount (wait for preferences to load)
+  // Note: We intentionally don't include defaultPortfolioKey in deps 
+  // to prevent re-fetching when user sets a new default
   useEffect(() => {
-    fetchPortfolio();
-  }, [user]);
+    if (!prefsLoading) {
+      fetchPortfolio();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, prefsLoading]);
+
+  // Set a portfolio as the default
+  const setPortfolioAsDefault = async (portfolioKey: number | null) => {
+    try {
+      const portfolioName = portfolioKey 
+        ? portfolios.find(p => normalizePortfolioKey(p.portfolio_key) === portfolioKey)?.portfolio_name 
+        : undefined;
+      await setDefaultPortfolio(portfolioKey, portfolioName);
+    } catch (err) {
+      console.error('Error setting default portfolio:', err);
+      setError(err instanceof Error ? err.message : 'Failed to set default portfolio');
+    }
+  };
 
   return {
     portfolio,
@@ -647,6 +671,7 @@ export function usePortfolio() {
     positions,
     isLoading,
     error,
+    defaultPortfolioKey,
     selectPortfolio,
     addPosition,
     updatePosition,
@@ -654,6 +679,7 @@ export function usePortfolio() {
     updatePortfolioValue,
     updatePortfolio,
     createPortfolio,
+    setPortfolioAsDefault,
     refetch: fetchPortfolio,
   };
 }

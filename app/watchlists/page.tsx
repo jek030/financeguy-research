@@ -37,6 +37,7 @@ export default function WatchlistPage() {
     editNameInputs,
     isLoading: isWatchlistLoading,
     error,
+    defaultWatchlistId,
     setSelectedWatchlist,
     setNewTickerInputs,
     setEditNameInputs,
@@ -47,6 +48,7 @@ export default function WatchlistPage() {
     saveWatchlistName,
     removeTicker,
     updateWatchlists,
+    setWatchlistAsDefault,
   } = useWatchlist();
 
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -245,8 +247,10 @@ export default function WatchlistPage() {
                 <WatchlistSidebar 
                     watchlists={watchlists}
                     selectedId={selectedWatchlist}
+                    defaultWatchlistId={defaultWatchlistId}
                     onSelect={setSelectedWatchlist}
                     onAdd={addWatchlist}
+                    onSetDefault={setWatchlistAsDefault}
                 />
             </div>
 

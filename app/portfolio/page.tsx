@@ -10,7 +10,7 @@ import { Calendar } from '@/components/ui/Calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
-import { CalendarIcon, InfoIcon, X, Loader2, Pencil, ChevronUp, ChevronDown, PlusCircle } from 'lucide-react';
+import { CalendarIcon, InfoIcon, X, Loader2, Pencil, ChevronUp, ChevronDown, PlusCircle, Star } from 'lucide-react';
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 import { format, differenceInCalendarDays } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -1103,12 +1103,14 @@ export default function Portfolio() {
     positions,
     isLoading: isPortfolioLoading,
     error: portfolioError,
+    defaultPortfolioKey,
     selectPortfolio,
     addPosition,
     updatePosition,
     deletePosition,
     updatePortfolio,
     createPortfolio,
+    setPortfolioAsDefault,
   } = usePortfolio();
 
   const [portfolioValue, setPortfolioValue] = useState<string>('');
@@ -1930,11 +1932,47 @@ export default function Portfolio() {
                 <SelectContent>
                   {portfolios.map((record) => (
                     <SelectItem key={record.portfolio_key} value={String(record.portfolio_key)}>
-                      {record.portfolio_name || `Portfolio ${record.portfolio_key}`}
+                      <span className="flex items-center gap-2">
+                        {record.portfolio_name || `Portfolio ${record.portfolio_key}`}
+                        {defaultPortfolioKey === Number(record.portfolio_key) && (
+                          <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                        )}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => {
+                        if (selectedPortfolioKey === defaultPortfolioKey) {
+                          setPortfolioAsDefault(null);
+                        } else if (selectedPortfolioKey !== null) {
+                          setPortfolioAsDefault(selectedPortfolioKey);
+                        }
+                      }}
+                      disabled={isPortfolioLoading || selectedPortfolioKey === null}
+                      className={cn(
+                        selectedPortfolioKey === defaultPortfolioKey && "border-amber-400"
+                      )}
+                    >
+                      <Star className={cn(
+                        "h-3 w-3 sm:h-4 sm:w-4",
+                        selectedPortfolioKey === defaultPortfolioKey 
+                          ? "fill-amber-400 text-amber-400" 
+                          : "text-muted-foreground"
+                      )} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{selectedPortfolioKey === defaultPortfolioKey ? "Remove default" : "Set as default"}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>

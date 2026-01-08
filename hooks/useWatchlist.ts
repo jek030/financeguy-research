@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { WatchlistCard } from '@/components/watchlist/types';
 import { Ticker } from '@/lib/types';
 import { supabase, SupabaseWatchlist, SupabaseTicker } from '@/lib/supabase';
 import { useAuth } from '@/lib/context/auth-context';
+import { useUserPreferences } from './useUserPreferences';
 
 // Define a minimal ticker interface for initial loading
 interface MinimalTicker {
@@ -17,6 +18,7 @@ export function useWatchlist() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
+  const { defaultWatchlistId, setDefaultWatchlist, isLoading: prefsLoading } = useUserPreferences();
 
   // Convert Supabase watchlist to our app's format
   const mapSupabaseToWatchlist = (data: SupabaseWatchlist): WatchlistCard => ({
@@ -88,9 +90,14 @@ export function useWatchlist() {
           setNewTickerInputs(tickerInputs);
           setEditNameInputs(nameInputs);
           
-          // Select first watchlist if available and none selected
+          // Select default watchlist or first watchlist if available and none selected
           if (mappedWatchlists.length > 0 && !selectedWatchlist) {
-            setSelectedWatchlist(mappedWatchlists[0].id);
+            // Check if user has a default watchlist set
+            if (defaultWatchlistId && mappedWatchlists.some(w => w.id === defaultWatchlistId)) {
+              setSelectedWatchlist(defaultWatchlistId);
+            } else {
+              setSelectedWatchlist(mappedWatchlists[0].id);
+            }
           }
         }
       } catch (err) {
@@ -101,8 +108,11 @@ export function useWatchlist() {
       }
     };
 
-    fetchWatchlists();
-  }, [user, selectedWatchlist]);
+    // Wait for preferences to load before fetching watchlists
+    if (!prefsLoading) {
+      fetchWatchlists();
+    }
+  }, [user, selectedWatchlist, defaultWatchlistId, prefsLoading]);
 
   // Add a new watchlist
   const addWatchlist = async () => {
@@ -366,6 +376,19 @@ export function useWatchlist() {
     }
   };
 
+  // Set a watchlist as the default
+  const setWatchlistAsDefault = async (watchlistId: string | null) => {
+    try {
+      const watchlistName = watchlistId 
+        ? watchlists.find(w => w.id === watchlistId)?.name 
+        : undefined;
+      await setDefaultWatchlist(watchlistId, watchlistName);
+    } catch (err) {
+      console.error('Error setting default watchlist:', err);
+      setError('Failed to set default watchlist');
+    }
+  };
+
   return {
     watchlists,
     selectedWatchlist,
@@ -373,6 +396,7 @@ export function useWatchlist() {
     editNameInputs,
     isLoading,
     error,
+    defaultWatchlistId,
     setSelectedWatchlist,
     setNewTickerInputs,
     setEditNameInputs,
@@ -383,5 +407,6 @@ export function useWatchlist() {
     saveWatchlistName,
     removeTicker,
     updateWatchlists,
+    setWatchlistAsDefault,
   };
 } 

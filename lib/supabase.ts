@@ -60,4 +60,12 @@ export interface SupabasePortfolioPosition {
   open_date: string;
   close_date: string | null;
   days_in_trade: number;
+}
+
+export interface SupabaseUserPreferences {
+  user_id: string;
+  default_watchlist_id: string | null;
+  default_portfolio_key: number | null;
+  created_at: string;
+  updated_at: string;
 } 
