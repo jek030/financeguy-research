@@ -4,14 +4,13 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
 import { Calendar } from '@/components/ui/Calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { CalendarIcon, InfoIcon, X, Loader2, Pencil, ChevronUp, ChevronDown, PlusCircle, Star } from 'lucide-react';
-import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
+import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { format, differenceInCalendarDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { PercentageChange } from '@/components/ui/PriceIndicator';
@@ -19,7 +18,6 @@ import { useQuote } from '@/hooks/FMP/useQuote';
 import { usePortfolio, type StockPosition } from '@/hooks/usePortfolio';
 import { useAuth } from '@/lib/context/auth-context';
 import Link from 'next/link';
-import { pageStyles } from '@/components/ui/CompanyHeader';
 
 // Helper function to format currency
 const formatCurrency = (value: number) => {
@@ -309,6 +307,460 @@ function UnrealizedGainDisplay({ positions }: { positions: StockPosition[] }) {
     )}>
       {formatCurrency(totalGain)}
     </span>
+  );
+}
+
+// Progress bar component for metrics
+function ProgressBar({ 
+  value, 
+  max = 100, 
+  colorClass = "bg-primary",
+  bgClass = "bg-muted/50"
+}: { 
+  value: number; 
+  max?: number;
+  colorClass?: string;
+  bgClass?: string;
+}) {
+  const percentage = Math.min((value / max) * 100, 100);
+  
+  return (
+    <div className={cn("h-1.5 w-full rounded-full overflow-hidden", bgClass)}>
+      <div 
+        className={cn("h-full rounded-full transition-all duration-300", colorClass)}
+        style={{ width: `${percentage}%` }}
+      />
+    </div>
+  );
+}
+
+// Metric card component for hero section
+function MetricCard({ 
+  label, 
+  value, 
+  subValue,
+  showBar = false,
+  barValue = 0,
+  barMax = 100,
+  barColorClass,
+  valueColorClass,
+  isLoading = false
+}: { 
+  label: string;
+  value: string | React.ReactNode;
+  subValue?: string;
+  showBar?: boolean;
+  barValue?: number;
+  barMax?: number;
+  barColorClass?: string;
+  valueColorClass?: string;
+  isLoading?: boolean;
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+        {label}
+      </p>
+      {isLoading ? (
+        <div className="h-6 w-20 bg-muted/50 animate-pulse rounded" />
+      ) : (
+        <p className={cn("text-lg font-bold font-mono", valueColorClass)}>
+          {value}
+        </p>
+      )}
+      {subValue && !isLoading && (
+        <p className="text-xs text-muted-foreground font-mono">{subValue}</p>
+      )}
+      {showBar && !isLoading && (
+        <ProgressBar 
+          value={barValue} 
+          max={barMax} 
+          colorClass={barColorClass}
+        />
+      )}
+    </div>
+  );
+}
+
+// Calculate total open risk helper
+function calculateTotalOpenRisk(positions: StockPosition[]): number {
+  return positions
+    .filter(pos => !pos.closedDate && pos.remainingShares > 0)
+    .reduce((total, pos) => {
+      const riskAmount = Math.abs(pos.cost - pos.stopLoss) * pos.remainingShares;
+      return total + riskAmount;
+    }, 0);
+}
+
+// Portfolio Hero Section Component
+interface PortfolioHeroProps {
+  portfolioName: string;
+  portfolioValue: number;
+  positions: StockPosition[];
+  exposure: number;
+  isEditingPortfolio: boolean;
+  tempPortfolioName: string;
+  tempPortfolioValue: string;
+  setTempPortfolioName: (value: string) => void;
+  setTempPortfolioValue: (value: string) => void;
+  handleSavePortfolio: () => void;
+  handleCancelPortfolioEdit: () => void;
+  symbolFilters: string[];
+  symbolFilterInput: string;
+  setSymbolFilterInput: (value: string) => void;
+  handleSymbolFilterKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  removeSymbolFilter: (symbol: string) => void;
+  clearAllSymbolFilters: () => void;
+  portfolios: Array<{ portfolio_key: number | string; portfolio_name: string }>;
+  selectedPortfolioKey: number | null;
+  handlePortfolioSelection: (value: string) => void;
+  isPortfolioLoading: boolean;
+  defaultPortfolioKey: number | null;
+  setPortfolioAsDefault: (key: number | null) => void;
+  handleOpenCreatePortfolio: () => void;
+  handleEditPortfolio: () => void;
+  showClosedPositions: boolean;
+  setShowClosedPositions: (value: boolean) => void;
+  closedPositionsCount: number;
+}
+
+function PortfolioHero({
+  portfolioName,
+  portfolioValue,
+  positions,
+  exposure,
+  isEditingPortfolio,
+  tempPortfolioName,
+  tempPortfolioValue,
+  setTempPortfolioName,
+  setTempPortfolioValue,
+  handleSavePortfolio,
+  handleCancelPortfolioEdit,
+  symbolFilters,
+  symbolFilterInput,
+  setSymbolFilterInput,
+  handleSymbolFilterKeyDown,
+  removeSymbolFilter,
+  clearAllSymbolFilters,
+  portfolios,
+  selectedPortfolioKey,
+  handlePortfolioSelection,
+  isPortfolioLoading,
+  defaultPortfolioKey,
+  setPortfolioAsDefault,
+  handleOpenCreatePortfolio,
+  handleEditPortfolio,
+  showClosedPositions,
+  setShowClosedPositions,
+  closedPositionsCount,
+}: PortfolioHeroProps) {
+  // Calculate metrics
+  const totalOpenRisk = useMemo(() => calculateTotalOpenRisk(positions), [positions]);
+  const riskPercent = portfolioValue > 0 ? (totalOpenRisk / portfolioValue) * 100 : 0;
+  
+  // Exposure color logic
+  const exposureColorClass = exposure > 100 
+    ? "text-red-400" 
+    : exposure > 80 
+      ? "text-yellow-400" 
+      : "text-emerald-400";
+  
+  const exposureBarColor = exposure > 100 
+    ? "bg-red-500" 
+    : exposure > 80 
+      ? "bg-yellow-500" 
+      : "bg-emerald-500";
+  
+  // Risk color logic  
+  const riskColorClass = riskPercent > 10 
+    ? "text-red-400" 
+    : riskPercent > 5 
+      ? "text-orange-400" 
+      : "text-emerald-400";
+      
+  const riskBarColor = riskPercent > 10 
+    ? "bg-red-500" 
+    : riskPercent > 5 
+      ? "bg-orange-500" 
+      : "bg-emerald-500";
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
+      {/* Header Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-border/50 bg-muted/30">
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            value={selectedPortfolioKey !== null ? String(selectedPortfolioKey) : undefined}
+            onValueChange={handlePortfolioSelection}
+            disabled={isPortfolioLoading || portfolios.length === 0}
+          >
+            <SelectTrigger className="w-[200px] h-8 text-sm bg-background/50" aria-label="Select portfolio">
+              <SelectValue placeholder="Select portfolio" />
+            </SelectTrigger>
+            <SelectContent>
+              {portfolios.map((record) => (
+                <SelectItem key={record.portfolio_key} value={String(record.portfolio_key)}>
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="truncate">
+                      {record.portfolio_name || `Portfolio ${record.portfolio_key}`}
+                    </span>
+                    {defaultPortfolioKey === Number(record.portfolio_key) && (
+                      <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
+                    )}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  onClick={() => {
+                    if (selectedPortfolioKey === defaultPortfolioKey) {
+                      setPortfolioAsDefault(null);
+                    } else if (selectedPortfolioKey !== null) {
+                      setPortfolioAsDefault(selectedPortfolioKey);
+                    }
+                  }}
+                  disabled={isPortfolioLoading || selectedPortfolioKey === null}
+                  className="h-8 w-8 p-0"
+                >
+                  <Star className={cn(
+                    "h-4 w-4",
+                    selectedPortfolioKey === defaultPortfolioKey 
+                      ? "fill-amber-400 text-amber-400" 
+                      : "text-muted-foreground"
+                  )} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{selectedPortfolioKey === defaultPortfolioKey ? "Remove default" : "Set as default"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  size="sm" 
+                  variant="ghost" 
+                  onClick={handleOpenCreatePortfolio}
+                  disabled={isPortfolioLoading}
+                  className="h-8 w-8 p-0"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Create New Portfolio</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          {!isEditingPortfolio && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="sm" variant="ghost" onClick={handleEditPortfolio} className="h-8 w-8 p-0">
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Edit Portfolio</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+        
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            {symbolFilters.map((symbol) => (
+              <span
+                key={symbol}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20"
+              >
+                {symbol}
+                <button
+                  type="button"
+                  onClick={() => removeSymbolFilter(symbol)}
+                  className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full hover:bg-primary/20 transition-colors"
+                  aria-label={`Remove ${symbol} filter`}
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+            <Input
+              value={symbolFilterInput}
+              onChange={(e) => setSymbolFilterInput(e.target.value.toUpperCase())}
+              onKeyDown={handleSymbolFilterKeyDown}
+              placeholder={symbolFilters.length > 0 ? "Add..." : "Filter"}
+              aria-label="Filter positions by symbol"
+              className="w-20 h-7 text-xs bg-background/50"
+            />
+            {symbolFilters.length > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={clearAllSymbolFilters}
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Clear
+              </Button>
+            )}
+          </div>
+          <Button 
+            size="sm" 
+            variant={showClosedPositions ? "secondary" : "ghost"}
+            onClick={() => setShowClosedPositions(!showClosedPositions)}
+            disabled={closedPositionsCount === 0}
+            className="h-7 text-xs"
+          >
+            {showClosedPositions ? "Hide" : "Show"} Closed ({closedPositionsCount})
+          </Button>
+        </div>
+      </div>
+
+      {/* Main Hero Content */}
+      {isEditingPortfolio ? (
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Portfolio Name
+              </label>
+              <Input
+                type="text"
+                placeholder="My Portfolio"
+                value={tempPortfolioName}
+                onChange={(e) => setTempPortfolioName(e.target.value)}
+                className="text-lg font-semibold bg-background/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Portfolio Value
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg text-muted-foreground pointer-events-none font-mono">
+                  $
+                </span>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={tempPortfolioValue}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9.]/g, '');
+                    const parts = value.split('.');
+                    const formattedValue = parts.length > 2 
+                      ? parts[0] + '.' + parts.slice(1).join('')
+                      : value;
+                    setTempPortfolioValue(formattedValue);
+                  }}
+                  className="text-lg font-semibold pl-7 font-mono bg-background/50"
+                />
+              </div>
+            </div>
+            <div className="md:col-span-2 flex gap-2">
+              <Button onClick={handleSavePortfolio} size="sm">Save</Button>
+              <Button variant="outline" onClick={handleCancelPortfolioEdit} size="sm">Cancel</Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="p-6">
+          {/* Portfolio Name & Value */}
+          <div className="mb-6">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
+              {portfolioName}
+            </p>
+            <p className="text-4xl font-bold font-mono tracking-tight">
+              {formatCurrency(portfolioValue)}
+            </p>
+          </div>
+          
+          {/* Metrics Grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <MetricCard
+              label="Exposure"
+              value={`${exposure.toFixed(1)}%`}
+              subValue={exposure > 100 ? "Over-leveraged" : exposure > 80 ? "High" : "Normal"}
+              showBar
+              barValue={exposure}
+              barMax={100}
+              barColorClass={exposureBarColor}
+              valueColorClass={exposureColorClass}
+            />
+            <MetricCard
+              label="Total Open Risk"
+              value={formatCurrency(totalOpenRisk)}
+              subValue={`${riskPercent.toFixed(2)}% of portfolio`}
+              showBar
+              barValue={riskPercent}
+              barMax={15}
+              barColorClass={riskBarColor}
+              valueColorClass={riskColorClass}
+            />
+            <div className="space-y-2">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                Unrealized P&L
+              </p>
+              <div className="text-lg font-bold font-mono">
+                <UnrealizedGainDisplay positions={positions} />
+              </div>
+              <p className="text-xs text-muted-foreground">On remaining shares</p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                Realized P&L
+              </p>
+              <div className="text-lg font-bold font-mono">
+                <RealizedGainDisplay positions={positions} />
+              </div>
+              <p className="text-xs text-muted-foreground">From closed shares</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Collapsible Panel Component
+interface CollapsiblePanelProps {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}
+
+function CollapsiblePanel({ title, defaultOpen = false, children }: CollapsiblePanelProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  
+  return (
+    <div className="rounded-lg border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold hover:bg-muted/30 transition-colors"
+      >
+        <span>{title}</span>
+        {isOpen ? (
+          <ChevronUp className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        )}
+      </button>
+      {isOpen && (
+        <div className="px-4 pb-4 border-t border-border/50">
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1137,7 +1589,24 @@ export default function Portfolio() {
   
   // Filter state
   const [showClosedPositions, setShowClosedPositions] = useState(false);
-  const [symbolFilter, setSymbolFilter] = useState<string>('');
+  const [symbolFilterInput, setSymbolFilterInput] = useState<string>('');
+  const [symbolFilters, setSymbolFilters] = useState<string[]>(() => {
+    // Initialize from localStorage on first render
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = window.localStorage.getItem('financeguy-symbol-filters');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            return parsed;
+          }
+        }
+      } catch {
+        // Ignore storage read errors
+      }
+    }
+    return [];
+  });
   
   // Edit state
   const [editingPosition, setEditingPosition] = useState<StockPosition | null>(null);
@@ -1159,6 +1628,44 @@ export default function Portfolio() {
       setPortfolioName(portfolio.portfolio_name || 'My Portfolio');
     }
   }, [portfolio]);
+
+  // Save symbol filters to localStorage when they change
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('financeguy-symbol-filters', JSON.stringify(symbolFilters));
+      } catch {
+        // Ignore storage write errors
+      }
+    }
+  }, [symbolFilters]);
+
+  // Add a symbol to the filter list
+  const addSymbolFilter = (symbol: string) => {
+    const normalized = symbol.trim().toUpperCase();
+    if (normalized && !symbolFilters.includes(normalized)) {
+      setSymbolFilters(prev => [...prev, normalized]);
+    }
+    setSymbolFilterInput('');
+  };
+
+  // Remove a symbol from the filter list
+  const removeSymbolFilter = (symbol: string) => {
+    setSymbolFilters(prev => prev.filter(s => s !== symbol));
+  };
+
+  // Clear all symbol filters
+  const clearAllSymbolFilters = () => {
+    setSymbolFilters([]);
+  };
+
+  // Handle Enter key in symbol filter input
+  const handleSymbolFilterKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addSymbolFilter(symbolFilterInput);
+    }
+  };
 
   const handleAddStock = async () => {
     if (!symbol.trim() || !cost.trim() || !quantity.trim() || !initialStopLoss.trim()) {
@@ -1209,14 +1716,6 @@ export default function Portfolio() {
   };
 
   const isAddButtonDisabled = !symbol.trim() || !cost.trim() || !quantity.trim() || !initialStopLoss.trim();
-
-  const formatPercentage = (value: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'percent',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value / 100);
-  };
 
   // Calculate total net cost from all positions
   // Calculate exposure percentage (only for open positions)
@@ -1369,15 +1868,16 @@ export default function Portfolio() {
     }
   };
 
-  const normalizedSymbolFilter = symbolFilter.trim().toUpperCase();
-
   const filteredPositions = useMemo(() => {
-    if (!normalizedSymbolFilter) {
+    if (symbolFilters.length === 0) {
       return positions;
     }
 
-    return positions.filter((pos) => pos.symbol.toUpperCase().includes(normalizedSymbolFilter));
-  }, [positions, normalizedSymbolFilter]);
+    // Exact match against any of the symbols in the filter list
+    return positions.filter((pos) => 
+      symbolFilters.includes(pos.symbol.toUpperCase())
+    );
+  }, [positions, symbolFilters]);
 
   // Sort positions
   const sortedPositions = useMemo(() => {
@@ -1661,96 +2161,505 @@ export default function Portfolio() {
   };
 
   return (
-    <div className={`w-full p-4 sm:p-4 min-h-screen ${pageStyles.gradientBg}`}>
-      <div className="grid gap-4">
-      {/* Portfolio tools */}
-      <div className="order-last grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        <Card className="w-full">
-          <CardHeader className="p-4">
-            <CardTitle className="text-lg font-semibold">Add Stock Position</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className="flex flex-col gap-4">
-              <div>
-                <label htmlFor="symbol" className="block text-sm font-medium text-foreground mb-2">
-                  Symbol
-                </label>
-                <Input
-                  id="symbol"
-                  type="text"
-                  placeholder="e.g., AAPL"
-                  value={symbol}
-                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                />
+    <div className="w-full p-4 min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+      <div className="flex flex-col xl:flex-row gap-4">
+        {/* Main Content Area */}
+        <div className="flex-1 min-w-0 space-y-4">
+          {/* Portfolio Hero */}
+          <PortfolioHero
+            portfolioName={portfolioName}
+            portfolioValue={portfolio?.portfolio_value ?? (portfolioValue ? parseFloat(portfolioValue) : 0)}
+            positions={positions}
+            exposure={exposure}
+            isEditingPortfolio={isEditingPortfolio}
+            tempPortfolioName={tempPortfolioName}
+            tempPortfolioValue={tempPortfolioValue}
+            setTempPortfolioName={setTempPortfolioName}
+            setTempPortfolioValue={setTempPortfolioValue}
+            handleSavePortfolio={handleSavePortfolio}
+            handleCancelPortfolioEdit={handleCancelPortfolioEdit}
+            symbolFilters={symbolFilters}
+            symbolFilterInput={symbolFilterInput}
+            setSymbolFilterInput={setSymbolFilterInput}
+            handleSymbolFilterKeyDown={handleSymbolFilterKeyDown}
+            removeSymbolFilter={removeSymbolFilter}
+            clearAllSymbolFilters={clearAllSymbolFilters}
+            portfolios={portfolios}
+            selectedPortfolioKey={selectedPortfolioKey}
+            handlePortfolioSelection={handlePortfolioSelection}
+            isPortfolioLoading={isPortfolioLoading}
+            defaultPortfolioKey={defaultPortfolioKey}
+            setPortfolioAsDefault={setPortfolioAsDefault}
+            handleOpenCreatePortfolio={handleOpenCreatePortfolio}
+            handleEditPortfolio={handleEditPortfolio}
+            showClosedPositions={showClosedPositions}
+            setShowClosedPositions={setShowClosedPositions}
+            closedPositionsCount={closedPositions.length}
+          />
+
+          {/* Positions Table Card */}
+          <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden p-4">
+            <div className="overflow-x-auto [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
+              {hasPositions && hasDisplayedPositions ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-b-2">
+                      <SortableHeader column="symbol" label="Symbol" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                      <SortableHeader column="price" label="Price" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                      <SortableHeader column="type" label="Type" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                      <SortableHeader column="cost" label="Cost" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                      <SortableHeader column="quantity" label="Qty" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                      <SortableHeader column="remainingShares" label="Rem. Shares" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                      <SortableHeader column="netCost" label="Net Cost" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                      <SortableHeader column="equity" label="Equity" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                      <SortableHeader column="gainLoss" label="Gain/Loss $" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                      <SortableHeader column="realizedGain" label="Realized $" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                      <SortableHeader column="portfolioPercent" label="% Portfolio" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                      <SortableHeader column="initialStopLoss" label="Init. SL" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                      <SortableHeader column="stopLoss" label="Stop Loss" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                      <SortableHeader 
+                        column="openRisk" 
+                        label={
+                          <span className="flex items-center gap-1">
+                            Open Risk %
+                            <TooltipProvider delayDuration={0}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                    <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" sideOffset={5}>
+                                  <p>% change from cost to stop loss</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </span>
+                        }
+                        sortColumn={sortColumn} 
+                        sortDirection={sortDirection} 
+                        onSort={handleSort} 
+                        className="border-r" 
+                      />
+                      <SortableHeader 
+                        column="openHeat" 
+                        label={
+                          <span className="flex items-center gap-1">
+                            Open Heat %
+                            <TooltipProvider delayDuration={0}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                    <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" sideOffset={5}>
+                                  <p>% of portfolio risked if stop loss is hit</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </span>
+                        }
+                        sortColumn={sortColumn} 
+                        sortDirection={sortDirection} 
+                        onSort={handleSort} 
+                        className="border-r" 
+                      />
+                      <SortableHeader 
+                        column="priceTarget2R" 
+                        label={
+                          <span className="flex items-center gap-1">
+                            PT 1
+                            <TooltipProvider delayDuration={0}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                    <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" sideOffset={5}>
+                                  <p>2R Price Target</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </span>
+                        }
+                        sortColumn={sortColumn} 
+                        sortDirection={sortDirection} 
+                        onSort={handleSort} 
+                        className="border-r" 
+                      />
+                      <SortableHeader 
+                        column="priceTarget2RShares" 
+                        label={
+                          <span className="flex items-center gap-1">
+                            PT 1 #
+                            <TooltipProvider delayDuration={0}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                    <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" sideOffset={5}>
+                                  <p>Shares sold at PT 1</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </span>
+                        }
+                        sortColumn={sortColumn} 
+                        sortDirection={sortDirection} 
+                        onSort={handleSort} 
+                        className="border-r" 
+                      />
+                      <SortableHeader 
+                        column="priceTarget5R" 
+                        label={
+                          <span className="flex items-center gap-1">
+                            PT 2
+                            <TooltipProvider delayDuration={0}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                    <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" sideOffset={5}>
+                                  <p>5R Price Target</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </span>
+                        }
+                        sortColumn={sortColumn} 
+                        sortDirection={sortDirection} 
+                        onSort={handleSort} 
+                        className="border-r" 
+                      />
+                      <SortableHeader 
+                        column="priceTarget5RShares" 
+                        label={
+                          <span className="flex items-center gap-1">
+                            PT 2 #
+                            <TooltipProvider delayDuration={0}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                    <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                                  </button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" sideOffset={5}>
+                                  <p>Shares sold at PT 2</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </span>
+                        }
+                        sortColumn={sortColumn} 
+                        sortDirection={sortDirection} 
+                        onSort={handleSort} 
+                        className="border-r" 
+                      />
+                      <SortableHeader column="priceTarget21Day" label="21 Day Trail" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                      <SortableHeader column="openDate" label="Open Date" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                      <SortableHeader column="closedDate" label="Closed Date" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                      <SortableHeader column="daysInTrade" label="Days" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                      <TableHead className="text-center">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {displayedPositions.map((position, index) => (
+                      <TableRow key={position.id} className={cn(
+                        "border-b hover:bg-muted/50",
+                        index % 2 === 0 ? "bg-muted/30" : ""
+                      )}>
+                        <TableCell className="font-medium border-r font-mono">{position.symbol}</TableCell>
+                        <TableCell className="border-r font-mono">
+                          <PriceCell symbol={position.symbol} />
+                        </TableCell>
+                        <TableCell className="border-r">
+                          <span className={cn(
+                            "px-2 py-1 rounded-full text-xs font-medium",
+                            position.type === 'Long' 
+                              ? "bg-emerald-500/20 text-emerald-400" 
+                              : "bg-red-500/20 text-red-400"
+                          )}>
+                            {position.type}
+                          </span>
+                        </TableCell>
+                        <TableCell className="border-r font-mono">{formatCurrency(position.cost)}</TableCell>
+                        <TableCell className="border-r font-mono">{position.quantity}</TableCell>
+                        <TableCell className="border-r">
+                          <div className="text-center font-medium font-mono">
+                            {position.priceTarget21Day > 0 ? '0' : position.remainingShares}
+                          </div>
+                        </TableCell>
+                        <TableCell className="font-medium border-r font-mono">{formatCurrency(position.netCost)}</TableCell>
+                        <TableCell className="border-r font-mono">
+                          <EquityCell symbol={position.symbol} quantity={position.priceTarget21Day > 0 ? 0 : position.remainingShares} />
+                        </TableCell>
+                        <TableCell className="border-r font-mono">
+                          {(() => {
+                            const isFullyClosed = position.priceTarget21Day > 0 || 
+                                                  position.remainingShares <= 0 ||
+                                                  (position.closedDate && (position.priceTarget2RShares > 0 || position.priceTarget5RShares > 0));
+                            
+                            if (isFullyClosed) {
+                              const totalGain = calculateRealizedGainForPosition(position);
+                              return (
+                                <span className={cn(
+                                  "font-medium",
+                                  totalGain >= 0 ? "text-emerald-400" : "text-red-400"
+                                )}>
+                                  {formatCurrency(totalGain)}
+                                </span>
+                              );
+                            } else {
+                              return (
+                                <GainLossCell 
+                                  symbol={position.symbol}
+                                  cost={position.cost}
+                                  quantity={position.remainingShares}
+                                  type={position.type}
+                                />
+                              );
+                            }
+                          })()}
+                        </TableCell>
+                        <TableCell className="border-r font-mono">
+                          {(() => {
+                            const realizedGain = calculateRealizedGainForPosition(position);
+                            return (
+                              <span className={cn(
+                                "font-medium",
+                                realizedGain >= 0 ? "text-emerald-400" : "text-red-400"
+                              )}>
+                                {formatCurrency(realizedGain)}
+                              </span>
+                            );
+                          })()}
+                        </TableCell>
+                        <TableCell className="border-r font-mono">
+                          <PortfolioPercentCell 
+                            symbol={position.symbol} 
+                            quantity={position.priceTarget21Day > 0 ? 0 : position.remainingShares}
+                            portfolioValue={parseFloat(portfolioValue) || 0}
+                          />
+                        </TableCell>
+                        <TableCell className="border-r font-mono">
+                          <span>{formatCurrency(position.initialStopLoss)}</span>
+                        </TableCell>
+                        <TableCell className="border-r font-mono">
+                          <span className="font-medium">{formatCurrency(position.stopLoss)}</span>
+                        </TableCell>
+                        <TableCell className="border-r font-mono">
+                          {(() => {
+                            if (position.closedDate) {
+                              return (
+                                <span className="font-medium">
+                                  0.00% ({formatCurrency(0)})
+                                </span>
+                              );
+                            }
+                            const openRiskPercent = calculatePercentageChange(position.stopLoss, position.cost);
+                            const openRiskAmount = calculateOpenRiskAmount(position.cost, position.stopLoss, position.quantity);
+                            return (
+                              <span className={cn(
+                                "font-medium",
+                                openRiskPercent < 0 ? "text-red-400" : "text-emerald-400"
+                              )}>
+                                {`${openRiskPercent >= 0 ? '+' : ''}${openRiskPercent.toFixed(2)}% (${formatCurrency(openRiskAmount)})`}
+                              </span>
+                            );
+                          })()}
+                        </TableCell>
+                        <TableCell className="border-r font-mono">
+                          <span className={cn(
+                            "font-medium",
+                            position.closedDate ? "" : (
+                              (() => {
+                                const portfolioValueNum = parseFloat(portfolioValue) || 0;
+                                if (portfolioValueNum === 0) return "";
+                                const riskPerShare = Math.abs(position.cost - position.stopLoss);
+                                const totalRisk = riskPerShare * position.quantity;
+                                const heatPercent = (totalRisk / portfolioValueNum) * 100;
+                                return heatPercent > 2 ? "text-red-400" : heatPercent > 1 ? "text-orange-400" : "";
+                              })()
+                            )
+                          )}>
+                            {position.closedDate ? "0.00%" : (
+                              (() => {
+                                const portfolioValueNum = parseFloat(portfolioValue) || 0;
+                                if (portfolioValueNum === 0) return "N/A";
+                                const riskPerShare = Math.abs(position.cost - position.stopLoss);
+                                const totalRisk = riskPerShare * position.quantity;
+                                const heatPercent = (totalRisk / portfolioValueNum) * 100;
+                                return `${heatPercent.toFixed(2)}%`;
+                              })()
+                            )}
+                          </span>
+                        </TableCell>
+                        <TableCell className="border-r font-mono">
+                          <div className="flex flex-col gap-0.5">
+                            <span>{position.priceTarget2R > 0 ? formatCurrency(position.priceTarget2R) : '-'}</span>
+                            {position.priceTarget2R > 0 && (
+                              <PercentageChange 
+                                value={calculatePercentageChange(position.priceTarget2R, position.cost)} 
+                                size="sm"
+                              />
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="border-r font-mono">
+                          <span className="font-medium">{position.priceTarget2RShares || 0}</span>
+                        </TableCell>
+                        <TableCell className="border-r font-mono">
+                          <div className="flex flex-col gap-0.5">
+                            <span>{position.priceTarget5R > 0 ? formatCurrency(position.priceTarget5R) : '-'}</span>
+                            {position.priceTarget5R > 0 && (
+                              <PercentageChange 
+                                value={calculatePercentageChange(position.priceTarget5R, position.cost)} 
+                                size="sm"
+                              />
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="border-r font-mono">
+                          <span className="font-medium">{position.priceTarget5RShares || 0}</span>
+                        </TableCell>
+                        <TableCell className="border-r font-mono">
+                          <div className="flex flex-col gap-0.5">
+                            <span>{position.priceTarget21Day > 0 ? formatCurrency(position.priceTarget21Day) : '-'}</span>
+                            {position.priceTarget21Day > 0 && (
+                              <PercentageChange 
+                                value={calculatePercentageChange(position.priceTarget21Day, position.cost)} 
+                                size="sm"
+                              />
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="border-r font-mono">{format(position.openDate, "MM/dd/yy")}</TableCell>
+                        <TableCell className="border-r font-mono">
+                          {position.closedDate ? format(position.closedDate, "MM/dd/yy") : <span className="text-muted-foreground">-</span>}
+                        </TableCell>
+                        <TableCell className="border-r font-mono">
+                          <span className="font-medium">
+                            {`${calculateDaysInTrade(position.openDate, position.closedDate)}d`}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button size="sm" variant="ghost" onClick={() => handleEditPosition(position)} className="h-7 w-7 p-0">
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              onClick={() => handleDeletePosition(position)}
+                              className="h-7 w-7 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {hasDisplayedPositions && (
+                      <SummaryTotalsRow 
+                        positions={displayedPositions}
+                        portfolioValue={portfolioValueNumber}
+                        summaryTotals={summaryTotals}
+                      />
+                    )}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+                  {hasPositions ? "No positions match the current filter." : "No positions yet. Add a stock position to get started."}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Sidebar */}
+        <aside className="w-full xl:w-80 shrink-0 space-y-4">
+          {/* Add Position Panel */}
+          <CollapsiblePanel title="+ Add Position" defaultOpen={true}>
+            <div className="pt-4 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Symbol</label>
+                  <Input
+                    type="text"
+                    placeholder="AAPL"
+                    value={symbol}
+                    onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                    className="h-8 text-sm font-mono bg-background/50"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Type</label>
+                  <Select value={type} onValueChange={(value: 'Long' | 'Short') => setType(value)}>
+                    <SelectTrigger className="h-8 text-sm bg-background/50">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Long">Long</SelectItem>
+                      <SelectItem value="Short">Short</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div>
-                <label htmlFor="cost" className="block text-sm font-medium text-foreground mb-2">
-                  Cost
-                </label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Cost</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={cost}
+                    onChange={(e) => setCost(e.target.value)}
+                    className="h-8 text-sm font-mono bg-background/50"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Quantity</label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="0"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    className="h-8 text-sm font-mono bg-background/50"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Initial Stop Loss</label>
                 <Input
-                  id="cost"
                   type="number"
                   step="0.01"
-                  placeholder="e.g., 150.00"
-                  value={cost}
-                  onChange={(e) => setCost(e.target.value)}
-                />
-              </div>
-              <div>
-                <label htmlFor="quantity" className="block text-sm font-medium text-foreground mb-2">
-                  Quantity
-                </label>
-                <Input
-                  id="quantity"
-                  type="number"
-                  step="0.01"
-                  placeholder="e.g., 100"
-                  value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                />
-              </div>
-              <div>
-                <label htmlFor="stop-loss" className="block text-sm font-medium text-foreground mb-2">
-                  Initial Stop Loss
-                </label>
-                <Input
-                  id="stop-loss"
-                  type="number"
-                  step="0.01"
-                  placeholder="e.g., 140.00"
+                  placeholder="0.00"
                   value={initialStopLoss}
                   onChange={(e) => setInitialStopLoss(e.target.value)}
+                  className="h-8 text-sm font-mono bg-background/50"
                 />
               </div>
-              <div>
-                <label htmlFor="type" className="block text-sm font-medium text-foreground mb-2">
-                  Type
-                </label>
-                <Select value={type} onValueChange={(value: 'Long' | 'Short') => setType(value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Long">Long</SelectItem>
-                    <SelectItem value="Short">Short</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label htmlFor="open-date" className="block text-sm font-medium text-foreground mb-2">
-                  Open Date
-                </label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Open Date</label>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       className={cn(
-                        "w-full justify-start text-left font-normal",
+                        "w-full h-8 justify-start text-left text-sm font-normal bg-background/50",
                         !openDate && "text-muted-foreground"
                       )}
                     >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {openDate ? format(openDate, "PPP") : <span>Pick a date</span>}
+                      <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                      {openDate ? format(openDate, "MM/dd/yyyy") : "Select"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -1766,26 +2675,19 @@ export default function Portfolio() {
               <Button
                 onClick={handleAddStock}
                 disabled={isAddButtonDisabled}
-                className="w-full"
+                className="w-full h-8 text-sm"
               >
-                Add Stock
+                Add Position
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </CollapsiblePanel>
 
-        <Card className="w-full">
-          <CardHeader className="p-4">
-            <CardTitle className="text-lg font-semibold">Position Percentage Calculator</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            <div className="flex flex-col gap-4">
-              <div>
-                <label htmlFor="adr-percent" className="block text-sm font-medium text-foreground mb-2">
-                  ADR %
-                </label>
+          {/* Calculator Panel */}
+          <CollapsiblePanel title="Position Calculator" defaultOpen={false}>
+            <div className="pt-4 space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">ADR %</label>
                 <Input
-                  id="adr-percent"
                   type="text"
                   inputMode="decimal"
                   placeholder="e.g., 2.50"
@@ -1796,876 +2698,195 @@ export default function Portfolio() {
                     const formattedValue = parts.length > 2 
                       ? parts[0] + '.' + parts.slice(1).join('')
                       : value;
-                    
-                    if (parts.length === 2 && parts[1].length > 2) {
-                      return;
-                    }
-                    
+                    if (parts.length === 2 && parts[1].length > 2) return;
                     setAdrPercent(formattedValue);
+                  }}
+                  className="h-8 text-sm font-mono bg-background/50"
+                />
+              </div>
+              {adrPercent && parseFloat(adrPercent) > 0 && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Max Position %</p>
+                    <p className="text-lg font-bold font-mono">
+                      {((1 / parseFloat(adrPercent)) * 100).toFixed(1)}%
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Max Amount</p>
+                    <p className="text-lg font-bold font-mono">
+                      {formatCurrency((parseFloat(portfolioValue) || 0) * (1 / parseFloat(adrPercent)))}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CollapsiblePanel>
+
+          {/* Allocation Panel */}
+          <CollapsiblePanel title="Allocation" defaultOpen={false}>
+            <div className="pt-4">
+              {allocationSummary.total === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No allocation data</p>
+              ) : (
+                <div className="space-y-4">
+                  <div className="h-48">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RechartsPieChart>
+                        <Pie
+                          data={allocationSlices}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={40}
+                          outerRadius={70}
+                          paddingAngle={3}
+                          stroke="transparent"
+                        >
+                          {allocationSlices.map((slice, index) => (
+                            <Cell key={slice.name} fill={allocationColors[index % allocationColors.length]} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip content={renderAllocationTooltip} />
+                      </RechartsPieChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-lg border border-border/50 bg-background/50 p-2">
+                      <p className="text-[10px] text-muted-foreground uppercase">Open Equity</p>
+                      <p className="text-sm font-bold font-mono">{formatCurrency(openEquityValue)}</p>
+                    </div>
+                    <div className="rounded-lg border border-border/50 bg-background/50 p-2">
+                      <p className="text-[10px] text-muted-foreground uppercase">Cash</p>
+                      <p className="text-sm font-bold font-mono">{formatCurrency(cashAllocationValue)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CollapsiblePanel>
+        </aside>
+      </div>
+
+      {/* Edit Position Modal */}
+      <EditPositionModal
+        position={editingPosition}
+        isOpen={showEditModal}
+        onClose={handleCancelEdit}
+        onSave={handleSaveEdit}
+        calculateRPriceTargets={calculateRPriceTargets}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Position</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this position for {positionToDelete?.symbol}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelDeletePosition}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDeletePosition}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Portfolio Dialog */}
+      <Dialog open={showCreatePortfolioDialog} onOpenChange={setShowCreatePortfolioDialog}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Create New Portfolio</DialogTitle>
+            <DialogDescription>
+              Create a new portfolio to track your investments separately.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="new-portfolio-name" className="block text-sm font-medium text-foreground">
+                Portfolio Name <span className="text-red-500">*</span>
+              </label>
+              <Input
+                id="new-portfolio-name"
+                type="text"
+                placeholder="e.g., Retirement Portfolio, Tech Stocks"
+                value={newPortfolioName}
+                onChange={(e) => setNewPortfolioName(e.target.value)}
+                disabled={isCreatingPortfolio}
+                className="text-base"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="new-portfolio-value" className="block text-sm font-medium text-foreground">
+                Initial Portfolio Value
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base text-muted-foreground pointer-events-none">
+                  $
+                </span>
+                <Input
+                  id="new-portfolio-value"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={newPortfolioValue}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9.]/g, '');
+                    const parts = value.split('.');
+                    const formattedValue = parts.length > 2 
+                      ? parts[0] + '.' + parts.slice(1).join('')
+                      : value;
+                    setNewPortfolioValue(formattedValue);
                   }}
                   onBlur={(e) => {
                     const value = e.target.value.replace(/[^0-9.]/g, '');
                     const numValue = parseFloat(value);
-                    if (!isNaN(numValue) && numValue > 0) {
-                      setAdrPercent(numValue.toFixed(2));
+                    if (!isNaN(numValue)) {
+                      setNewPortfolioValue(numValue.toFixed(2));
+                    } else if (value === '') {
+                      setNewPortfolioValue('');
                     }
                   }}
+                  disabled={isCreatingPortfolio}
+                  className="pl-7 text-base"
                 />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Average Daily Range percentage
-                </p>
               </div>
-              {adrPercent && parseFloat(adrPercent) > 0 && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Max Position %
-                    </label>
-                    <div className="text-lg font-medium px-3 py-2 rounded-md border bg-muted/30">
-                      {(() => {
-                        const adr = parseFloat(adrPercent);
-                        if (adr === 0) return '0.00%';
-                        const maxPositionPercent = (1 / adr) * 100;
-                        return `${maxPositionPercent.toFixed(2)}%`;
-                      })()}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      1 / ADR %
-                    </p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      Max Position Amount
-                    </label>
-                    <div className="text-lg font-medium px-3 py-2 rounded-md border bg-muted/30">
-                      {(() => {
-                        const adr = parseFloat(adrPercent);
-                        const portfolioValueNum = parseFloat(portfolioValue) || 0;
-                        if (adr === 0 || portfolioValueNum === 0) return formatCurrency(0);
-                        const maxPositionPercent = (1 / adr);
-                        const maxPositionAmount = portfolioValueNum * maxPositionPercent;
-                        return formatCurrency(maxPositionAmount);
-                      })()}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Portfolio Value × Max Position %
-                    </p>
-                  </div>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="w-full">
-          <CardHeader className="p-4">
-            <CardTitle className="text-lg font-semibold">Portfolio Allocation</CardTitle>
-            <p className="text-sm text-muted-foreground">Active positions versus remaining cash.</p>
-          </CardHeader>
-          <CardContent className="p-4 pt-0">
-            {allocationSummary.total === 0 ? (
-              <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-                No allocation data available.
-              </div>
-            ) : (
-              <div className="grid gap-6">
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPieChart>
-                      <Pie
-                        data={allocationSlices}
-                        dataKey="value"
-                        nameKey="name"
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={3}
-                        stroke="transparent"
-                      >
-                        {allocationSlices.map((slice, index) => (
-                          <Cell key={slice.name} fill={allocationColors[index % allocationColors.length]} />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip content={renderAllocationTooltip} />
-                      <Legend
-                        verticalAlign="bottom"
-                        height={32}
-                        formatter={(label, entry) => {
-                          const item = entry?.payload as { value?: number };
-                          const valueAmount = typeof item?.value === 'number' ? item.value : 0;
-                          const percentage = totalAllocation > 0 ? (valueAmount / totalAllocation) * 100 : 0;
-                          return `${label} (${percentage.toFixed(1)}%)`;
-                        }}
-                      />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-lg border bg-background/80 p-3">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Open Equity</p>
-                    <p className="text-lg font-semibold">{formatCurrency(openEquityValue)}</p>
-                  </div>
-                  <div className="rounded-lg border bg-background/80 p-3">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Cash</p>
-                    <p className="text-lg font-semibold">{formatCurrency(cashAllocationValue)}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-      <Card className="order-first">
-        <CardHeader>
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <CardTitle>Portfolio</CardTitle>
-              <Select
-                value={selectedPortfolioKey !== null ? String(selectedPortfolioKey) : undefined}
-                onValueChange={handlePortfolioSelection}
-                disabled={isPortfolioLoading || portfolios.length === 0}
-              >
-                <SelectTrigger className="w-[220px]" aria-label="Select portfolio">
-                  <SelectValue placeholder="Select portfolio" />
-                </SelectTrigger>
-                <SelectContent>
-                  {portfolios.map((record) => (
-                    <SelectItem key={record.portfolio_key} value={String(record.portfolio_key)}>
-                      <span className="flex items-center gap-2 min-w-0">
-                        <span className="truncate">
-                          {record.portfolio_name || `Portfolio ${record.portfolio_key}`}
-                        </span>
-                        {defaultPortfolioKey === Number(record.portfolio_key) && (
-                          <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
-                        )}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      onClick={() => {
-                        if (selectedPortfolioKey === defaultPortfolioKey) {
-                          setPortfolioAsDefault(null);
-                        } else if (selectedPortfolioKey !== null) {
-                          setPortfolioAsDefault(selectedPortfolioKey);
-                        }
-                      }}
-                      disabled={isPortfolioLoading || selectedPortfolioKey === null}
-                      className={cn(
-                        selectedPortfolioKey === defaultPortfolioKey && "border-amber-400"
-                      )}
-                    >
-                      <Star className={cn(
-                        "h-3 w-3 sm:h-4 sm:w-4",
-                        selectedPortfolioKey === defaultPortfolioKey 
-                          ? "fill-amber-400 text-amber-400" 
-                          : "text-muted-foreground"
-                      )} />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{selectedPortfolioKey === defaultPortfolioKey ? "Remove default" : "Set as default"}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      onClick={handleOpenCreatePortfolio}
-                      disabled={isPortfolioLoading}
-                    >
-                      <PlusCircle className="h-3 w-3 sm:h-4 sm:w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Create New Portfolio</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Input
-                value={symbolFilter}
-                onChange={(e) => setSymbolFilter(e.target.value.toUpperCase())}
-                placeholder="Filter symbol"
-                aria-label="Filter positions by symbol"
-                className="w-full min-w-[160px] sm:w-40"
-              />
-              {!isEditingPortfolio && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button size="sm" variant="outline" onClick={handleEditPortfolio}>
-                        <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Edit Portfolio</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-              <Button 
-                size="sm" 
-                variant={showClosedPositions ? "default" : "outline"}
-                onClick={() => setShowClosedPositions(!showClosedPositions)}
-                disabled={closedPositions.length === 0}
-              >
-                {showClosedPositions ? "Hide" : "Show"} Closed ({closedPositions.length})
-              </Button>
+              <p className="text-xs text-muted-foreground">
+                You can leave this as 0 and update it later.
+              </p>
             </div>
           </div>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {isEditingPortfolio ? (
-              <>
-                <div>
-                  <label htmlFor="portfolio-name" className="block text-sm font-medium text-foreground mb-2">
-                    Portfolio Name
-                  </label>
-                  <Input
-                    id="portfolio-name"
-                    type="text"
-                    placeholder="My Portfolio"
-                    value={tempPortfolioName}
-                    onChange={(e) => setTempPortfolioName(e.target.value)}
-                    className="text-lg"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="portfolio-value-edit" className="block text-sm font-medium text-foreground mb-2">
-                    Portfolio Value
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg text-muted-foreground pointer-events-none">
-                      $
-                    </span>
-                    <Input
-                      id="portfolio-value-edit"
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="0.00"
-                      value={tempPortfolioValue}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/[^0-9.]/g, '');
-                        const parts = value.split('.');
-                        const formattedValue = parts.length > 2 
-                          ? parts[0] + '.' + parts.slice(1).join('')
-                          : value;
-                        setTempPortfolioValue(formattedValue);
-                      }}
-                      onBlur={(e) => {
-                        const value = e.target.value.replace(/[^0-9.]/g, '');
-                        const numValue = parseFloat(value);
-                        if (!isNaN(numValue)) {
-                          setTempPortfolioValue(numValue.toFixed(2));
-                        }
-                      }}
-                      className="text-lg pl-7"
-                      style={{
-                        MozAppearance: 'textfield',
-                      } as React.CSSProperties}
-                    />
-                  </div>
-                </div>
-                <div className="flex gap-2 md:col-span-2 xl:col-span-3">
-                  <Button onClick={handleSavePortfolio}>
-                    Save
-                  </Button>
-                  <Button variant="outline" onClick={handleCancelPortfolioEdit}>
-                    Cancel
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Portfolio Name
-                  </label>
-                  <div className="text-lg font-medium px-3 py-2 rounded-md border bg-muted/30">
-                    {portfolioName}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Portfolio Value
-                  </label>
-                  <div className="text-lg font-medium px-3 py-2 rounded-md border bg-muted/30">
-                    ${(() => {
-                      const val = portfolio?.portfolio_value ?? (portfolioValue ? parseFloat(portfolioValue) : 0);
-                      return val.toFixed(2);
-                    })()}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Exposure
-                  </label>
-                  <div className={cn(
-                    "text-lg font-medium px-3 py-2 rounded-md border",
-                    exposure > 100 ? "bg-red-50 border-red-200 text-red-700" : 
-                    exposure > 80 ? "bg-yellow-50 border-yellow-200 text-yellow-700" :
-                    "bg-green-50 border-green-200 text-green-700"
-                  )}>
-                    {formatPercentage(exposure)}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {positions.length === 0 ? "No positions" : 
-                     exposure > 100 ? "Over-leveraged (margin)" :
-                     exposure > 80 ? "High exposure" : "Normal exposure"}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Unrealized Gain $
-                  </label>
-                  <div className="text-lg font-medium px-3 py-2 rounded-md border bg-muted/30">
-                    <UnrealizedGainDisplay positions={positions} />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Unrealized gains on remaining shares
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
-                    Realized Gain $
-                  </label>
-                  <div className="text-lg font-medium px-3 py-2 rounded-md border bg-muted/30">
-                    <RealizedGainDisplay positions={positions} />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    From all realized shares
-                  </p>
-                </div>
-              </>
-            )}
-          </div>
-          <div className="overflow-x-auto [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
-            {hasPositions && hasDisplayedPositions ? (
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-b-2">
-                    <SortableHeader column="symbol" label="Symbol" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
-                    <SortableHeader column="price" label="Price" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
-                    <SortableHeader column="type" label="Type" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
-                    <SortableHeader column="cost" label="Cost" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
-                    <SortableHeader column="quantity" label="Quantity" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
-                    <SortableHeader column="remainingShares" label="Remaining Shares" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
-                    <SortableHeader column="netCost" label="Net Cost" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
-                    <SortableHeader column="equity" label="Equity" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
-                    <SortableHeader column="gainLoss" label="Gain/Loss $" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
-                    <SortableHeader column="realizedGain" label="Realized Gain $" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
-                    <SortableHeader column="portfolioPercent" label="% Portfolio" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
-                    <SortableHeader column="initialStopLoss" label="Initial Stop Loss" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
-                    <SortableHeader column="stopLoss" label="Stop Loss" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
-                    <SortableHeader 
-                      column="openRisk" 
-                      label={
-                        <>
-                          <span>Open Risk %</span>
-                          <TooltipProvider delayDuration={0}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                  <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" sideOffset={5}>
-                                <p>% change from current price to stop loss</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </>
-                      }
-                      sortColumn={sortColumn} 
-                      sortDirection={sortDirection} 
-                      onSort={handleSort} 
-                      className="border-r font-bold" 
-                    />
-                    <SortableHeader 
-                      column="openHeat" 
-                      label={
-                        <>
-                          <span>Open Heat %</span>
-                          <TooltipProvider delayDuration={0}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                  <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" sideOffset={5}>
-                                <p>% of portfolio risked if stop loss is hit</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </>
-                      }
-                      sortColumn={sortColumn} 
-                      sortDirection={sortDirection} 
-                      onSort={handleSort} 
-                      className="border-r font-bold" 
-                    />
-                    <SortableHeader 
-                      column="priceTarget2R" 
-                      label={
-                        <>
-                          <span>PT 1</span>
-                          <TooltipProvider delayDuration={0}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                  <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" sideOffset={5}>
-                                <p>2R Price Target</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </>
-                      }
-                      sortColumn={sortColumn} 
-                      sortDirection={sortDirection} 
-                      onSort={handleSort} 
-                      className="border-r font-bold" 
-                    />
-                    <SortableHeader 
-                      column="priceTarget2RShares" 
-                      label={
-                        <>
-                          <span>PT 1 #</span>
-                          <TooltipProvider delayDuration={0}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                  <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" sideOffset={5}>
-                                <p>Number of shares sold at PT 1</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </>
-                      }
-                      sortColumn={sortColumn} 
-                      sortDirection={sortDirection} 
-                      onSort={handleSort} 
-                      className="border-r font-bold" 
-                    />
-                    <SortableHeader 
-                      column="priceTarget5R" 
-                      label={
-                        <>
-                          <span>PT 2</span>
-                          <TooltipProvider delayDuration={0}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                  <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" sideOffset={5}>
-                                <p>5R Price Target</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </>
-                      }
-                      sortColumn={sortColumn} 
-                      sortDirection={sortDirection} 
-                      onSort={handleSort} 
-                      className="border-r font-bold" 
-                    />
-                    <SortableHeader 
-                      column="priceTarget5RShares" 
-                      label={
-                        <>
-                          <span>PT 2 #</span>
-                          <TooltipProvider delayDuration={0}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                  <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                                </button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" sideOffset={5}>
-                                <p>Number of shares sold at PT 2</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </>
-                      }
-                      sortColumn={sortColumn} 
-                      sortDirection={sortDirection} 
-                      onSort={handleSort} 
-                      className="border-r font-bold" 
-                    />
-                    <SortableHeader column="priceTarget21Day" label="21 Day Trail" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
-                    <SortableHeader column="openDate" label="Open Date" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
-                    <SortableHeader column="closedDate" label="Closed Date" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
-                    <SortableHeader column="daysInTrade" label="Days in Trade" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r font-bold" />
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {displayedPositions.map((position, index) => (
-                    <TableRow key={position.id} className={cn(
-                      "border-b hover:bg-muted/50",
-                      index % 2 === 0 ? "bg-muted/30" : ""
-                    )}>
-                      {/* View mode */}
-                      <>
-                        <TableCell className="font-medium border-r">{position.symbol}</TableCell>
-                          <TableCell className="border-r">
-                            <PriceCell symbol={position.symbol} />
-                          </TableCell>
-                          <TableCell className="border-r">
-                            <span className={cn(
-                              "px-2 py-1 rounded-full text-xs font-medium",
-                              position.type === 'Long' 
-                                ? "bg-green-100 text-green-800" 
-                                : "bg-red-100 text-red-800"
-                            )}>
-                              {position.type}
-                            </span>
-                          </TableCell>
-                          <TableCell className="border-r">{formatCurrency(position.cost)}</TableCell>
-                          <TableCell className="border-r">{position.quantity}</TableCell>
-                          <TableCell className="border-r">
-                            <div className="text-center font-medium">
-                              {position.priceTarget21Day > 0 ? '0' : position.remainingShares}
-                            </div>
-                          </TableCell>
-                          <TableCell className="font-medium border-r">{formatCurrency(position.netCost)}</TableCell>
-                          <TableCell className="border-r">
-                            <EquityCell symbol={position.symbol} quantity={position.priceTarget21Day > 0 ? 0 : position.remainingShares} />
-                          </TableCell>
-                          <TableCell className="border-r">
-                            {(() => {
-                              // Check if position is fully closed (all shares realized)
-                              const isFullyClosed = position.priceTarget21Day > 0 || 
-                                                    position.remainingShares <= 0 ||
-                                                    (position.closedDate && (position.priceTarget2RShares > 0 || position.priceTarget5RShares > 0));
-                              
-                              if (isFullyClosed) {
-                                // Position fully exited - show total realized gain/loss
-                                const totalGain = calculateRealizedGainForPosition(position);
-                                
-                                return (
-                                  <span className={cn(
-                                    "font-medium",
-                                    totalGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                                  )}>
-                                    {formatCurrency(totalGain)}
-                                  </span>
-                                );
-                              } else {
-                                // Position still open - show unrealized gain/loss
-                                return (
-                                  <GainLossCell 
-                                    symbol={position.symbol}
-                                    cost={position.cost}
-                                    quantity={position.remainingShares}
-                                    type={position.type}
-                                  />
-                                );
-                              }
-                            })()}
-                          </TableCell>
-                          <TableCell className="border-r">
-                            {(() => {
-                              // Always calculate realized gain dynamically
-                              const realizedGain = calculateRealizedGainForPosition(position);
-                              
-                              return (
-                                <span className={cn(
-                                  "font-medium",
-                                  realizedGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                                )}>
-                                  {formatCurrency(realizedGain)}
-                                </span>
-                              );
-                            })()}
-                          </TableCell>
-                          <TableCell className="border-r">
-                            <PortfolioPercentCell 
-                              symbol={position.symbol} 
-                              quantity={position.priceTarget21Day > 0 ? 0 : position.remainingShares}
-                              portfolioValue={parseFloat(portfolioValue) || 0}
-                            />
-                          </TableCell>
-                          <TableCell className="border-r">
-                            <span>{formatCurrency(position.initialStopLoss)}</span>
-                          </TableCell>
-                          <TableCell className="border-r">
-                            <span className="font-medium">{formatCurrency(position.stopLoss)}</span>
-                          </TableCell>
-                          <TableCell className="border-r">
-                            {(() => {
-                              if (position.closedDate) {
-                                return (
-                                  <span className="font-medium">
-                                    0.00% ({formatCurrency(0)})
-                                  </span>
-                                );
-                              }
-
-                              const openRiskPercent = calculatePercentageChange(position.stopLoss, position.cost);
-                              const openRiskAmount = calculateOpenRiskAmount(position.cost, position.stopLoss, position.quantity);
-
-                              return (
-                                <span className={cn(
-                                  "font-medium",
-                                  openRiskPercent < 0 ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
-                                )}>
-                                  {`${openRiskPercent >= 0 ? '+' : ''}${openRiskPercent.toFixed(2)}% (${formatCurrency(openRiskAmount)})`}
-                                </span>
-                              );
-                            })()}
-                          </TableCell>
-                          <TableCell className="border-r">
-                            <span className={cn(
-                              "font-medium",
-                              position.closedDate ? "" : (
-                                (() => {
-                                  const portfolioValueNum = parseFloat(portfolioValue) || 0;
-                                  if (portfolioValueNum === 0) return "";
-                                  const riskPerShare = Math.abs(position.cost - position.stopLoss);
-                                  const totalRisk = riskPerShare * position.quantity;
-                                  const heatPercent = (totalRisk / portfolioValueNum) * 100;
-                                  return heatPercent > 2 ? "text-red-600 dark:text-red-400" : heatPercent > 1 ? "text-orange-600 dark:text-orange-400" : "";
-                                })()
-                              )
-                            )}>
-                              {position.closedDate ? "0.00%" : (
-                                (() => {
-                                  const portfolioValueNum = parseFloat(portfolioValue) || 0;
-                                  if (portfolioValueNum === 0) return "N/A";
-                                  const riskPerShare = Math.abs(position.cost - position.stopLoss);
-                                  const totalRisk = riskPerShare * position.quantity;
-                                  const heatPercent = (totalRisk / portfolioValueNum) * 100;
-                                  return `${heatPercent.toFixed(2)}%`;
-                                })()
-                              )}
-                            </span>
-                          </TableCell>
-                          <TableCell className="border-r">
-                            <div className="flex flex-col gap-0.5">
-                              <span>{position.priceTarget2R > 0 ? formatCurrency(position.priceTarget2R) : '-'}</span>
-                              {position.priceTarget2R > 0 && (
-                                <PercentageChange 
-                                  value={calculatePercentageChange(position.priceTarget2R, position.cost)} 
-                                  size="sm"
-                                />
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="border-r">
-                            <span className="font-medium">{position.priceTarget2RShares || 0}</span>
-                          </TableCell>
-                          <TableCell className="border-r">
-                            <div className="flex flex-col gap-0.5">
-                              <span>{position.priceTarget5R > 0 ? formatCurrency(position.priceTarget5R) : '-'}</span>
-                              {position.priceTarget5R > 0 && (
-                                <PercentageChange 
-                                  value={calculatePercentageChange(position.priceTarget5R, position.cost)} 
-                                  size="sm"
-                                />
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="border-r">
-                            <span className="font-medium">{position.priceTarget5RShares || 0}</span>
-                          </TableCell>
-                          <TableCell className="border-r">
-                            <div className="flex flex-col gap-0.5">
-                              <span>{position.priceTarget21Day > 0 ? formatCurrency(position.priceTarget21Day) : '-'}</span>
-                              {position.priceTarget21Day > 0 && (
-                                <PercentageChange 
-                                  value={calculatePercentageChange(position.priceTarget21Day, position.cost)} 
-                                  size="sm"
-                                />
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="border-r">{format(position.openDate, "MM/dd/yy")}</TableCell>
-                          <TableCell className="border-r">
-                            {position.closedDate ? format(position.closedDate, "MM/dd/yy") : <span className="text-muted-foreground">-</span>}
-                          </TableCell>
-                          <TableCell className="border-r">
-                            <span className="font-medium">
-                              {`${calculateDaysInTrade(position.openDate, position.closedDate)} days`}
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button size="sm" variant="outline" onClick={() => handleEditPosition(position)}>
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                size="sm" 
-                                variant="ghost" 
-                                onClick={() => handleDeletePosition(position)}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </>
-                    </TableRow>
-                  ))}
-                  {hasDisplayedPositions && (
-                    <SummaryTotalsRow 
-                      positions={displayedPositions}
-                      portfolioValue={portfolioValueNumber}
-                      summaryTotals={summaryTotals}
-                    />
-                  )}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-                {hasPositions ? "No positions match the current filter." : "No positions yet. Add a stock position to get started."}
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-
-    {/* Edit Position Modal */}
-    <EditPositionModal
-      position={editingPosition}
-      isOpen={showEditModal}
-      onClose={handleCancelEdit}
-      onSave={handleSaveEdit}
-      calculateRPriceTargets={calculateRPriceTargets}
-    />
-
-    {/* Delete Confirmation Dialog */}
-    <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete Position</DialogTitle>
-          <DialogDescription>
-            Are you sure you want to delete this position for {positionToDelete?.symbol}? This action cannot be undone.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" onClick={cancelDeletePosition}>
-            Cancel
-          </Button>
-          <Button variant="destructive" onClick={confirmDeletePosition}>
-            Delete
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-
-    {/* Create Portfolio Dialog */}
-    <Dialog open={showCreatePortfolioDialog} onOpenChange={setShowCreatePortfolioDialog}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Create New Portfolio</DialogTitle>
-          <DialogDescription>
-            Create a new portfolio to track your investments separately.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="space-y-2">
-            <label htmlFor="new-portfolio-name" className="block text-sm font-medium text-foreground">
-              Portfolio Name <span className="text-red-500">*</span>
-            </label>
-            <Input
-              id="new-portfolio-name"
-              type="text"
-              placeholder="e.g., Retirement Portfolio, Tech Stocks"
-              value={newPortfolioName}
-              onChange={(e) => setNewPortfolioName(e.target.value)}
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={handleCancelCreatePortfolio}
               disabled={isCreatingPortfolio}
-              className="text-base"
-              autoFocus
-            />
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="new-portfolio-value" className="block text-sm font-medium text-foreground">
-              Initial Portfolio Value
-            </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base text-muted-foreground pointer-events-none">
-                $
-              </span>
-              <Input
-                id="new-portfolio-value"
-                type="text"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={newPortfolioValue}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/[^0-9.]/g, '');
-                  const parts = value.split('.');
-                  const formattedValue = parts.length > 2 
-                    ? parts[0] + '.' + parts.slice(1).join('')
-                    : value;
-                  setNewPortfolioValue(formattedValue);
-                }}
-                onBlur={(e) => {
-                  const value = e.target.value.replace(/[^0-9.]/g, '');
-                  const numValue = parseFloat(value);
-                  if (!isNaN(numValue)) {
-                    setNewPortfolioValue(numValue.toFixed(2));
-                  } else if (value === '') {
-                    setNewPortfolioValue('');
-                  }
-                }}
-                disabled={isCreatingPortfolio}
-                className="pl-7 text-base"
-              />
-            </div>
-            <p className="text-xs text-muted-foreground">
-              You can leave this as 0 and update it later.
-            </p>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button 
-            variant="outline" 
-            onClick={handleCancelCreatePortfolio}
-            disabled={isCreatingPortfolio}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleCreatePortfolio}
-            disabled={isCreatingPortfolio || !newPortfolioName.trim()}
-          >
-            {isCreatingPortfolio ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              'Create Portfolio'
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  </div>
-);
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreatePortfolio}
+              disabled={isCreatingPortfolio || !newPortfolioName.trim()}
+            >
+              {isCreatingPortfolio ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                'Create Portfolio'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }
