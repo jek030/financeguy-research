@@ -7,6 +7,7 @@ import {
   MapIcon,
   ChartBarIcon,
   BriefcaseIcon,
+  DocumentTextIcon,
 } from '@heroicons/react/24/outline';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -48,6 +49,11 @@ const mainLinks = [
     name: 'Portfolio',
     href: '/portfolio',
     icon: BriefcaseIcon,
+  },
+  {
+    name: 'Transactions',
+    href: '/transactions',
+    icon: DocumentTextIcon,
   },
 ];
 
