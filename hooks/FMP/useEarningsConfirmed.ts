@@ -26,7 +26,7 @@ async function fetchEarningsConfirmed(date: Date): Promise<EarningsConfirmed[]> 
   const lastDayFormatted = `${year}-${month.toString().padStart(2, '0')}-${lastDay.getDate().toString().padStart(2, '0')}`;
 
   const response = await fetch(
-    `/api/fmp/calendar?from=${firstDay}&to=${lastDayFormatted}`
+    `/api/earnings/calendar?from=${firstDay}&to=${lastDayFormatted}`
   );
 
   if (!response.ok) {

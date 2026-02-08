@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model EarningsCalendar {
+  id               Int       @id @default(autoincrement())
+  symbol           String    @db.VarChar(30)
+  reportDate       DateTime  @map("report_date") @db.Date
+  fiscalDateEnding DateTime? @map("fiscal_date_ending") @db.Date
+  epsActual        Decimal?  @map("eps_actual") @db.Decimal(12, 4)
+  epsEstimated     Decimal?  @map("eps_estimated") @db.Decimal(12, 4)
+  revenueActual    BigInt?   @map("revenue_actual")
+  revenueEstimated BigInt?   @map("revenue_estimated")
+  reportTime       String?   @map("report_time") @db.VarChar(10)
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  @@unique([symbol, reportDate])
+  @@index([reportDate])
+  @@index([symbol])
+  @@map("earnings_calendar")
+}
+
+model IncomeStatement {
+  id                Int      @id @default(autoincrement())
+  symbol            String   @db.VarChar(30)
+  date              DateTime @db.Date
+  period            String   @db.VarChar(10)
+  revenue           BigInt?
+  netIncome         BigInt?  @map("net_income")
+  epsDiluted        Decimal? @map("eps_diluted") @db.Decimal(12, 4)
+  weightedAvgShares BigInt?  @map("weighted_avg_shares")
+  costOfRevenue     BigInt?  @map("cost_of_revenue")
+  grossProfit       BigInt?  @map("gross_profit")
+  operatingIncome   BigInt?  @map("operating_income")
+  operatingExpenses BigInt?  @map("operating_expenses")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@unique([symbol, date, period])
+  @@index([symbol])
+  @@index([symbol, period])
+  @@map("income_statements")
+}
