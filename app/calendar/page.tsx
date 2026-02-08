@@ -152,21 +152,25 @@ const CalendarPage: React.FC = () => {
   // ── Compute which symbols to fetch based on active filter ──────────────────
   const indexConstituentsLoaded = !dowLoading && !spLoading && !nasdaq100Loading;
 
-  const selectedSymbols = useMemo((): string[] => {
+  const selectedSymbols = useMemo((): string[] | undefined => {
+    // "All" = no symbol filtering at all — fetch every earning in the date range
+    if (activeFilter === 'all') return undefined;
+
     if (activeFilter === 'watchlist') {
-      return watchlistSymbols;
+      return watchlistSymbols.length > 0 ? watchlistSymbols : [];
     }
+
     // For index-based filters, wait until constituent data is loaded
     if (!indexConstituentsLoaded) return [];
 
     const combined = new Set<string>();
-    if (activeFilter === 'all' || activeFilter === 'sp500') {
+    if (activeFilter === 'sp500') {
       spConstituents.forEach((s: string) => combined.add(s));
     }
-    if (activeFilter === 'all' || activeFilter === 'dow') {
+    if (activeFilter === 'dow') {
       dowConstituents.forEach((s: string) => combined.add(s));
     }
-    if (activeFilter === 'all' || activeFilter === 'nasdaq100') {
+    if (activeFilter === 'nasdaq100') {
       nasdaq100Constituents.forEach((s: string) => combined.add(s));
     }
     return Array.from(combined);
@@ -218,18 +222,23 @@ const CalendarPage: React.FC = () => {
     return `${percentage > 0 ? '+' : ''}${percentage.toFixed(2)}%`;
   };
 
+  // Parse "YYYY-MM-DD" as local midnight (avoids UTC shift that causes off-by-one in US timezones)
+  const parseLocalDate = (dateStr: string): Date => {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  };
+
   const formatDateShort = (dateStr: string | undefined): string => {
     if (!dateStr) return '';
-    const date = new Date(dateStr);
+    const date = parseLocalDate(dateStr);
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
   const getDaysUntil = (dateStr: string | undefined): string => {
     if (!dateStr) return '';
-    const eventDate = new Date(dateStr);
+    const eventDate = parseLocalDate(dateStr);
     const now = new Date();
     now.setHours(0, 0, 0, 0);
-    eventDate.setHours(0, 0, 0, 0);
     const diffDays = Math.ceil((eventDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Tomorrow';
@@ -300,7 +309,7 @@ const CalendarPage: React.FC = () => {
         flatEvents.push({ ...event, date });
       });
     });
-    return flatEvents.sort((a, b) => new Date(a.date || '').getTime() - new Date(b.date || '').getTime());
+    return flatEvents.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   }, [events]);
 
   const today = useMemo(() => {
@@ -311,14 +320,14 @@ const CalendarPage: React.FC = () => {
 
   const previousEvents = useMemo(() => {
     return allEventsSorted.filter(event => {
-      const eventDate = new Date(event.date || '');
+      const eventDate = event.date ? parseLocalDate(event.date) : new Date(0);
       return eventDate < today;
     });
   }, [allEventsSorted, today]);
 
   const upcomingEvents = useMemo(() => {
     return allEventsSorted.filter(event => {
-      const eventDate = new Date(event.date || '');
+      const eventDate = event.date ? parseLocalDate(event.date) : new Date(0);
       return eventDate >= today;
     });
   }, [allEventsSorted, today]);

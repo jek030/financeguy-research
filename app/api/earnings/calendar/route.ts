@@ -16,7 +16,7 @@ function mapRows(data: Record<string, unknown>[]) {
   }));
 }
 
-// GET handler (no symbol filtering - returns all, with large range)
+// GET handler (no symbol filtering - returns all US-exchange earnings)
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const from = searchParams.get('from');
@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
       .select('*')
       .gte('report_date', from)
       .lte('report_date', to)
+      .not('symbol', 'like', '%.%')   // Exclude non-US exchanges (e.g. SAP.DE, RY.TO)
       .order('report_date', { ascending: true })
       .range(0, 9999);
 
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
       .gte('report_date', from)
       .lte('report_date', to)
       .in('symbol', symbols)
+      .not('symbol', 'like', '%.%')   // Exclude non-US exchanges
       .order('report_date', { ascending: true });
 
     if (error) {
