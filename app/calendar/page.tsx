@@ -58,18 +58,32 @@ const CalendarPage: React.FC = () => {
     earnings: { name: 'Earnings', color: 'bg-info/10 text-primary' },
   });
   
-  const { data: earnings = [] } = useEarningsConfirmed(currentDate);
+  // Fetch constituent data first (these are cached for 24h)
   const { data: dowData, isLoading: dowLoading } = useDowJonesConstituents();
   const { data: spData, isLoading: spLoading } = useSP500Constituents();
   const { data: nasdaqData, isLoading: nasdaqLoading } = useNasdaqConstituents();
   
-  const dowConstituents = useMemo(() => dowData?.symbols || new Set(), [dowData?.symbols]);
-  const spConstituents = useMemo(() => spData?.symbols || new Set(), [spData?.symbols]);
-  const nasdaqConstituents = useMemo(() => nasdaqData?.symbols || new Set(), [nasdaqData?.symbols]);
+  const dowConstituents = useMemo(() => dowData?.symbols || new Set<string>(), [dowData?.symbols]);
+  const spConstituents = useMemo(() => spData?.symbols || new Set<string>(), [spData?.symbols]);
+  const nasdaqConstituents = useMemo(() => nasdaqData?.symbols || new Set<string>(), [nasdaqData?.symbols]);
   
   const dowDataMap = useMemo(() => dowData?.dataMap || new Map(), [dowData?.dataMap]);
   const spDataMap = useMemo(() => spData?.dataMap || new Map(), [spData?.dataMap]);
   const nasdaqDataMap = useMemo(() => nasdaqData?.dataMap || new Map(), [nasdaqData?.dataMap]);
+
+  // Combine ALL constituent symbols for server-side filtering (always include all, toggle filtering is client-side)
+  const constituentsLoaded = !dowLoading && !spLoading && !nasdaqLoading;
+  const allConstituentSymbols = useMemo(() => {
+    if (!constituentsLoaded) return []; // Empty array = query disabled (waits for constituents)
+    const combined = new Set<string>();
+    spConstituents.forEach((s: string) => combined.add(s));
+    dowConstituents.forEach((s: string) => combined.add(s));
+    nasdaqConstituents.forEach((s: string) => combined.add(s));
+    return Array.from(combined);
+  }, [spConstituents, dowConstituents, nasdaqConstituents, constituentsLoaded]);
+
+  // Fetch earnings data filtered to only constituent symbols (dependent query - waits for constituents)
+  const { data: earnings = [] } = useEarningsConfirmed(currentDate, allConstituentSymbols);
 
   // Format the time string
   const formatTime = (time: string | undefined): string => {
@@ -98,72 +112,69 @@ const CalendarPage: React.FC = () => {
     }
   };
 
-  // Handle earnings data
+  // Handle earnings data - data is already filtered to constituent symbols server-side
   useEffect(() => {
-    if (earnings && earnings.length > 0 && !dowLoading && !spLoading && !nasdaqLoading) {
-      setEvents(prevEvents => {
-        const newEvents = { ...prevEvents };
+    if (earnings && earnings.length > 0) {
+      const newEvents: EventsState = {};
+      
+      earnings.forEach(earning => {
+        const dateKey = earning.date;
+        const earningTime = formatTime(earning.time);
         
-        earnings.forEach(earning => {
-          // Only process if the symbol is in any of the major indices
-          if (dowConstituents.has(earning.symbol) || spConstituents.has(earning.symbol) || nasdaqConstituents.has(earning.symbol)) {
-            const dateKey = earning.date;
-            const earningTime = formatTime(earning.time);
-            
-            // Calculate beat percentages
-            let epsBeatPercentage = null;
-            let revenueBeatPercentage = null;
-            
-            if (earning.eps !== null && earning.epsEstimated !== null && earning.epsEstimated !== 0) {
-              epsBeatPercentage = ((earning.eps - earning.epsEstimated) / Math.abs(earning.epsEstimated)) * 100;
-            }
-            
-            if (earning.revenue !== null && earning.revenueEstimated !== null && earning.revenueEstimated !== 0) {
-              revenueBeatPercentage = ((earning.revenue - earning.revenueEstimated) / Math.abs(earning.revenueEstimated)) * 100;
-            }
-            
-            // Get constituent data
-            const constituentData = dowDataMap.get(earning.symbol) || spDataMap.get(earning.symbol) || nasdaqDataMap.get(earning.symbol);
-            
-            const earningEvent: CalendarEvent = {
-              title: `${earning.symbol} Earnings - ${earningTime} (EPS: ${earning.eps ?? 'N/A'})`,
-              category: 'earnings',
-              url: earning.url,
-              time: earning.time,
-              symbol: earning.symbol,
-              exchange: earning.exchange,
-              eps: earning.eps,
-              epsEstimated: earning.epsEstimated,
-              revenue: earning.revenue,
-              revenueEstimated: earning.revenueEstimated,
-              fiscalDateEnding: earning.fiscalDateEnding,
-              epsBeatPercentage,
-              revenueBeatPercentage,
-              date: earning.date,
-              name: constituentData?.name,
-              sector: constituentData?.sector,
-              subSector: constituentData?.subSector
-            };
+        // Calculate beat percentages
+        let epsBeatPercentage = null;
+        let revenueBeatPercentage = null;
+        
+        if (earning.eps !== null && earning.epsEstimated !== null && earning.epsEstimated !== 0) {
+          epsBeatPercentage = ((earning.eps - earning.epsEstimated) / Math.abs(earning.epsEstimated)) * 100;
+        }
+        
+        if (earning.revenue !== null && earning.revenueEstimated !== null && earning.revenueEstimated !== 0) {
+          revenueBeatPercentage = ((earning.revenue - earning.revenueEstimated) / Math.abs(earning.revenueEstimated)) * 100;
+        }
+        
+        // Get constituent data for display (name, sector, etc.)
+        const constituentData = dowDataMap.get(earning.symbol) || spDataMap.get(earning.symbol) || nasdaqDataMap.get(earning.symbol);
+        
+        const earningEvent: CalendarEvent = {
+          title: `${earning.symbol} Earnings - ${earningTime} (EPS: ${earning.eps ?? 'N/A'})`,
+          category: 'earnings',
+          url: earning.url,
+          time: earning.time,
+          symbol: earning.symbol,
+          exchange: earning.exchange,
+          eps: earning.eps,
+          epsEstimated: earning.epsEstimated,
+          revenue: earning.revenue,
+          revenueEstimated: earning.revenueEstimated,
+          fiscalDateEnding: earning.fiscalDateEnding,
+          epsBeatPercentage,
+          revenueBeatPercentage,
+          date: earning.date,
+          name: constituentData?.name,
+          sector: constituentData?.sector,
+          subSector: constituentData?.subSector
+        };
 
-            if (!newEvents[dateKey]) {
-              newEvents[dateKey] = [];
-            }
-            
-            // Check if event already exists to avoid duplicates
-            const eventExists = newEvents[dateKey].some(
-              event => event.title === earningEvent.title
-            );
-            
-            if (!eventExists) {
-              newEvents[dateKey] = [...newEvents[dateKey], earningEvent];
-            }
-          }
-        });
-
-        return newEvents;
+        if (!newEvents[dateKey]) {
+          newEvents[dateKey] = [];
+        }
+        
+        // Check if event already exists to avoid duplicates
+        const eventExists = newEvents[dateKey].some(
+          event => event.symbol === earningEvent.symbol
+        );
+        
+        if (!eventExists) {
+          newEvents[dateKey].push(earningEvent);
+        }
       });
+
+      setEvents(newEvents);
+    } else {
+      setEvents({});
     }
-  }, [earnings, currentDate, dowConstituents, spConstituents, nasdaqConstituents, dowDataMap, spDataMap, nasdaqDataMap, dowLoading, spLoading, nasdaqLoading]);
+  }, [earnings, dowDataMap, spDataMap, nasdaqDataMap]);
 
   // Get all events as a flat sorted array with index filtering
   const allEventsSorted = useMemo(() => {
