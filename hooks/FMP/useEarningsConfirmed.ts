@@ -17,24 +17,13 @@ interface EarningsConfirmed {
   url?: string;
 }
 
-async function fetchEarningsConfirmed(date: Date, symbols?: string[]): Promise<EarningsConfirmed[]> {
-  // Get first and last day of the month
-  const year = date.getFullYear();
-  const month = date.getMonth() + 1;
-  const firstDay = `${year}-${month.toString().padStart(2, '0')}-01`;
-  const lastDay = new Date(year, month, 0);
-  const lastDayFormatted = `${year}-${month.toString().padStart(2, '0')}-${lastDay.getDate().toString().padStart(2, '0')}`;
-
+async function fetchEarningsConfirmed(from: string, to: string, symbols?: string[]): Promise<EarningsConfirmed[]> {
   // If symbols are provided, use POST with server-side filtering (much more efficient)
   if (symbols && symbols.length > 0) {
     const response = await fetch('/api/earnings/calendar', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: firstDay,
-        to: lastDayFormatted,
-        symbols,
-      }),
+      body: JSON.stringify({ from, to, symbols }),
     });
 
     if (!response.ok) {
@@ -46,7 +35,7 @@ async function fetchEarningsConfirmed(date: Date, symbols?: string[]): Promise<E
 
   // Fallback: GET without symbol filtering
   const response = await fetch(
-    `/api/earnings/calendar?from=${firstDay}&to=${lastDayFormatted}`
+    `/api/earnings/calendar?from=${from}&to=${to}`
   );
 
   if (!response.ok) {
@@ -56,13 +45,13 @@ async function fetchEarningsConfirmed(date: Date, symbols?: string[]): Promise<E
   return response.json();
 }
 
-export function useEarningsConfirmed(date: Date, symbols?: string[]) {
+export function useEarningsConfirmed(from: string, to: string, symbols?: string[]) {
   return useQuery({
-    queryKey: ['earnings-confirmed', date.getFullYear(), date.getMonth(), symbols?.length ?? 0],
-    queryFn: () => fetchEarningsConfirmed(date, symbols),
+    queryKey: ['earnings-confirmed', from, to, symbols?.length ?? 0],
+    queryFn: () => fetchEarningsConfirmed(from, to, symbols),
     // Only fetch when symbols are available (if symbols param is used)
-    enabled: symbols === undefined || symbols.length > 0,
+    enabled: (symbols === undefined || symbols.length > 0) && from !== '' && to !== '',
     staleTime: 24 * 60 * 60 * 1000, // Consider data fresh for 24 hours
     gcTime: 7 * 24 * 60 * 60 * 1000, // Keep data in cache for 7 days
   });
-} 
+}
