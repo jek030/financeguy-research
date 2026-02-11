@@ -7,8 +7,15 @@ dotenv.config();
  * Uses the Supabase REST API (like the Go sectors job) instead of Prisma,
  * so it only needs SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and FMP_API_KEY.
  *
- * Designed to be invoked directly from GitHub Actions or CLI:
- *   npx tsx src/jobs/run-earnings.ts
+ * Runs every business day via GitHub Actions. Logic:
+ *   1. Fetch the FMP earnings calendar for [previous business day → 4 weeks out]
+ *   2. Upsert into earnings_calendar (update actuals, estimated, report_time, updated_at).
+ *      - created_at is never modified after the initial insert.
+ *      - If a company's earnings date shifted, the old row stays and the new one is inserted.
+ *      - No rows are ever deleted.
+ *   3. For companies that recently reported (have eps_actual), fetch and upsert income statements.
+ *
+ * Usage:  npx tsx src/jobs/run-earnings.ts
  */
 
 // ─── Config ──────────────────────────────────────────────
@@ -64,6 +71,28 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/**
+ * Returns the previous business day (Mon-Fri).
+ *   Monday    → previous Friday
+ *   Sunday    → previous Friday
+ *   Saturday  → previous Friday
+ *   Tue–Fri   → previous calendar day
+ */
+function getPreviousBusinessDay(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay(); // 0=Sun, 1=Mon, …, 6=Sat
+  if (day === 1) {
+    d.setDate(d.getDate() - 3); // Mon → Fri
+  } else if (day === 0) {
+    d.setDate(d.getDate() - 2); // Sun → Fri
+  } else if (day === 6) {
+    d.setDate(d.getDate() - 1); // Sat → Fri
+  } else {
+    d.setDate(d.getDate() - 1); // Tue–Fri → previous day
+  }
+  return d;
+}
+
 // ─── Supabase REST helpers ───────────────────────────────
 
 async function supabase(path: string, init: RequestInit = {}): Promise<Response> {
@@ -81,6 +110,7 @@ async function supabase(path: string, init: RequestInit = {}): Promise<Response>
 // ─── FMP API ─────────────────────────────────────────────
 
 async function fetchCalendar(from: string, to: string): Promise<CalendarEntry[]> {
+  console.log(`[fmp] Fetching earnings calendar: ${from} → ${to}`);
   const url = `${FMP_BASE}/v3/earning_calendar?from=${from}&to=${to}&apikey=${FMP_API_KEY}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`FMP calendar request failed: ${res.status}`);
@@ -121,37 +151,20 @@ async function fetchIncomeStatements(symbol: string, period: string): Promise<In
   }));
 }
 
-// ─── Sync logic ──────────────────────────────────────────
-
-/**
- * Keep all past entries + only the nearest upcoming future entry per symbol.
- */
-function filterToNextEarningsOnly(entries: CalendarEntry[]): CalendarEntry[] {
-  const todayStr = formatDate(new Date());
-  const past: CalendarEntry[] = [];
-  const futureBySymbol = new Map<string, CalendarEntry[]>();
-
-  for (const entry of entries) {
-    if (entry.date < todayStr) {
-      past.push(entry);
-    } else {
-      const list = futureBySymbol.get(entry.symbol) || [];
-      list.push(entry);
-      futureBySymbol.set(entry.symbol, list);
-    }
-  }
-
-  const filtered: CalendarEntry[] = [];
-  for (const [, futures] of futureBySymbol) {
-    futures.sort((a, b) => a.date.localeCompare(b.date));
-    filtered.push(futures[0]);
-  }
-
-  return [...past, ...filtered];
-}
+// ─── Earnings calendar sync ──────────────────────────────
 
 /**
  * Upsert calendar entries into Supabase via REST API in batches.
+ *
+ * On conflict (symbol, report_date):
+ *   - Updates eps_actual, revenue_actual, report_time, updated_at always.
+ *   - Updates eps_estimated, revenue_estimated, fiscal_date_ending always
+ *     (if value differs, Supabase writes the new value; if same, no-op).
+ *   - created_at is NOT included, so it is never overwritten after insert.
+ *
+ * If a company's earnings date shifted (API returns a different report_date),
+ * the new (symbol, report_date) combo has no conflict → inserted as a new row.
+ * The old row is left untouched.
  */
 async function upsertCalendar(entries: CalendarEntry[]): Promise<number> {
   let total = 0;
@@ -192,52 +205,7 @@ async function upsertCalendar(entries: CalendarEntry[]): Promise<number> {
   return total;
 }
 
-/**
- * Delete future earnings entries where a symbol has more than one upcoming date.
- * Keeps only the nearest future date per symbol.
- */
-async function cleanupFutureEarnings(): Promise<number> {
-  const today = formatDate(new Date());
-
-  const res = await supabase(
-    `/rest/v1/earnings_calendar?select=id,symbol,report_date&report_date=gte.${today}&order=symbol.asc,report_date.asc`,
-    { method: 'GET' },
-  );
-
-  if (!res.ok) {
-    console.error('[sync] Failed to fetch future earnings for cleanup');
-    return 0;
-  }
-
-  const rows = (await res.json()) as { id: number; symbol: string; report_date: string }[];
-
-  // For each symbol, keep only the earliest future entry — mark the rest for deletion
-  const seen = new Set<string>();
-  const toDelete: number[] = [];
-
-  for (const row of rows) {
-    if (seen.has(row.symbol)) {
-      toDelete.push(row.id);
-    } else {
-      seen.add(row.symbol);
-    }
-  }
-
-  if (toDelete.length === 0) return 0;
-
-  // Delete in batches
-  for (let i = 0; i < toDelete.length; i += BATCH_SIZE) {
-    const ids = toDelete.slice(i, i + BATCH_SIZE).join(',');
-    const del = await supabase(`/rest/v1/earnings_calendar?id=in.(${ids})`, {
-      method: 'DELETE',
-    });
-    if (!del.ok) {
-      console.error(`[sync] Failed to delete stale future entries: ${await del.text()}`);
-    }
-  }
-
-  return toDelete.length;
-}
+// ─── Income statements sync ─────────────────────────────
 
 /**
  * Upsert income statements into Supabase via REST API.
@@ -276,6 +244,7 @@ async function upsertIncomeStatements(statements: IncomeStatement[]): Promise<nu
 
 /**
  * Query recently reported companies from Supabase (last 7 days, eps_actual is not null).
+ * Uses a 7-day lookback to catch anything missed over weekends or failed runs.
  */
 async function getRecentlyReported(from: string, to: string): Promise<string[]> {
   const res = await supabase(
@@ -299,29 +268,35 @@ async function main() {
   console.log('[earnings-runner] Starting daily earnings sync...');
 
   const today = new Date();
-  const sevenDaysAgo = new Date(today);
-  sevenDaysAgo.setDate(today.getDate() - 7);
-  const ninetyDaysFromNow = new Date(today);
-  ninetyDaysFromNow.setDate(today.getDate() + 90);
 
-  const from = formatDate(sevenDaysAgo);
-  const to = formatDate(ninetyDaysFromNow);
+  // ── Date range for the earnings calendar API call ──
+  // From: previous business day
+  // To:   4 weeks from today
+  const prevBizDay = getPreviousBusinessDay(today);
+  const fourWeeksOut = new Date(today);
+  fourWeeksOut.setDate(today.getDate() + 28);
 
-  // Step 1: Fetch & upsert earnings calendar
-  const entries = await fetchCalendar(from, to);
+  const calendarFrom = formatDate(prevBizDay);
+  const calendarTo = formatDate(fourWeeksOut);
+
+  console.log(`[earnings-runner] Calendar date range: ${calendarFrom} → ${calendarTo}`);
+
+  // Step 1: Fetch earnings calendar from FMP and upsert into Supabase.
+  //         - Existing rows (same symbol + report_date) get updated.
+  //         - New rows (shifted dates or new symbols) get inserted.
+  //         - Nothing is ever deleted.
+  const entries = await fetchCalendar(calendarFrom, calendarTo);
   console.log(`[earnings-runner] Fetched ${entries.length} calendar entries from FMP`);
 
-  const filtered = filterToNextEarningsOnly(entries);
-  console.log(`[earnings-runner] After filtering: ${filtered.length} entries (removed ${entries.length - filtered.length} subsequent future dates)`);
-
-  const calendarCount = await upsertCalendar(filtered);
+  const calendarCount = await upsertCalendar(entries);
   console.log(`[earnings-runner] Upserted ${calendarCount} calendar entries`);
 
-  const deleted = await cleanupFutureEarnings();
-  if (deleted > 0) console.log(`[earnings-runner] Cleaned up ${deleted} stale future entries`);
-
-  // Step 2: Fetch & upsert income statements for recently reported companies
+  // Step 2: Fetch & upsert income statements for recently reported companies.
+  //         Uses a 7-day lookback to catch weekends / missed runs.
+  const sevenDaysAgo = new Date(today);
+  sevenDaysAgo.setDate(today.getDate() - 7);
   const todayStr = formatDate(today);
+
   const symbols = await getRecentlyReported(formatDate(sevenDaysAgo), todayStr);
   console.log(`[earnings-runner] Found ${symbols.length} companies that reported in the last 7 days`);
 
