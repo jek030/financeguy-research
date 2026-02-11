@@ -1,0 +1,37 @@
+name: Earnings Sync (Daily)
+
+on:
+  schedule:
+    - cron: '0 23 * * 1-5' # 11 PM UTC = 6 PM EST, weekdays only
+  workflow_dispatch: # allows manual triggering from GitHub UI
+
+jobs:
+  run-earnings-sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Generate Prisma client
+        working-directory: server
+        run: npx prisma generate
+
+      - name: Run earnings sync
+        working-directory: server
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
+        run: npx tsx src/jobs/run-earnings.ts
