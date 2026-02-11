@@ -7,6 +7,17 @@ import (
 	"time"
 )
 
+// parseDate attempts to parse a string as MM/DD/2006 or 2006-01-02
+func parseDate(s string) (time.Time, bool) {
+	if d, err := time.Parse("01/02/2006", s); err == nil {
+		return d, true
+	}
+	if d, err := time.Parse("2006-01-02", s); err == nil {
+		return d, true
+	}
+	return time.Time{}, false
+}
+
 // BackfillCommand can be run as a separate process to backfill historical data
 func BackfillCommand() {
 	loadEnv()
@@ -37,32 +48,40 @@ func BackfillCommand() {
 	// Default symbols if none provided
 	symbols := []string{"XLF", "XLE", "XLC", "XLP", "XLV", "XLU", "XLRE", "XLI", "XLY", "XLB", "XLK"}
 
-	// Parse cutoff date if provided (format: MM/DD/YYYY or YYYY-MM-DD)
-	var cutoffDate time.Time
-	var hasCutoff bool
-	
+	// Parse dates and symbols from args (format: MM/DD/YYYY or YYYY-MM-DD)
+	var fromDate, toDate time.Time
+	var hasFrom, hasTo bool
+
 	if len(os.Args) > 2 {
-		// Check if the last argument is a date
-		lastArg := os.Args[len(os.Args)-1]
-		
-		// Try parsing MM/DD/YYYY format
-		parsedDate, err := time.Parse("01/02/2006", lastArg)
-		if err != nil {
-			// Try parsing YYYY-MM-DD format
-			parsedDate, err = time.Parse("2006-01-02", lastArg)
-		}
-		
-		if err == nil {
-			cutoffDate = parsedDate
-			hasCutoff = true
-			log.Printf("Using cutoff date: %s (only data BEFORE this date will be inserted)\n", cutoffDate.Format("2006-01-02"))
-			// Remove the date from args and get symbols
-			if len(os.Args) > 3 {
-				symbols = os.Args[2 : len(os.Args)-1]
+		var dates []time.Time
+		var parsedSymbols []string
+
+		for _, arg := range os.Args[2:] {
+			if d, ok := parseDate(arg); ok {
+				dates = append(dates, d)
+			} else {
+				parsedSymbols = append(parsedSymbols, arg)
 			}
-		} else {
-			// No valid date, treat all as symbols
-			symbols = os.Args[2:]
+		}
+
+		if len(parsedSymbols) > 0 {
+			symbols = parsedSymbols
+		}
+
+		if len(dates) == 2 {
+			// Two dates: use as from and to (earlier = from, later = to)
+			if dates[0].Before(dates[1]) || dates[0].Equal(dates[1]) {
+				fromDate, toDate = dates[0], dates[1]
+			} else {
+				fromDate, toDate = dates[1], dates[0]
+			}
+			hasFrom, hasTo = true, true
+			log.Printf("Using date range: %s to %s (only data between these dates will be inserted)\n", fromDate.Format("2006-01-02"), toDate.Format("2006-01-02"))
+		} else if len(dates) == 1 {
+			// One date: treat as "to" (backfill up to and including that date)
+			toDate = dates[0]
+			hasTo = true
+			log.Printf("Using cutoff date: %s (only data up to and including this date will be inserted)\n", toDate.Format("2006-01-02"))
 		}
 	}
 
@@ -79,20 +98,29 @@ func BackfillCommand() {
 
 		fmt.Printf("Found %d quotes. ", len(quotes))
 
-		// Filter quotes by cutoff date if provided
+		// Filter quotes by date range if provided
 		var filteredQuotes []Quote
-		if hasCutoff {
+		if hasFrom || hasTo {
 			for _, quote := range quotes {
 				quoteDate, err := time.Parse("2006-01-02", quote.Date)
 				if err != nil {
 					continue
 				}
-				// Only include quotes BEFORE the cutoff date
-				if quoteDate.Before(cutoffDate) {
-					filteredQuotes = append(filteredQuotes, quote)
+				if hasFrom && quoteDate.Before(fromDate) {
+					continue
 				}
+				if hasTo && quoteDate.After(toDate) {
+					continue
+				}
+				filteredQuotes = append(filteredQuotes, quote)
 			}
-			fmt.Printf("Filtered to %d quotes before %s. ", len(filteredQuotes), cutoffDate.Format("2006-01-02"))
+			if hasFrom && hasTo {
+				fmt.Printf("Filtered to %d quotes between %s and %s. ", len(filteredQuotes), fromDate.Format("2006-01-02"), toDate.Format("2006-01-02"))
+			} else if hasTo {
+				fmt.Printf("Filtered to %d quotes up to %s. ", len(filteredQuotes), toDate.Format("2006-01-02"))
+			} else {
+				fmt.Printf("Filtered to %d quotes from %s. ", len(filteredQuotes), fromDate.Format("2006-01-02"))
+			}
 		} else {
 			filteredQuotes = quotes
 		}

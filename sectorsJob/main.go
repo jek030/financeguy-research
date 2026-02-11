@@ -117,11 +117,13 @@ func main() {
 		fmt.Println("\nOptions for backfill:")
 		fmt.Println("  [symbols]   Optional list of symbols to backfill (e.g., XLF XLE XLK)")
 		fmt.Println("              Default: All sector ETFs")
-		fmt.Println("  [date]      Optional cutoff date (MM/DD/YYYY or YYYY-MM-DD)")
-		fmt.Println("              Only data BEFORE this date will be inserted")
+		fmt.Println("  [from] [to] Optional date range (MM/DD/YYYY or YYYY-MM-DD)")
+		fmt.Println("              Two dates: only data BETWEEN from and to (inclusive)")
+		fmt.Println("              One date: only data up to and including that date")
 		fmt.Println("\nExamples:")
-		fmt.Println("  go run . backfill XLK 12/05/2025")
-		fmt.Println("  go run . backfill XLF XLE 2025-12-05")
+		fmt.Println("  go run . backfill XLK 2025-01-01 2025-12-05")
+		fmt.Println("  go run . backfill XLF XLE 12/05/2025")
+		fmt.Println("  go run . backfill XLF XLE 2025-01-01 2025-12-05")
 		return
 	}
 
