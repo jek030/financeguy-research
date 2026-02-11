@@ -24,14 +24,10 @@ jobs:
         working-directory: server
         run: npm ci
 
-      - name: Generate Prisma client
-        working-directory: server
-        run: npx prisma generate
-
       - name: Run earnings sync
         working-directory: server
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          DIRECT_URL: ${{ secrets.DIRECT_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           FMP_API_KEY: ${{ secrets.FMP_API_KEY }}
         run: npx tsx src/jobs/run-earnings.ts

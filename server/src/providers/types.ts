@@ -33,21 +33,3 @@ export interface IncomeStatementEntry {
   operatingExpenses: number;
 }
 
-/**
- * Interface that any market data provider must implement.
- * This is the abstraction layer that lets us swap APIs without changing business logic.
- */
-export interface MarketDataProvider {
-  readonly name: string;
-
-  /**
-   * Fetch earnings calendar for a date range.
-   */
-  getEarningsCalendar(from: string, to: string): Promise<EarningsCalendarEntry[]>;
-
-  /**
-   * Fetch income statements for a symbol.
-   * @param period - 'annual' or 'quarter'
-   */
-  getIncomeStatements(symbol: string, period: 'annual' | 'quarter'): Promise<IncomeStatementEntry[]>;
-}

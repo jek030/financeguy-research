@@ -5,7 +5,7 @@ dotenv.config();
 
 const envSchema = z.object({
   PORT: z.string().default('3001'),
-  FMP_API_KEY: z.string().min(1, 'FMP_API_KEY is required'),
+  FMP_API_KEY: z.string().optional(),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   DIRECT_URL: z.string().optional(),
   SUPABASE_URL: z.string().optional(),
