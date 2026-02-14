@@ -10,6 +10,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { CalendarIcon, InfoIcon, X, Loader2, Pencil, ChevronUp, ChevronDown, PlusCircle, Star } from 'lucide-react';
+import { SortableHeader } from '@/components/ui/SortableHeader';
+import { useSortableTable } from '@/hooks/useSortableTable';
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { format, differenceInCalendarDays } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -797,39 +799,7 @@ function EquityCell({
   );
 }
 
-// Sortable table header component
-interface SortableHeaderProps {
-  column: string;
-  label: string | React.ReactNode;
-  sortColumn: string | null;
-  sortDirection: 'asc' | 'desc';
-  onSort: (column: string) => void;
-  className?: string;
-}
-
-function SortableHeader({ column, label, sortColumn, sortDirection, onSort, className }: SortableHeaderProps) {
-  const isActive = sortColumn === column;
-  const currentSort = isActive ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none';
-
-  return (
-    <TableHead 
-      className={cn("cursor-pointer select-none hover:bg-muted/50", className)}
-      onClick={() => onSort(column)}
-      aria-sort={currentSort}
-    >
-      <div className="flex items-center gap-1">
-        <span>{label}</span>
-        {isActive ? (
-          sortDirection === 'asc' ? (
-            <ChevronUp className="h-3 w-3" aria-hidden="true" />
-          ) : (
-            <ChevronDown className="h-3 w-3" aria-hidden="true" />
-          )
-        ) : null}
-      </div>
-    </TableHead>
-  );
-}
+// SortableHeader is now imported from @/components/ui/SortableHeader
 
 // Component to calculate and display summary totals for equity and gain/loss
 function SummaryTotalsRow({ 
@@ -1580,8 +1550,7 @@ export default function Portfolio() {
   const [tempPortfolioValue, setTempPortfolioValue] = useState<string>('');
   
   // Sorting state
-  const [sortColumn, setSortColumn] = useState<string | null>('closedDate');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const { sortColumn, sortDirection, handleSort } = useSortableTable({ defaultColumn: 'closedDate', defaultDirection: 'desc' });
   
   // Delete confirmation state
   const [positionToDelete, setPositionToDelete] = useState<StockPosition | null>(null);
@@ -1858,15 +1827,7 @@ export default function Portfolio() {
     setNewPortfolioValue('');
   };
 
-  // Sorting handler
-  const handleSort = (column: string) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortColumn(column);
-      setSortDirection('asc');
-    }
-  };
+  // handleSort is provided by useSortableTable hook
 
   const filteredPositions = useMemo(() => {
     if (symbolFilters.length === 0) {

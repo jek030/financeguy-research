@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Input } from '@/components/ui/Input';
@@ -15,20 +15,18 @@ import {
 } from "@/components/ui/Table";
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useQuote } from '@/hooks/FMP/useQuote';
-import { useProfile } from '@/hooks/FMP/useProfile';
-import { usePriceChanges } from '@/hooks/FMP/usePriceChanges';
-import { useDividendYield } from '@/hooks/FMP/useDividendYield';
 import { formatNumber, formatPercentage } from '@/lib/utils';
 import { safeFormat } from '@/lib/formatters';
 import { X, GripVertical } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useQueries } from '@tanstack/react-query';
-import type { Ticker, CompanyProfile } from '@/lib/types';
+import type { Ticker, CompanyProfile, StockDividend } from '@/lib/types';
 import { formatMarketCap } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/Dialog';
+import { SortableHeader } from '@/components/ui/SortableHeader';
+import { useSortableTable } from '@/hooks/useSortableTable';
 
 // Helper function to get today's date
 function getTodayDate(): string {
@@ -88,27 +86,33 @@ function calculateDCR(price: number, dayLow: number, dayHigh: number): number | 
   return ((price - dayLow) / range) * 100;
 }
 
-// Helper component for price change cells with tooltips
+// Price change data type for table-level fetching
+type PriceChangePeriodData = {
+  changePercent: number;
+  currentPrice: number;
+  historicalPrice: number;
+  currentDate: string;
+  historicalDate: string;
+};
+
+type PriceChangesData = {
+  oneYear?: PriceChangePeriodData;
+  threeYear?: PriceChangePeriodData;
+  fiveYear?: PriceChangePeriodData;
+};
+
+// Helper component for price change cells with tooltips (data-driven)
 interface PriceChangeCellProps {
-  symbol: string;
+  periodData?: PriceChangePeriodData | null;
   period: '1Y' | '3Y' | '5Y';
+  isLoading: boolean;
 }
 
-function PriceChangeCell({ symbol, period }: PriceChangeCellProps) {
-  const { data: priceChanges, isLoading } = usePriceChanges({ symbol });
-  
-  console.log(`PriceChangeCell ${symbol} ${period}:`, { isLoading, priceChanges });
-  
+function PriceChangeCell({ periodData, period, isLoading }: PriceChangeCellProps) {
   if (isLoading) {
     return <Skeleton className="h-4 w-16" />;
   }
 
-  const periodData = period === '1Y' ? priceChanges?.oneYear : 
-                    period === '3Y' ? priceChanges?.threeYear : 
-                    priceChanges?.fiveYear;
-  
-  console.log(`PriceChangeCell ${symbol} ${period} periodData:`, periodData);
-  
   if (!periodData) return <span className="text-muted-foreground">-</span>;
   
   const formatDate = (dateString: string) => {
@@ -149,24 +153,34 @@ interface QuoteRowProps {
   symbol: string;
   watchlistId: string;
   onRemoveTicker: (watchlistId: string, symbol: string) => void;
-  enableDividendYield?: boolean;
+  quote?: Ticker;
+  isQuoteLoading: boolean;
+  profile?: CompanyProfile;
+  isProfileLoading: boolean;
+  dividendYield?: number | null;
+  isDividendLoading: boolean;
+  priceChanges?: PriceChangesData;
+  isPriceChangesLoading: boolean;
+  isSortActive: boolean;
 }
 
-function LoadingRow() {
+function LoadingRow({ isSortActive }: { isSortActive?: boolean }) {
   return (
     <TableRow>
       <TableCell className="sticky left-0 z-20 !bg-background px-0 border-r border-border">
-        <div className="grid grid-cols-[40px,auto] items-center">
-          <div className="w-10 flex items-center justify-center">
-            <Skeleton className="h-4 w-4" />
-          </div>
+        <div className={cn("grid items-center", isSortActive ? "grid-cols-[auto]" : "grid-cols-[40px,auto]")}>
+          {!isSortActive && (
+            <div className="w-10 flex items-center justify-center">
+              <Skeleton className="h-4 w-4" />
+            </div>
+          )}
           <div className="px-2">
             <Skeleton className="h-4 w-16" />
           </div>
         </div>
       </TableCell>
       {Array(15).fill(0).map((_, i) => (
-        <TableCell key={i} className={cn(i === 0 && "bg-background")}>
+        <TableCell key={i}>
           <Skeleton className="h-4 w-16" />
         </TableCell>
       ))}
@@ -174,7 +188,20 @@ function LoadingRow() {
   );
 }
 
-function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
+function QuoteRow({
+  symbol,
+  watchlistId,
+  onRemoveTicker,
+  quote,
+  isQuoteLoading,
+  profile,
+  isProfileLoading,
+  dividendYield,
+  isDividendLoading,
+  priceChanges,
+  isPriceChangesLoading,
+  isSortActive,
+}: QuoteRowProps) {
   const {
     attributes,
     listeners,
@@ -184,10 +211,11 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
     isDragging,
   } = useSortable({
     id: `${symbol}-${watchlistId}`,
-        data: {
-          type: 'ticker',
-          ticker: { symbol, watchlistId },
-        },
+    data: {
+      type: 'ticker',
+      ticker: { symbol, watchlistId },
+    },
+    disabled: isSortActive,
   });
 
   const style = {
@@ -195,13 +223,9 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
     transition,
   };
 
-  const { data: quote, isLoading: isQuoteLoading } = useQuote(symbol);
-  const { data: profile, isLoading: isProfileLoading } = useProfile(symbol);
-  const { data: dividendYield, isLoading: isDividendLoading } = useDividendYield(symbol);
-
   // Only show loading state for quote data since it's essential
   if (isQuoteLoading) {
-    return <LoadingRow />;
+    return <LoadingRow isSortActive={isSortActive} />;
   }
 
   if (!quote) return null;
@@ -218,14 +242,16 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
       )}
     >
       <TableCell className="sticky left-0 z-20 !bg-background px-0 border-r border-border">
-        <div className="grid grid-cols-[40px,auto] items-center">
-          <div 
-            {...attributes} 
-            {...listeners} 
-            className="w-10 cursor-grab hover:text-foreground text-muted-foreground/50 flex items-center justify-center"
-          >
+        <div className={cn("grid items-center", isSortActive ? "grid-cols-[auto]" : "grid-cols-[40px,auto]")}>
+          {!isSortActive && (
+            <div 
+              {...attributes} 
+              {...listeners} 
+              className="w-10 cursor-grab hover:text-foreground text-muted-foreground/50 flex items-center justify-center"
+            >
               <GripVertical className="h-4 w-4" />
-          </div>
+            </div>
+          )}
           <div className="flex items-center gap-2 px-2">
             <Link 
               href={`/search/${symbol}`}
@@ -249,19 +275,19 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
         <span className={cn(
           "text-xs sm:text-sm",
           quote.changesPercentage >= 0 ? "text-positive" : "text-negative"
-          )}>
+        )}>
           {quote.changesPercentage >= 0 ? '+' : ''}{formatPercentage(quote.changesPercentage)}
         </span>
       </TableCell>
       <TableCell className="text-xs sm:text-sm">{formatNumber(quote.volume)}</TableCell>
       <TableCell>
-        <PriceChangeCell symbol={symbol} period="1Y" />
+        <PriceChangeCell periodData={priceChanges?.oneYear} period="1Y" isLoading={isPriceChangesLoading} />
       </TableCell>
       <TableCell>
-        <PriceChangeCell symbol={symbol} period="3Y" />
+        <PriceChangeCell periodData={priceChanges?.threeYear} period="3Y" isLoading={isPriceChangesLoading} />
       </TableCell>
       <TableCell>
-        <PriceChangeCell symbol={symbol} period="5Y" />
+        <PriceChangeCell periodData={priceChanges?.fiveYear} period="5Y" isLoading={isPriceChangesLoading} />
       </TableCell>
       <TableCell className="text-xs sm:text-sm">{formatMarketCap(quote.marketCap)}</TableCell>
       <TableCell className="text-xs sm:text-sm">
@@ -427,6 +453,26 @@ async function fetchPriceChanges(symbol: string): Promise<{
     threeYear: createPriceChangeData(threeYearData),
     fiveYear: createPriceChangeData(fiveYearData),
   };
+}
+
+async function fetchDividendYield(symbol: string): Promise<number | null> {
+  if (!symbol) {
+    throw new Error('Symbol is required');
+  }
+
+  const response = await fetch(`/api/fmp/dividendhistory?symbol=${symbol}`);
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch dividend data');
+  }
+
+  const jsonData: StockDividend[] = await response.json();
+  
+  if (Array.isArray(jsonData) && jsonData.length > 0) {
+    return jsonData[0].yield;
+  }
+  
+  return null;
 }
 
 function ExportButton({ watchlist }: ExportButtonProps) {
@@ -697,77 +743,283 @@ function WatchlistHeader({
 
 // Table component that re-renders when watchlist data changes
 function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
+  const { sortColumn, sortDirection, handleSort } = useSortableTable();
+  const isSortActive = sortColumn !== null;
+
+  // Batch fetch all quotes
+  const quoteResults = useQueries({
+    queries: watchlist.tickers.map(ticker => ({
+      queryKey: ['quote', ticker.symbol],
+      queryFn: () => fetchQuote(ticker.symbol),
+      select: (data: Ticker[]) => data[0],
+      enabled: Boolean(ticker.symbol),
+      refetchInterval: 60000,
+      staleTime: 30000,
+      gcTime: 5 * 60 * 1000,
+      retry: 1,
+      retryDelay: 3000,
+    }))
+  });
+
+  // Batch fetch all profiles
+  const profileResults = useQueries({
+    queries: watchlist.tickers.map(ticker => ({
+      queryKey: ['profile', ticker.symbol, getTodayDate()],
+      queryFn: () => fetchProfile(ticker.symbol),
+      select: (data: CompanyProfile[]) => data[0],
+      enabled: Boolean(ticker.symbol),
+      staleTime: Infinity,
+      gcTime: 24 * 60 * 60 * 1000,
+      retry: 1,
+      retryDelay: 5000,
+    }))
+  });
+
+  // Batch fetch all dividend yields
+  const dividendResults = useQueries({
+    queries: watchlist.tickers.map(ticker => ({
+      queryKey: ['dividend-yield', ticker.symbol],
+      queryFn: () => fetchDividendYield(ticker.symbol),
+      enabled: Boolean(ticker.symbol),
+      staleTime: 1000 * 60 * 60 * 24,
+    }))
+  });
+
+  // Batch fetch all price changes
+  const priceChangeResults = useQueries({
+    queries: watchlist.tickers.map(ticker => ({
+      queryKey: ['price-changes', ticker.symbol],
+      queryFn: () => fetchPriceChanges(ticker.symbol),
+      enabled: Boolean(ticker.symbol),
+      staleTime: 24 * 60 * 60 * 1000,
+      gcTime: 7 * 24 * 60 * 60 * 1000,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+    }))
+  });
+
+  // Build a data lookup map by symbol
+  const tickerDataMap = useMemo(() => {
+    const map = new Map<string, {
+      quote?: Ticker;
+      isQuoteLoading: boolean;
+      profile?: CompanyProfile;
+      isProfileLoading: boolean;
+      dividendYield?: number | null;
+      isDividendLoading: boolean;
+      priceChanges?: PriceChangesData;
+      isPriceChangesLoading: boolean;
+    }>();
+
+    watchlist.tickers.forEach((ticker, i) => {
+      map.set(ticker.symbol, {
+        quote: quoteResults[i]?.data,
+        isQuoteLoading: quoteResults[i]?.isLoading ?? true,
+        profile: profileResults[i]?.data,
+        isProfileLoading: profileResults[i]?.isLoading ?? true,
+        dividendYield: dividendResults[i]?.data,
+        isDividendLoading: dividendResults[i]?.isLoading ?? true,
+        priceChanges: priceChangeResults[i]?.data as PriceChangesData | undefined,
+        isPriceChangesLoading: priceChangeResults[i]?.isLoading ?? true,
+      });
+    });
+
+    return map;
+  }, [watchlist.tickers, quoteResults, profileResults, dividendResults, priceChangeResults]);
+
+  // Sort tickers based on current sort state
+  const sortedTickers = useMemo(() => {
+    if (!sortColumn) return watchlist.tickers;
+
+    return [...watchlist.tickers].sort((a, b) => {
+      const aData = tickerDataMap.get(a.symbol);
+      const bData = tickerDataMap.get(b.symbol);
+      const aQuote = aData?.quote;
+      const bQuote = bData?.quote;
+
+      let aVal: number | string = 0;
+      let bVal: number | string = 0;
+
+      switch (sortColumn) {
+        case 'symbol':
+          aVal = a.symbol;
+          bVal = b.symbol;
+          break;
+        case 'price':
+          aVal = aQuote?.price ?? 0;
+          bVal = bQuote?.price ?? 0;
+          break;
+        case 'change':
+          aVal = aQuote?.change ?? 0;
+          bVal = bQuote?.change ?? 0;
+          break;
+        case 'changePercent':
+          aVal = aQuote?.changesPercentage ?? 0;
+          bVal = bQuote?.changesPercentage ?? 0;
+          break;
+        case 'volume':
+          aVal = aQuote?.volume ?? 0;
+          bVal = bQuote?.volume ?? 0;
+          break;
+        case '1yChange':
+          aVal = aData?.priceChanges?.oneYear?.changePercent ?? -Infinity;
+          bVal = bData?.priceChanges?.oneYear?.changePercent ?? -Infinity;
+          break;
+        case '3yChange':
+          aVal = aData?.priceChanges?.threeYear?.changePercent ?? -Infinity;
+          bVal = bData?.priceChanges?.threeYear?.changePercent ?? -Infinity;
+          break;
+        case '5yChange':
+          aVal = aData?.priceChanges?.fiveYear?.changePercent ?? -Infinity;
+          bVal = bData?.priceChanges?.fiveYear?.changePercent ?? -Infinity;
+          break;
+        case 'marketCap':
+          aVal = aQuote?.marketCap ?? 0;
+          bVal = bQuote?.marketCap ?? 0;
+          break;
+        case 'sector':
+          aVal = aData?.profile?.sector ?? '';
+          bVal = bData?.profile?.sector ?? '';
+          break;
+        case 'industry':
+          aVal = aData?.profile?.industry ?? '';
+          bVal = bData?.profile?.industry ?? '';
+          break;
+        case 'peRatio':
+          aVal = aQuote?.pe ?? -Infinity;
+          bVal = bQuote?.pe ?? -Infinity;
+          break;
+        case 'divYield':
+          aVal = aData?.dividendYield ?? -Infinity;
+          bVal = bData?.dividendYield ?? -Infinity;
+          break;
+        case 'dcr': {
+          const aDcr = aQuote ? calculateDCR(aQuote.price, aQuote.dayLow, aQuote.dayHigh) : null;
+          const bDcr = bQuote ? calculateDCR(bQuote.price, bQuote.dayLow, bQuote.dayHigh) : null;
+          aVal = aDcr ?? -Infinity;
+          bVal = bDcr ?? -Infinity;
+          break;
+        }
+        case 'earnings': {
+          aVal = aQuote?.earningsAnnouncement ? new Date(aQuote.earningsAnnouncement).getTime() : 0;
+          bVal = bQuote?.earningsAnnouncement ? new Date(bQuote.earningsAnnouncement).getTime() : 0;
+          break;
+        }
+        default:
+          return 0;
+      }
+
+      // String comparison
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        const cmp = aVal.localeCompare(bVal);
+        return sortDirection === 'asc' ? cmp : -cmp;
+      }
+
+      // Numeric comparison
+      const aNum = typeof aVal === 'number' ? aVal : Number(aVal);
+      const bNum = typeof bVal === 'number' ? bVal : Number(bVal);
+      return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+    });
+  }, [watchlist.tickers, sortColumn, sortDirection, tickerDataMap]);
+
   return (
     <CardContent className="sm:px-6 px-3 pt-0">
       <SortableContext
-        items={watchlist.tickers.map(t => `${t.symbol}-${watchlist.id}`)}
+        items={sortedTickers.map(t => `${t.symbol}-${watchlist.id}`)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="rounded-md border border-border overflow-x-auto w-full">
-          <Table className="w-full">
-                          <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="sticky left-0 z-20 !bg-background px-0 border-r border-border">
-                    <div className="grid grid-cols-[40px,auto] items-center text-xs whitespace-nowrap">
-                      <span className="w-10 text-center" aria-hidden />
-                      <span className="px-2">Symbol</span>
-                    </div>
-                  </TableHead>
-                  <TableHead className="text-xs whitespace-nowrap">Price</TableHead>
-                  <TableHead className="text-xs whitespace-nowrap">Change ($)</TableHead>
-                  <TableHead className="text-xs whitespace-nowrap">Change (%)</TableHead>
-                  <TableHead className="text-xs whitespace-nowrap">Volume</TableHead>
-                  <TableHead className="text-xs whitespace-nowrap">1Y Change</TableHead>
-                  <TableHead className="text-xs whitespace-nowrap">3Y Change</TableHead>
-                  <TableHead className="text-xs whitespace-nowrap">5Y Change</TableHead>
-                  <TableHead className="text-xs whitespace-nowrap">Market Cap</TableHead> 
-                  <TableHead className="text-xs whitespace-nowrap">Sector</TableHead>
-                  <TableHead className="text-xs whitespace-nowrap">Industry</TableHead>
-                  <TableHead className="text-xs whitespace-nowrap">P/E Ratio</TableHead>
-                  <TableHead className="text-xs whitespace-nowrap">Div. Yield</TableHead>
-                  <TableHead className="text-xs whitespace-nowrap">
-                    <span className="flex items-center gap-1">
-                      DCR
-                      <TooltipProvider delayDuration={0}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                              <InfoIcon className="h-3 w-3 text-muted-foreground" />
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" sideOffset={5}>
-                            <p>Daily Closing Range: (Close - Low) / (High - Low) × 100</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </span>
-                  </TableHead>
-                  <TableHead className="text-xs whitespace-nowrap">Next Earnings</TableHead>
+        <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
+          <div className="overflow-x-auto [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b-2">
+                  <SortableHeader
+                    column="symbol"
+                    label={
+                      <div className={cn("flex items-center whitespace-nowrap", !isSortActive && "pl-10")}>
+                        Symbol
+                      </div>
+                    }
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                    onSort={handleSort}
+                    className="sticky left-0 z-20 !bg-background border-r border-border"
+                  />
+                  <SortableHeader column="price" label="Price" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                  <SortableHeader column="change" label="Change ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                  <SortableHeader column="changePercent" label="Change (%)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                  <SortableHeader column="volume" label="Volume" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                  <SortableHeader column="1yChange" label="1Y Change" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                  <SortableHeader column="3yChange" label="3Y Change" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                  <SortableHeader column="5yChange" label="5Y Change" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                  <SortableHeader column="marketCap" label="Market Cap" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                  <SortableHeader column="sector" label="Sector" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                  <SortableHeader column="industry" label="Industry" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                  <SortableHeader column="peRatio" label="P/E Ratio" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                  <SortableHeader column="divYield" label="Div. Yield" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                  <SortableHeader
+                    column="dcr"
+                    label={
+                      <span className="flex items-center gap-1">
+                        DCR
+                        <TooltipProvider delayDuration={0}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" sideOffset={5}>
+                              <p>Daily Closing Range: (Close - Low) / (High - Low) × 100</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </span>
+                    }
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                    onSort={handleSort}
+                    className="border-r"
+                  />
+                  <SortableHeader column="earnings" label="Next Earnings" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                  <TableHead className="text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
-            <TableBody>
-              {watchlist.tickers.length === 0 ? (
-                <TableRow>
-                  <TableCell 
-                    colSpan={17} 
-                    className="h-12 sm:h-12 text-center text-xs sm:text-sm text-muted-foreground"
-                  >
-                    No tickers added yet.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                watchlist.tickers.map((ticker) => (
-                  <QuoteRow
-                    key={`${ticker.symbol}-${watchlist.id}`}
-                    symbol={ticker.symbol}
-                    watchlistId={watchlist.id}
-                    onRemoveTicker={onRemoveTicker}
-                    enableDividendYield={true}
-                  />
-                ))
-              )}
-            </TableBody>
-          </Table>
+              <TableBody>
+                {watchlist.tickers.length === 0 ? (
+                  <TableRow>
+                    <TableCell 
+                      colSpan={17} 
+                      className="h-12 sm:h-12 text-center text-xs sm:text-sm text-muted-foreground"
+                    >
+                      No tickers added yet.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  sortedTickers.map((ticker) => {
+                    const data = tickerDataMap.get(ticker.symbol);
+                    return (
+                      <QuoteRow
+                        key={`${ticker.symbol}-${watchlist.id}`}
+                        symbol={ticker.symbol}
+                        watchlistId={watchlist.id}
+                        onRemoveTicker={onRemoveTicker}
+                        quote={data?.quote}
+                        isQuoteLoading={data?.isQuoteLoading ?? true}
+                        profile={data?.profile}
+                        isProfileLoading={data?.isProfileLoading ?? true}
+                        dividendYield={data?.dividendYield}
+                        isDividendLoading={data?.isDividendLoading ?? true}
+                        priceChanges={data?.priceChanges}
+                        isPriceChangesLoading={data?.isPriceChangesLoading ?? true}
+                        isSortActive={isSortActive}
+                      />
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       </SortableContext>
     </CardContent>
