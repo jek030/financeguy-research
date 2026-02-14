@@ -280,22 +280,43 @@ export function useWatchlist() {
     if (!user) return;
 
     try {
+      // Verify this watchlist belongs to the current user before deleting
+      const { data: watchlistData, error: verifyError } = await supabase
+        .from('watchlists')
+        .select('id')
+        .eq('id', watchlistId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (verifyError || !watchlistData) {
+        throw new Error('Watchlist not found or access denied');
+      }
+
       // Delete tickers first (foreign key constraint)
-      const { error: tickerError } = await supabase
+      // Use select() to verify rows were actually deleted (RLS can silently block deletes)
+      const { data: deletedTickers, error: tickerError } = await supabase
         .from('watchlist_tickers')
         .delete()
-        .eq('watchlist_id', watchlistId);
+        .eq('watchlist_id', watchlistId)
+        .select();
         
       if (tickerError) throw tickerError;
       
-      // Then delete the watchlist
-      const { error } = await supabase
+      console.log(`[watchlist] Deleted ${deletedTickers?.length ?? 0} tickers from watchlist ${watchlistId}`);
+
+      // Then delete the watchlist itself
+      const { data: deletedWatchlist, error: watchlistError } = await supabase
         .from('watchlists')
         .delete()
         .eq('id', watchlistId)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select();
       
-      if (error) throw error;
+      if (watchlistError) throw watchlistError;
+
+      if (!deletedWatchlist || deletedWatchlist.length === 0) {
+        throw new Error('Failed to delete watchlist — RLS policy may have blocked the operation');
+      }
       
       // Update local state
       setWatchlists(watchlists.filter(w => w.id !== watchlistId));

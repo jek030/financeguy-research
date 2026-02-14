@@ -622,10 +622,10 @@ function WatchlistHeader({
                 </Tooltip>
               </TooltipProvider>
               <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-                <DialogTrigger asChild>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <DialogTrigger asChild>
                         <Button 
                           variant="ghost" 
                           size="icon"
@@ -633,13 +633,13 @@ function WatchlistHeader({
                         >
                           <X className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        <p>Delete Watchlist</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </DialogTrigger>
+                      </DialogTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Delete Watchlist</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Delete Watchlist</DialogTitle>
