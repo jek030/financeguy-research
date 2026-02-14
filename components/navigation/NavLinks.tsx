@@ -41,6 +41,14 @@ const mainLinks = [
     icon: MapIcon,
   },
   {
+    name: 'Crypto',
+    href: '/crypto',
+    icon: CurrencyDollarIcon,
+  },
+];
+
+const marketLinks = [
+  {
     name: 'Realized Gains',
     href: '/realized-gains',
     icon: ChartBarIcon,
@@ -54,14 +62,6 @@ const mainLinks = [
     name: 'Transactions',
     href: '/transactions',
     icon: DocumentTextIcon,
-  },
-];
-
-const marketLinks = [
-  {
-    name: 'Crypto',
-    href: '/crypto',
-    icon: CurrencyDollarIcon,
   },
 ];
 
