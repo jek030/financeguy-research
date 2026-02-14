@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { Check, Pencil, Download, Plus } from 'lucide-react';
+import { Check, Pencil, Download, Plus, InfoIcon } from 'lucide-react';
 import { WatchlistCard } from './types';
 import {
   Table,
@@ -79,6 +79,13 @@ function formatEarningsDate(dateString: string): string {
     day: '2-digit', 
     year: 'numeric' 
   });
+}
+
+// Calculate Daily Closing Range: (Close - Low) / (High - Low) * 100
+function calculateDCR(price: number, dayLow: number, dayHigh: number): number | null {
+  const range = dayHigh - dayLow;
+  if (range === 0) return null;
+  return ((price - dayLow) / range) * 100;
 }
 
 // Helper component for price change cells with tooltips
@@ -158,7 +165,7 @@ function LoadingRow() {
           </div>
         </div>
       </TableCell>
-      {Array(14).fill(0).map((_, i) => (
+      {Array(15).fill(0).map((_, i) => (
         <TableCell key={i} className={cn(i === 0 && "bg-background")}>
           <Skeleton className="h-4 w-16" />
         </TableCell>
@@ -290,6 +297,19 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker }: QuoteRowProps) {
         ) : dividendYield !== null && dividendYield !== undefined ? (
           `${dividendYield.toFixed(2)}%`
         ) : '-'}
+      </TableCell>
+      <TableCell className="text-xs sm:text-sm">
+        {(() => {
+          const dcr = calculateDCR(quote.price, quote.dayLow, quote.dayHigh);
+          if (dcr === null) return <span className="text-muted-foreground">-</span>;
+          return (
+            <span className={cn(
+              dcr >= 70 ? "text-positive" : dcr <= 30 ? "text-destructive" : "text-foreground"
+            )}>
+              {dcr.toFixed()}%
+            </span>
+          );
+        })()}
       </TableCell>
       <TableCell className="text-xs sm:text-sm">{formatEarningsDate(quote.earningsAnnouncement)}</TableCell>
       <TableCell className="text-xs sm:text-sm">
@@ -445,7 +465,7 @@ function ExportButton({ watchlist }: ExportButtonProps) {
 
   const handleExport = () => {
     // Create CSV header
-    const headers = ['Symbol', 'Price', 'Change ($)', 'Change (%)', 'Volume', '1Y Change (%)', '3Y Change (%)', '5Y Change (%)', 'Market Cap', 'Sector', 'Industry', 'P/E Ratio', 'Dividend Yield (%)', 'Next Earnings'];
+    const headers = ['Symbol', 'Price', 'Change ($)', 'Change (%)', 'Volume', '1Y Change (%)', '3Y Change (%)', '5Y Change (%)', 'Market Cap', 'Sector', 'Industry', 'P/E Ratio', 'Dividend Yield (%)', 'DCR (%)', 'Next Earnings'];
     const csvRows = [headers.map(header => `"${header}"`)];
 
     // Use the data that's already loaded
@@ -473,6 +493,10 @@ function ExportButton({ watchlist }: ExportButtonProps) {
         profile && profile.industry ? `"${profile.industry}"` : '""',
         quote && quote.pe ? `"${safeFormat(quote.pe)}"` : '""',
         '""', // Dividend yield - not loaded in export
+        quote ? (() => {
+          const dcr = calculateDCR(quote.price, quote.dayLow, quote.dayHigh);
+          return dcr !== null ? `"${dcr.toFixed(1)}%"` : '""';
+        })() : '""',
         quote ? `"${formatEarningsDate(quote.earningsAnnouncement)}"` : '""'
       ];
       csvRows.push(row);
@@ -701,6 +725,23 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
                   <TableHead className="text-xs whitespace-nowrap">Industry</TableHead>
                   <TableHead className="text-xs whitespace-nowrap">P/E Ratio</TableHead>
                   <TableHead className="text-xs whitespace-nowrap">Div. Yield</TableHead>
+                  <TableHead className="text-xs whitespace-nowrap">
+                    <span className="flex items-center gap-1">
+                      DCR
+                      <TooltipProvider delayDuration={0}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                              <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" sideOffset={5}>
+                            <p>Daily Closing Range: (Close - Low) / (High - Low) × 100</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </span>
+                  </TableHead>
                   <TableHead className="text-xs whitespace-nowrap">Next Earnings</TableHead>
                 </TableRow>
               </TableHeader>
@@ -708,7 +749,7 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
               {watchlist.tickers.length === 0 ? (
                 <TableRow>
                   <TableCell 
-                    colSpan={16} 
+                    colSpan={17} 
                     className="h-12 sm:h-12 text-center text-xs sm:text-sm text-muted-foreground"
                   >
                     No tickers added yet.
