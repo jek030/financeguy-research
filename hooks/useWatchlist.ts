@@ -429,7 +429,8 @@ export function useWatchlist() {
     } 
     
     // 3. Persist Ticker Order
-    // We process each watchlist to see if its tickers have changed order
+    // We process each watchlist to see if its tickers have changed order.
+    // Use individual UPDATE calls (not upsert) since we are only reordering existing rows.
     for (const newWatchlist of newWatchlists) {
       const oldWatchlist = watchlists.find(w => w.id === newWatchlist.id);
       
@@ -442,28 +443,22 @@ export function useWatchlist() {
       if (newSymbolOrder !== oldSymbolOrder) {
         console.log(`Updating order for watchlist ${newWatchlist.name}...`);
         
-        const updates = newWatchlist.tickers.map((ticker, index) => ({
-          watchlist_id: newWatchlist.id,
-          symbol: ticker.symbol,
-          order_index: index,
-        }));
+        // Update each ticker's order_index individually
+        const updatePromises = newWatchlist.tickers.map((ticker, index) =>
+          supabase
+            .from('watchlist_tickers')
+            .update({ order_index: index })
+            .eq('watchlist_id', newWatchlist.id)
+            .eq('symbol', ticker.symbol)
+        );
 
-        // Try with explicit constraint name which is safer for upserts
-        const { error } = await supabase
-          .from('watchlist_tickers')
-          .upsert(updates, { onConflict: 'watchlist_id,symbol' });
-          
-        if (error) {
-            console.error('Supabase Error (Ticker Order):', error);
-            // Fallback: Try with explicit constraint name if column match fails
-            if (error.code === '23505' || error.code === '409') { 
-               console.log('Retrying with explicit constraint name...');
-               await supabase
-                .from('watchlist_tickers')
-                .upsert(updates, { onConflict: 'watchlist_tickers_watchlist_id_symbol_key' });
-            }
+        const results = await Promise.all(updatePromises);
+        const failedUpdates = results.filter(r => r.error);
+        
+        if (failedUpdates.length > 0) {
+          console.error('Supabase Error (Ticker Order): Some updates failed:', failedUpdates.map(r => r.error));
         } else {
-            console.log('Order updated successfully');
+          console.log('Order updated successfully');
         }
       }
     }
