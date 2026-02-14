@@ -10,23 +10,70 @@ interface MinimalTicker {
   symbol: string;
 }
 
+const SELECTED_WATCHLIST_KEY = 'financeguy-selected-watchlist';
+
 export function useWatchlist() {
+  // Load cached selected watchlist from localStorage
+  const getCachedWatchlistId = (): string | null => {
+    if (typeof window === 'undefined') return null;
+    try {
+      return localStorage.getItem(SELECTED_WATCHLIST_KEY);
+    } catch (e) {
+      console.error('Error reading cached watchlist:', e);
+      return null;
+    }
+  };
+
   const [watchlists, setWatchlists] = useState<WatchlistCard[]>([]);
-  const [selectedWatchlist, setSelectedWatchlist] = useState<string | null>(null);
+  const [selectedWatchlistState, setSelectedWatchlistState] = useState<string | null>(getCachedWatchlistId());
   const [newTickerInputs, setNewTickerInputs] = useState<{ [key: string]: string }>({});
   const [editNameInputs, setEditNameInputs] = useState<{ [key: string]: string }>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const { defaultWatchlistId, setDefaultWatchlist, isLoading: prefsLoading } = useUserPreferences();
+
+  // Wrapper function to update both state and localStorage
+  const setSelectedWatchlist = useCallback((watchlistId: string | null) => {
+    setSelectedWatchlistState(watchlistId);
+    if (typeof window !== 'undefined') {
+      try {
+        if (watchlistId) {
+          localStorage.setItem(SELECTED_WATCHLIST_KEY, watchlistId);
+        } else {
+          localStorage.removeItem(SELECTED_WATCHLIST_KEY);
+        }
+      } catch (e) {
+        console.error('Error saving selected watchlist to cache:', e);
+      }
+    }
+  }, []);
   
   // Track if we've done the initial watchlist selection to prevent re-selecting on navigation
   const hasInitiallySelected = useRef(false);
   
-  // Reset the initial selection flag when user changes (logout/login)
+  // Track previous user to detect actual logout (not initial auth loading)
+  const prevUserRef = useRef<typeof user | undefined>(undefined);
+  
+  // Reset the initial selection flag when user changes; only clear cache on actual logout
   useEffect(() => {
+    const wasLoggedIn = prevUserRef.current !== undefined && prevUserRef.current !== null;
+    const isLoggedOut = !user;
+    prevUserRef.current = user;
+    
     hasInitiallySelected.current = false;
-  }, [user]);
+    
+    // Only clear cache when transitioning from logged-in to logged-out (actual logout),
+    // not when user is null because auth is still loading on page refresh
+    if (wasLoggedIn && isLoggedOut && typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem(SELECTED_WATCHLIST_KEY);
+      } catch (e) {
+        console.error('Error clearing cached watchlist:', e);
+      }
+      setSelectedWatchlist(null);
+    }
+  }, [user, setSelectedWatchlist]);
 
   // Convert Supabase watchlist to our app's format
   const mapSupabaseToWatchlist = (data: SupabaseWatchlist): WatchlistCard => ({
@@ -106,10 +153,17 @@ export function useWatchlist() {
             // On mobile/small screens (< 768px), show the list first instead of auto-selecting
             const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
             if (!isMobile) {
-              // Check if user has a default watchlist set
-              if (defaultWatchlistId && mappedWatchlists.some(w => w.id === defaultWatchlistId)) {
+              // Read directly from localStorage (not state, which may be stale in this closure)
+              const cachedId = getCachedWatchlistId();
+              
+              if (cachedId && mappedWatchlists.some(w => w.id === cachedId)) {
+                // Cached selection is still valid — restore it
+                setSelectedWatchlist(cachedId);
+              } else if (defaultWatchlistId && mappedWatchlists.some(w => w.id === defaultWatchlistId)) {
+                // Fall back to default watchlist
                 setSelectedWatchlist(defaultWatchlistId);
               } else {
+                // Fall back to first watchlist
                 setSelectedWatchlist(mappedWatchlists[0].id);
               }
             }
@@ -246,7 +300,7 @@ export function useWatchlist() {
       // Update local state
       setWatchlists(watchlists.filter(w => w.id !== watchlistId));
       
-      if (selectedWatchlist === watchlistId) {
+      if (selectedWatchlistState === watchlistId) {
         const remainingWatchlists = watchlists.filter(w => w.id !== watchlistId);
         setSelectedWatchlist(remainingWatchlists.length > 0 ? remainingWatchlists[0].id : null);
       }
@@ -409,7 +463,7 @@ export function useWatchlist() {
 
   return {
     watchlists,
-    selectedWatchlist,
+    selectedWatchlist: selectedWatchlistState,
     newTickerInputs,
     editNameInputs,
     isLoading,

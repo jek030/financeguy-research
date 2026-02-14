@@ -268,7 +268,7 @@ export default function WatchlistPage() {
                 "flex-1 overflow-hidden flex flex-col bg-background",
                 !selectedWatchlist ? "hidden md:flex" : "flex"
             )}>
-                {selectedWatchlist ? (
+                {selectedWatchlist && watchlists.find(w => w.id === selectedWatchlist) ? (
                     <div className="flex flex-col h-full">
                          {/* Mobile Back Button */}
                          <div className="md:hidden p-2 border-b bg-card">
