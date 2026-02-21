@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { GripVertical, X, RotateCcw, Columns3 } from 'lucide-react';
+import { GripVertical, X, RotateCcw, Settings } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from '@/components/ui/Sheet';
 import { Switch } from '@/components/ui/Switch';
 import { Button } from '@/components/ui/Button';
@@ -95,7 +95,7 @@ export function ColumnSettingsPopover({
                 aria-label="Column Settings"
                 onClick={(e) => e.stopPropagation()}
               >
-                <Columns3 className="h-3.5 w-3.5" />
+                <Settings className="h-3.5 w-3.5" />
               </button>
             </SheetTrigger>
           </TooltipTrigger>
