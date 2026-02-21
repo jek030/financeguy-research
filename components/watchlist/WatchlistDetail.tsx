@@ -27,36 +27,56 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/Dialog';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { useSortableTable } from '@/hooks/useSortableTable';
+import { ColumnSettingsPopover } from '@/components/ui/ColumnSettingsPopover';
+import type { TableColumnDef } from '@/lib/table-types';
 
-// Helper function to get today's date
+// ---------------------------------------------------------------------------
+// Column definitions for the watchlist table
+// ---------------------------------------------------------------------------
+
+const WATCHLIST_COLUMNS: TableColumnDef[] = [
+  { id: 'symbol', label: 'Symbol', isAnchor: true },
+  { id: 'price', label: 'Price' },
+  { id: 'change', label: 'Change ($)' },
+  { id: 'changePercent', label: 'Change (%)' },
+  { id: 'volume', label: 'Volume' },
+  { id: 'avgVol20D', label: 'Avg Vol 20D', tooltip: 'Average volume over the last 20 completed trading days' },
+  { id: 'volRunRate', label: 'Vol RR', tooltip: "Volume Run Rate: Today's Volume / 20D Avg Volume × 100" },
+  { id: '1yChange', label: '1Y Change' },
+  { id: '3yChange', label: '3Y Change', defaultHidden: true },
+  { id: '5yChange', label: '5Y Change', defaultHidden: true },
+  { id: 'marketCap', label: 'Market Cap' },
+  { id: 'sector', label: 'Sector' },
+  { id: 'industry', label: 'Industry' },
+  { id: 'peRatio', label: 'P/E Ratio' },
+  { id: 'divYield', label: 'Div. Yield' },
+  { id: 'dcr', label: 'DCR', tooltip: 'Daily Closing Range: (Close - Low) / (High - Low) × 100' },
+  { id: 'earnings', label: 'Next Earnings' },
+  { id: 'actions', label: 'Actions', alwaysVisible: true, sortable: false },
+];
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
 function getTodayDate(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-// Helper function to calculate business days ago
 function getBusinessDateAgo(years: number): string {
   const date = new Date();
   date.setFullYear(date.getFullYear() - years);
-  
-  // If it's a weekend, move to previous Friday
   const dayOfWeek = date.getDay();
-  if (dayOfWeek === 0) { // Sunday
-    date.setDate(date.getDate() - 2);
-  } else if (dayOfWeek === 6) { // Saturday
-    date.setDate(date.getDate() - 1);
-  }
-  
+  if (dayOfWeek === 0) date.setDate(date.getDate() - 2);
+  else if (dayOfWeek === 6) date.setDate(date.getDate() - 1);
   return date.toISOString().split('T')[0];
 }
 
-// Helper function to find the closest available price data
 function findClosestPrice(historical: Array<{ date: string; close: number }>, targetDate: string): { date: string; close: number } | null {
   if (!historical || historical.length === 0) return null;
-  
   const target = new Date(targetDate);
   let closest = historical[0];
   let minDiff = Math.abs(new Date(closest.date).getTime() - target.getTime());
-  
   for (const price of historical) {
     const diff = Math.abs(new Date(price.date).getTime() - target.getTime());
     if (diff < minDiff) {
@@ -64,29 +84,25 @@ function findClosestPrice(historical: Array<{ date: string; close: number }>, ta
       closest = price;
     }
   }
-  
   return closest;
 }
 
-// Add a function to format date
 function formatEarningsDate(dateString: string): string {
   if (!dateString) return '-';
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { 
-    month: '2-digit', 
-    day: '2-digit', 
-    year: 'numeric' 
-  });
+  return date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
 }
 
-// Calculate Daily Closing Range: (Close - Low) / (High - Low) * 100
 function calculateDCR(price: number, dayLow: number, dayHigh: number): number | null {
   const range = dayHigh - dayLow;
   if (range === 0) return null;
   return ((price - dayLow) / range) * 100;
 }
 
-// Price change data type for table-level fetching
+// ---------------------------------------------------------------------------
+// Data types
+// ---------------------------------------------------------------------------
+
 type PriceChangePeriodData = {
   changePercent: number;
   currentPrice: number;
@@ -102,44 +118,26 @@ type PriceChangesData = {
   avgVolume20D?: number;
 };
 
-// Helper component for price change cells with tooltips (data-driven)
-interface PriceChangeCellProps {
-  periodData?: PriceChangePeriodData | null;
-  period: '1Y' | '3Y' | '5Y';
-  isLoading: boolean;
-}
+// ---------------------------------------------------------------------------
+// Cell renderers
+// ---------------------------------------------------------------------------
 
-function PriceChangeCell({ periodData, period, isLoading }: PriceChangeCellProps) {
-  if (isLoading) {
-    return <Skeleton className="h-4 w-16" />;
-  }
-
+function PriceChangeCell({ periodData, period, isLoading }: { periodData?: PriceChangePeriodData | null; period: '1Y' | '3Y' | '5Y'; isLoading: boolean }) {
+  if (isLoading) return <Skeleton className="h-4 w-16" />;
   if (!periodData) return <span className="text-muted-foreground">-</span>;
-  
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: '2-digit', 
-      day: '2-digit', 
-      year: 'numeric' 
-    });
-  };
-  
+  const fmtDate = (s: string) => new Date(s).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
   return (
     <TooltipProvider delayDuration={0}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className={cn(
-            "cursor-help text-xs sm:text-sm",
-            periodData.changePercent >= 0 ? "text-positive" : "text-destructive"
-          )}>
+          <span className={cn("cursor-help text-xs sm:text-sm", periodData.changePercent >= 0 ? "text-positive" : "text-destructive")}>
             {periodData.changePercent >= 0 ? '+' : ''}{formatPercentage(periodData.changePercent)}
           </span>
         </TooltipTrigger>
         <TooltipContent side="top" sideOffset={5}>
           <div className="space-y-1">
-            <p>Current: ${formatNumber(periodData.currentPrice)} ({formatDate(periodData.currentDate)})</p>
-            <p>{period} Ago: ${formatNumber(periodData.historicalPrice)} ({formatDate(periodData.historicalDate)})</p>
+            <p>Current: ${formatNumber(periodData.currentPrice)} ({fmtDate(periodData.currentDate)})</p>
+            <p>{period} Ago: ${formatNumber(periodData.historicalPrice)} ({fmtDate(periodData.historicalDate)})</p>
             <p className="text-xs text-muted-foreground mt-1">
               {periodData.changePercent >= 0 ? 'Gain' : 'Loss'} of {formatPercentage(Math.abs(periodData.changePercent))} over {period.toLowerCase()}
             </p>
@@ -150,10 +148,11 @@ function PriceChangeCell({ periodData, period, isLoading }: PriceChangeCellProps
   );
 }
 
-interface QuoteRowProps {
-  symbol: string;
-  watchlistId: string;
-  onRemoveTicker: (watchlistId: string, symbol: string) => void;
+// ---------------------------------------------------------------------------
+// Data row types
+// ---------------------------------------------------------------------------
+
+interface TickerRowData {
   quote?: Ticker;
   isQuoteLoading: boolean;
   profile?: CompanyProfile;
@@ -162,12 +161,148 @@ interface QuoteRowProps {
   isDividendLoading: boolean;
   priceChanges?: PriceChangesData;
   isPriceChangesLoading: boolean;
-  isSortActive: boolean;
   volumeRunRate?: number | null;
   isVolumeRunRateLoading: boolean;
 }
 
-function LoadingRow({ isSortActive }: { isSortActive?: boolean }) {
+// ---------------------------------------------------------------------------
+// Cell renderer map — returns JSX for a given column id
+// ---------------------------------------------------------------------------
+
+function renderCell(
+  colId: string,
+  data: TickerRowData,
+  symbol: string,
+  watchlistId: string,
+  onRemoveTicker: (wId: string, sym: string) => void,
+): React.ReactNode {
+  const { quote, profile, isProfileLoading, dividendYield, isDividendLoading, priceChanges, isPriceChangesLoading, volumeRunRate, isVolumeRunRateLoading } = data;
+  if (!quote) return null;
+
+  switch (colId) {
+    case 'price':
+      return <span className="text-xs sm:text-sm">${formatNumber(quote.price)}</span>;
+
+    case 'change':
+      return (
+        <span className={cn("text-xs sm:text-sm", quote.change >= 0 ? "text-positive" : "text-negative")}>
+          {quote.change >= 0 ? '+' : '-'}{formatNumber(Math.abs(quote.change))}
+        </span>
+      );
+
+    case 'changePercent':
+      return (
+        <span className={cn("text-xs sm:text-sm", quote.changesPercentage >= 0 ? "text-positive" : "text-negative")}>
+          {quote.changesPercentage >= 0 ? '+' : ''}{formatPercentage(quote.changesPercentage)}
+        </span>
+      );
+
+    case 'volume':
+      return <span className="text-xs sm:text-sm">{formatNumber(quote.volume)}</span>;
+
+    case 'avgVol20D':
+      if (isPriceChangesLoading) return <Skeleton className="h-4 w-16" />;
+      return priceChanges?.avgVolume20D
+        ? <span className="text-xs sm:text-sm">{formatNumber(Math.round(priceChanges.avgVolume20D))}</span>
+        : <span className="text-muted-foreground">-</span>;
+
+    case 'volRunRate':
+      if (isVolumeRunRateLoading) return <Skeleton className="h-4 w-16" />;
+      if (volumeRunRate === null || volumeRunRate === undefined) return <span className="text-muted-foreground">-</span>;
+      return (
+        <TooltipProvider delayDuration={0}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className={cn(
+                "cursor-help text-xs sm:text-sm",
+                volumeRunRate >= 150 ? "text-positive font-semibold" :
+                volumeRunRate >= 100 ? "text-positive" :
+                volumeRunRate <= 50 ? "text-destructive" :
+                "text-foreground"
+              )}>
+                {volumeRunRate.toFixed(0)}%
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" sideOffset={5}>
+              <div className="space-y-1">
+                <p>Today&apos;s Vol: {formatNumber(quote.volume)}</p>
+                <p>20D Avg Vol: {formatNumber(Math.round(priceChanges?.avgVolume20D ?? 0))}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {volumeRunRate >= 150 ? 'Unusually high volume' :
+                   volumeRunRate >= 100 ? 'Above average volume' :
+                   volumeRunRate <= 50 ? 'Unusually low volume' :
+                   'Below average volume'}
+                </p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+
+    case '1yChange':
+      return <PriceChangeCell periodData={priceChanges?.oneYear} period="1Y" isLoading={isPriceChangesLoading} />;
+    case '3yChange':
+      return <PriceChangeCell periodData={priceChanges?.threeYear} period="3Y" isLoading={isPriceChangesLoading} />;
+    case '5yChange':
+      return <PriceChangeCell periodData={priceChanges?.fiveYear} period="5Y" isLoading={isPriceChangesLoading} />;
+
+    case 'marketCap':
+      return <span className="text-xs sm:text-sm">{formatMarketCap(quote.marketCap)}</span>;
+
+    case 'sector':
+      if (isProfileLoading) return <Skeleton className="h-4 w-16" />;
+      return profile?.sector ? (
+        <Link href={`/scans/sectors/${encodeURIComponent(profile.sector)}`} className="hover:underline text-blue-600 dark:text-blue-400 text-xs sm:text-sm">{profile.sector}</Link>
+      ) : <span className="text-xs sm:text-sm">-</span>;
+
+    case 'industry':
+      if (isProfileLoading) return <Skeleton className="h-4 w-16" />;
+      return profile?.sector && profile?.industry ? (
+        <Link href={`/scans/sectors/${encodeURIComponent(profile.sector)}/industry/${encodeURIComponent(profile.industry)}`} className="hover:underline text-blue-600 dark:text-blue-400 text-xs sm:text-sm">{profile.industry}</Link>
+      ) : <span className="text-xs sm:text-sm">-</span>;
+
+    case 'peRatio':
+      return <span className="text-xs sm:text-sm">{quote.pe ? safeFormat(quote.pe) : 'N/A'}</span>;
+
+    case 'divYield':
+      if (isDividendLoading) return <Skeleton className="h-4 w-16" />;
+      return <span className="text-xs sm:text-sm">{dividendYield !== null && dividendYield !== undefined ? `${dividendYield.toFixed(2)}%` : '-'}</span>;
+
+    case 'dcr': {
+      const dcr = calculateDCR(quote.price, quote.dayLow, quote.dayHigh);
+      if (dcr === null) return <span className="text-muted-foreground">-</span>;
+      return (
+        <span className={cn("text-xs sm:text-sm", dcr >= 70 ? "text-positive" : dcr <= 30 ? "text-destructive" : "text-foreground")}>
+          {dcr.toFixed()}%
+        </span>
+      );
+    }
+
+    case 'earnings':
+      return <span className="text-xs sm:text-sm">{formatEarningsDate(quote.earningsAnnouncement)}</span>;
+
+    case 'actions':
+      return (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onRemoveTicker(watchlistId, symbol)}
+          className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 sm:h-7 sm:w-7"
+        >
+          <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+        </Button>
+      );
+
+    default:
+      return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Loading row
+// ---------------------------------------------------------------------------
+
+function LoadingRow({ visibleCount, isSortActive }: { visibleCount: number; isSortActive?: boolean }) {
   return (
     <TableRow>
       <TableCell className="sticky left-0 z-20 !bg-background px-0 border-r border-border">
@@ -182,7 +317,7 @@ function LoadingRow({ isSortActive }: { isSortActive?: boolean }) {
           </div>
         </div>
       </TableCell>
-      {Array(17).fill(0).map((_, i) => (
+      {Array(visibleCount - 1).fill(0).map((_, i) => (
         <TableCell key={i}>
           <Skeleton className="h-4 w-16" />
         </TableCell>
@@ -191,22 +326,21 @@ function LoadingRow({ isSortActive }: { isSortActive?: boolean }) {
   );
 }
 
-function QuoteRow({
-  symbol,
-  watchlistId,
-  onRemoveTicker,
-  quote,
-  isQuoteLoading,
-  profile,
-  isProfileLoading,
-  dividendYield,
-  isDividendLoading,
-  priceChanges,
-  isPriceChangesLoading,
-  isSortActive,
-  volumeRunRate,
-  isVolumeRunRateLoading,
-}: QuoteRowProps) {
+// ---------------------------------------------------------------------------
+// QuoteRow
+// ---------------------------------------------------------------------------
+
+interface QuoteRowProps {
+  symbol: string;
+  watchlistId: string;
+  onRemoveTicker: (watchlistId: string, symbol: string) => void;
+  data: TickerRowData;
+  isSortActive: boolean;
+  enableRowReorder: boolean;
+  visibleColumns: TableColumnDef[];
+}
+
+function QuoteRow({ symbol, watchlistId, onRemoveTicker, data, isSortActive, enableRowReorder, visibleColumns }: QuoteRowProps) {
   const {
     attributes,
     listeners,
@@ -216,11 +350,8 @@ function QuoteRow({
     isDragging,
   } = useSortable({
     id: `${symbol}-${watchlistId}`,
-    data: {
-      type: 'ticker',
-      ticker: { symbol, watchlistId },
-    },
-    disabled: isSortActive,
+    data: { type: 'ticker', ticker: { symbol, watchlistId } },
+    disabled: isSortActive || !enableRowReorder,
   });
 
   const style = {
@@ -228,206 +359,72 @@ function QuoteRow({
     transition,
   };
 
-  // Only show loading state for quote data since it's essential
-  if (isQuoteLoading) {
-    return <LoadingRow isSortActive={isSortActive} />;
+  if (data.isQuoteLoading) {
+    return <LoadingRow visibleCount={visibleColumns.length} isSortActive={isSortActive} />;
   }
 
-  if (!quote) return null;
+  if (!data.quote) return null;
+
+  const showDragHandle = enableRowReorder && !isSortActive;
 
   return (
-    <TableRow 
+    <TableRow
       ref={setNodeRef}
       style={style}
-      key={`${symbol}-${watchlistId}`} 
-      className={cn(
-        "group",
-        "even:bg-muted/40",
-        isDragging && "opacity-50 bg-muted/80"
-      )}
+      className={cn("group", "even:bg-muted/40", isDragging && "opacity-50 bg-muted/80")}
     >
-      <TableCell className="sticky left-0 z-20 !bg-background px-0 border-r border-border">
-        <div className={cn("grid items-center", isSortActive ? "grid-cols-[auto]" : "grid-cols-[40px,auto]")}>
-          {!isSortActive && (
-            <div 
-              {...attributes} 
-              {...listeners} 
-              className="w-10 cursor-grab hover:text-foreground text-muted-foreground/50 flex items-center justify-center"
-            >
-              <GripVertical className="h-4 w-4" />
-            </div>
-          )}
-          <div className="flex items-center gap-2 px-2">
-            <Link 
-              href={`/search/${symbol}`}
-              className="hover:underline text-blue-600 dark:text-blue-400 text-xs sm:text-sm font-semibold"
-            >
-              {symbol}
-            </Link>
-          </div>
-        </div>
-      </TableCell>
-      <TableCell className="text-xs sm:text-sm">${formatNumber(quote.price)}</TableCell>
-      <TableCell>
-        <span className={cn(
-          "text-xs sm:text-sm",
-          quote.change >= 0 ? "text-positive" : "text-negative"
-        )}>
-          {quote.change >= 0 ? '+' : '-'}{formatNumber(Math.abs(quote.change))}
-        </span>
-      </TableCell>
-      <TableCell>
-        <span className={cn(
-          "text-xs sm:text-sm",
-          quote.changesPercentage >= 0 ? "text-positive" : "text-negative"
-        )}>
-          {quote.changesPercentage >= 0 ? '+' : ''}{formatPercentage(quote.changesPercentage)}
-        </span>
-      </TableCell>
-      <TableCell className="text-xs sm:text-sm">{formatNumber(quote.volume)}</TableCell>
-      <TableCell className="text-xs sm:text-sm">
-        {isPriceChangesLoading ? (
-          <Skeleton className="h-4 w-16" />
-        ) : priceChanges?.avgVolume20D ? (
-          formatNumber(Math.round(priceChanges.avgVolume20D))
-        ) : (
-          <span className="text-muted-foreground">-</span>
-        )}
-      </TableCell>
-      <TableCell className="text-xs sm:text-sm">
-        {isVolumeRunRateLoading ? (
-          <Skeleton className="h-4 w-16" />
-        ) : volumeRunRate !== null && volumeRunRate !== undefined ? (
-          <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span className={cn(
-                  "cursor-help",
-                  volumeRunRate >= 150 ? "text-positive font-semibold" :
-                  volumeRunRate >= 100 ? "text-positive" :
-                  volumeRunRate <= 50 ? "text-destructive" :
-                  "text-foreground"
-                )}>
-                  {volumeRunRate.toFixed(0)}%
-                </span>
-              </TooltipTrigger>
-              <TooltipContent side="top" sideOffset={5}>
-                <div className="space-y-1">
-                  <p>Today&apos;s Vol: {formatNumber(quote.volume)}</p>
-                  <p>20D Avg Vol: {formatNumber(Math.round(priceChanges?.avgVolume20D ?? 0))}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {volumeRunRate >= 150 ? 'Unusually high volume' :
-                     volumeRunRate >= 100 ? 'Above average volume' :
-                     volumeRunRate <= 50 ? 'Unusually low volume' :
-                     'Below average volume'}
-                  </p>
-                </div>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : <span className="text-muted-foreground">-</span>}
-      </TableCell>
-      <TableCell>
-        <PriceChangeCell periodData={priceChanges?.oneYear} period="1Y" isLoading={isPriceChangesLoading} />
-      </TableCell>
-      <TableCell>
-        <PriceChangeCell periodData={priceChanges?.threeYear} period="3Y" isLoading={isPriceChangesLoading} />
-      </TableCell>
-      <TableCell>
-        <PriceChangeCell periodData={priceChanges?.fiveYear} period="5Y" isLoading={isPriceChangesLoading} />
-      </TableCell>
-      <TableCell className="text-xs sm:text-sm">{formatMarketCap(quote.marketCap)}</TableCell>
-      <TableCell className="text-xs sm:text-sm">
-        {isProfileLoading ? (
-          <Skeleton className="h-4 w-16" />
-        ) : profile?.sector ? (
-          <Link 
-            href={`/scans/sectors/${encodeURIComponent(profile.sector)}`}
-            className="hover:underline text-blue-600 dark:text-blue-400"
-          >
-            {profile.sector}
-          </Link>
-        ) : "-"}
-      </TableCell>
-      <TableCell className="text-xs sm:text-sm">
-        {isProfileLoading ? (
-          <Skeleton className="h-4 w-16" />
-        ) : profile?.sector && profile?.industry ? (
-          <Link 
-            href={`/scans/sectors/${encodeURIComponent(profile.sector)}/industry/${encodeURIComponent(profile.industry)}`}
-            className="hover:underline text-blue-600 dark:text-blue-400"
-          >
-            {profile.industry}
-          </Link>
-        ) : "-"}
-      </TableCell>
-      <TableCell className="text-xs sm:text-sm">
-        {quote.pe ? safeFormat(quote.pe) : 'N/A'}
-      </TableCell>
-      <TableCell className="text-xs sm:text-sm">
-        {isDividendLoading ? (
-          <Skeleton className="h-4 w-16" />
-        ) : dividendYield !== null && dividendYield !== undefined ? (
-          `${dividendYield.toFixed(2)}%`
-        ) : '-'}
-      </TableCell>
-      <TableCell className="text-xs sm:text-sm">
-        {(() => {
-          const dcr = calculateDCR(quote.price, quote.dayLow, quote.dayHigh);
-          if (dcr === null) return <span className="text-muted-foreground">-</span>;
+      {visibleColumns.map(col => {
+        if (col.isAnchor) {
           return (
-            <span className={cn(
-              dcr >= 70 ? "text-positive" : dcr <= 30 ? "text-destructive" : "text-foreground"
-            )}>
-              {dcr.toFixed()}%
-            </span>
+            <TableCell key={col.id} className="sticky left-0 z-20 !bg-background px-0 border-r border-border">
+              <div className={cn("grid items-center", showDragHandle ? "grid-cols-[40px,auto]" : "grid-cols-[auto]")}>
+                {showDragHandle && (
+                  <div
+                    {...attributes}
+                    {...listeners}
+                    className="w-10 cursor-grab hover:text-foreground text-muted-foreground/50 flex items-center justify-center"
+                  >
+                    <GripVertical className="h-4 w-4" />
+                  </div>
+                )}
+                <div className="flex items-center gap-2 px-2">
+                  <Link
+                    href={`/search/${symbol}`}
+                    className="hover:underline text-blue-600 dark:text-blue-400 text-xs sm:text-sm font-semibold"
+                  >
+                    {symbol}
+                  </Link>
+                </div>
+              </div>
+            </TableCell>
           );
-        })()}
-      </TableCell>
-      <TableCell className="text-xs sm:text-sm">{formatEarningsDate(quote.earningsAnnouncement)}</TableCell>
-      <TableCell className="text-xs sm:text-sm">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => onRemoveTicker(watchlistId, symbol)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity h-6 w-6 sm:h-7 sm:w-7"
-        >
-          <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-        </Button>
-      </TableCell>
+        }
+
+        return (
+          <TableCell key={col.id} className={col.id === 'actions' ? 'text-xs sm:text-sm' : ''}>
+            {renderCell(col.id, data, symbol, watchlistId, onRemoveTicker)}
+          </TableCell>
+        );
+      })}
     </TableRow>
   );
 }
 
-interface ExportButtonProps {
-  watchlist: WatchlistCard;
-}
+// ---------------------------------------------------------------------------
+// Data fetchers
+// ---------------------------------------------------------------------------
 
 async function fetchQuote(symbol: string): Promise<Ticker[]> {
-  if (!symbol) {
-    throw new Error('Symbol is required');
-  }
-
+  if (!symbol) throw new Error('Symbol is required');
   const response = await fetch(`/api/fmp/quote?symbol=${symbol}`);
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch quote data');
-  }
-
+  if (!response.ok) throw new Error('Failed to fetch quote data');
   return response.json();
 }
 
 async function fetchProfile(symbol: string): Promise<CompanyProfile[]> {
-  if (!symbol) {
-    throw new Error('Symbol is required');
-  }
-
+  if (!symbol) throw new Error('Symbol is required');
   const response = await fetch(`/api/fmp/profile?symbol=${symbol}`);
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch profile data');
-  }
-
+  if (!response.ok) throw new Error('Failed to fetch profile data');
   return response.json();
 }
 
@@ -437,56 +434,37 @@ async function fetchPriceChanges(symbol: string): Promise<{
   fiveYear?: { changePercent: number; currentPrice: number; historicalPrice: number; currentDate: string; historicalDate: string };
   avgVolume20D?: number;
 }> {
-  if (!symbol) {
-    throw new Error('Symbol is required');
-  }
+  if (!symbol) throw new Error('Symbol is required');
 
   const today = getTodayDate();
   const fiveYearsAgo = getBusinessDateAgo(5);
 
   const response = await fetch(`/api/fmp/dailyprices?symbol=${symbol}&from=${fiveYearsAgo}&to=${today}`);
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch price changes data');
-  }
+  if (!response.ok) throw new Error('Failed to fetch price changes data');
 
   const data = await response.json();
   const historical = data.historical;
 
   if (!historical || historical.length === 0) {
-    return {
-      oneYear: undefined,
-      threeYear: undefined,
-      fiveYear: undefined
-    };
+    return { oneYear: undefined, threeYear: undefined, fiveYear: undefined };
   }
 
-  // Sort by date descending (most recent first)
-  const sortedHistorical = historical.sort((a: { date: string }, b: { date: string }) => 
+  const sortedHistorical = historical.sort((a: { date: string }, b: { date: string }) =>
     new Date(b.date).getTime() - new Date(a.date).getTime()
   );
 
-  // Get current price (most recent available)
   const currentData = sortedHistorical[0];
-  
-  // Calculate target dates
   const oneYearAgo = getBusinessDateAgo(1);
   const threeYearsAgo = getBusinessDateAgo(3);
   const fiveYearsAgoTarget = getBusinessDateAgo(5);
-  
-  // Find closest prices for each period
+
   const oneYearData = findClosestPrice(sortedHistorical, oneYearAgo);
   const threeYearData = findClosestPrice(sortedHistorical, threeYearsAgo);
   const fiveYearData = findClosestPrice(sortedHistorical, fiveYearsAgoTarget);
-  
-  // Calculate percentage changes
-  const createPriceChangeData = (
-    historicalData: typeof currentData | null
-  ) => {
+
+  const createPriceChangeData = (historicalData: typeof currentData | null) => {
     if (!historicalData || !currentData) return undefined;
-    
     const changePercent = ((currentData.close - historicalData.close) / historicalData.close) * 100;
-    
     return {
       changePercent,
       currentPrice: currentData.close,
@@ -513,27 +491,24 @@ async function fetchPriceChanges(symbol: string): Promise<{
 }
 
 async function fetchDividendYield(symbol: string): Promise<number | null> {
-  if (!symbol) {
-    throw new Error('Symbol is required');
-  }
-
+  if (!symbol) throw new Error('Symbol is required');
   const response = await fetch(`/api/fmp/dividendhistory?symbol=${symbol}`);
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch dividend data');
-  }
-
+  if (!response.ok) throw new Error('Failed to fetch dividend data');
   const jsonData: StockDividend[] = await response.json();
-  
-  if (Array.isArray(jsonData) && jsonData.length > 0) {
-    return jsonData[0].yield;
-  }
-  
+  if (Array.isArray(jsonData) && jsonData.length > 0) return jsonData[0].yield;
   return null;
 }
 
-function ExportButton({ watchlist }: ExportButtonProps) {
-  // Use the same query keys as the main hooks to share cache
+// ---------------------------------------------------------------------------
+// Export button
+// ---------------------------------------------------------------------------
+
+interface ExportButtonProps {
+  watchlist: WatchlistCard;
+  visibleColumns: TableColumnDef[];
+}
+
+function ExportButton({ watchlist, visibleColumns }: ExportButtonProps) {
   const quoteResults = useQueries({
     queries: watchlist.tickers.map(ticker => ({
       queryKey: ['quote', ticker.symbol],
@@ -567,55 +542,62 @@ function ExportButton({ watchlist }: ExportButtonProps) {
   });
 
   const handleExport = () => {
-    // Create CSV header
-    const headers = ['Symbol', 'Price', 'Change ($)', 'Change (%)', 'Volume', 'Avg Vol 20D', 'Vol Run Rate (%)', '1Y Change (%)', '3Y Change (%)', '5Y Change (%)', 'Market Cap', 'Sector', 'Industry', 'P/E Ratio', 'Dividend Yield (%)', 'DCR (%)', 'Next Earnings'];
-    const csvRows = [headers.map(header => `"${header}"`)];
+    const headers: string[] = [];
+    const colIds: string[] = [];
 
-    // Use the data that's already loaded
+    const headerMap: Record<string, string> = {
+      symbol: 'Symbol', price: 'Price', change: 'Change ($)', changePercent: 'Change (%)',
+      volume: 'Volume', avgVol20D: 'Avg Vol 20D', volRunRate: 'Vol Run Rate (%)',
+      '1yChange': '1Y Change (%)', '3yChange': '3Y Change (%)', '5yChange': '5Y Change (%)',
+      marketCap: 'Market Cap', sector: 'Sector', industry: 'Industry',
+      peRatio: 'P/E Ratio', divYield: 'Dividend Yield (%)', dcr: 'DCR (%)', earnings: 'Next Earnings',
+    };
+
+    for (const col of visibleColumns) {
+      if (col.id === 'actions') continue;
+      headers.push(headerMap[col.id] ?? col.id);
+      colIds.push(col.id);
+    }
+
+    const csvRows = [headers.map(h => `"${h}"`)];
+
     watchlist.tickers.forEach((ticker, index) => {
       const quote = quoteResults[index].data;
       const profile = profileResults[index].data;
       const priceChanges = priceChangeResults[index].data;
 
-      const formatPriceChange = (change: { changePercent: number } | null | undefined) => {
+      const fmtPriceChange = (change: { changePercent: number } | null | undefined) => {
         if (!change) return '""';
         return `"${change.changePercent >= 0 ? '+' : ''}${formatPercentage(change.changePercent)}"`;
       };
 
       const avgVol20D = priceChanges?.avgVolume20D;
-      const volRunRate = (quote?.volume && avgVol20D && avgVol20D > 0)
-        ? (quote.volume / avgVol20D) * 100
-        : null;
+      const volRunRate = (quote?.volume && avgVol20D && avgVol20D > 0) ? (quote.volume / avgVol20D) * 100 : null;
 
-      const row = [
-        `"${ticker.symbol}"`,
-        quote ? `"$${formatNumber(quote.price)}"` : '""',
-        quote ? `"${quote.change >= 0 ? '+' : '-'}${formatNumber(Math.abs(quote.change))}"` : '""',
-        quote ? `"${quote.changesPercentage >= 0 ? '+' : ''}${formatPercentage(quote.changesPercentage)}"` : '""',
-        quote ? `"${formatNumber(quote.volume)}"` : '""',
-        priceChanges?.avgVolume20D ? `"${formatNumber(Math.round(priceChanges.avgVolume20D))}"` : '""',
-        volRunRate !== null ? `"${volRunRate.toFixed(0)}%"` : '""',
-        formatPriceChange(priceChanges?.oneYear),
-        formatPriceChange(priceChanges?.threeYear),
-        formatPriceChange(priceChanges?.fiveYear),
-        quote ? `"${formatMarketCap(quote.marketCap)}"` : '""',
-        profile && profile.sector ? `"${profile.sector}"` : '""',
-        profile && profile.industry ? `"${profile.industry}"` : '""',
-        quote && quote.pe ? `"${safeFormat(quote.pe)}"` : '""',
-        '""', // Dividend yield - not loaded in export
-        quote ? (() => {
-          const dcr = calculateDCR(quote.price, quote.dayLow, quote.dayHigh);
-          return dcr !== null ? `"${dcr.toFixed(1)}%"` : '""';
-        })() : '""',
-        quote ? `"${formatEarningsDate(quote.earningsAnnouncement)}"` : '""'
-      ];
-      csvRows.push(row);
+      const cellMap: Record<string, string> = {
+        symbol: `"${ticker.symbol}"`,
+        price: quote ? `"$${formatNumber(quote.price)}"` : '""',
+        change: quote ? `"${quote.change >= 0 ? '+' : '-'}${formatNumber(Math.abs(quote.change))}"` : '""',
+        changePercent: quote ? `"${quote.changesPercentage >= 0 ? '+' : ''}${formatPercentage(quote.changesPercentage)}"` : '""',
+        volume: quote ? `"${formatNumber(quote.volume)}"` : '""',
+        avgVol20D: priceChanges?.avgVolume20D ? `"${formatNumber(Math.round(priceChanges.avgVolume20D))}"` : '""',
+        volRunRate: volRunRate !== null ? `"${volRunRate.toFixed(0)}%"` : '""',
+        '1yChange': fmtPriceChange(priceChanges?.oneYear),
+        '3yChange': fmtPriceChange(priceChanges?.threeYear),
+        '5yChange': fmtPriceChange(priceChanges?.fiveYear),
+        marketCap: quote ? `"${formatMarketCap(quote.marketCap)}"` : '""',
+        sector: profile?.sector ? `"${profile.sector}"` : '""',
+        industry: profile?.industry ? `"${profile.industry}"` : '""',
+        peRatio: quote?.pe ? `"${safeFormat(quote.pe)}"` : '""',
+        divYield: '""',
+        dcr: quote ? (() => { const d = calculateDCR(quote.price, quote.dayLow, quote.dayHigh); return d !== null ? `"${d.toFixed(1)}%"` : '""'; })() : '""',
+        earnings: quote ? `"${formatEarningsDate(quote.earningsAnnouncement)}"` : '""',
+      };
+
+      csvRows.push(colIds.map(id => cellMap[id] ?? '""'));
     });
 
-    // Convert to CSV string
     const csvContent = csvRows.map(row => row.join(',')).join('\n');
-    
-    // Create and trigger download
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -628,17 +610,15 @@ function ExportButton({ watchlist }: ExportButtonProps) {
   };
 
   return (
-    <Button 
-      variant="ghost" 
-      size="icon"
-      onClick={handleExport}
-      className="h-7 w-7 sm:h-8 sm:w-8"
-      title="Export watchlist"
-    >
+    <Button variant="ghost" size="icon" onClick={handleExport} className="h-7 w-7 sm:h-8 sm:w-8" title="Export watchlist">
       <Download className="h-3 w-3 sm:h-4 sm:w-4" />
     </Button>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Header
+// ---------------------------------------------------------------------------
 
 interface WatchlistHeaderProps {
   watchlist: WatchlistCard;
@@ -651,28 +631,9 @@ interface WatchlistHeaderProps {
   onAddTicker: () => void;
   onKeyPress: (e: React.KeyboardEvent, action: () => void) => void;
   onRemoveWatchlist: (watchlistId: string) => void;
+  visibleColumns: TableColumnDef[];
 }
 
-interface WatchlistTableProps {
-  watchlist: WatchlistCard;
-  onRemoveTicker: (watchlistId: string, ticker: string) => void;
-}
-
-interface WatchlistDetailProps {
-  watchlist: WatchlistCard;
-  editNameInput: string;
-  onEditNameChange: (value: string) => void;
-  onSaveWatchlistName: () => void;
-  onToggleEditMode: () => void;
-  newTickerInput: string;
-  onNewTickerChange: (value: string) => void;
-  onAddTicker: () => void;
-  onKeyPress: (e: React.KeyboardEvent, action: () => void) => void;
-  onRemoveTicker: (watchlistId: string, ticker: string) => void;
-  onRemoveWatchlist: (watchlistId: string) => void;
-}
-
-// Header component that contains watchlist name and add ticker controls
 function WatchlistHeader({
   watchlist,
   editNameInput,
@@ -684,6 +645,7 @@ function WatchlistHeader({
   onAddTicker,
   onKeyPress,
   onRemoveWatchlist,
+  visibleColumns,
 }: WatchlistHeaderProps) {
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   return (
@@ -698,12 +660,7 @@ function WatchlistHeader({
               className="text-sm sm:text-xl font-semibold h-7 sm:h-8 py-0.5"
               autoFocus
             />
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={onSaveWatchlistName}
-              className="shrink-0 h-7 w-7 sm:h-8 sm:w-8"
-            >
+            <Button variant="ghost" size="icon" onClick={onSaveWatchlistName} className="shrink-0 h-7 w-7 sm:h-8 sm:w-8">
               <Check className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
           </div>
@@ -713,22 +670,15 @@ function WatchlistHeader({
               <h2 className="text-base sm:text-xl font-semibold text-foreground truncate">{watchlist.name}</h2>
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
-              <ExportButton watchlist={watchlist} />
+              <ExportButton watchlist={watchlist} visibleColumns={visibleColumns} />
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={onToggleEditMode}
-                      className="h-7 w-7 sm:h-8 sm:w-8 flex-shrink-0"
-                    >
+                    <Button variant="ghost" size="icon" onClick={onToggleEditMode} className="h-7 w-7 sm:h-8 sm:w-8 flex-shrink-0">
                       <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Edit Name</p>
-                  </TooltipContent>
+                  <TooltipContent><p>Edit Name</p></TooltipContent>
                 </Tooltip>
               </TooltipProvider>
               <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
@@ -736,18 +686,12 @@ function WatchlistHeader({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <DialogTrigger asChild>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          className="h-7 w-7 sm:h-8 sm:w-8 flex-shrink-0 text-muted-foreground hover:text-destructive"
-                        >
+                        <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 flex-shrink-0 text-muted-foreground hover:text-destructive">
                           <X className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Button>
                       </DialogTrigger>
                     </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Delete Watchlist</p>
-                    </TooltipContent>
+                    <TooltipContent><p>Delete Watchlist</p></TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
                 <DialogContent>
@@ -758,21 +702,8 @@ function WatchlistHeader({
                     </DialogDescription>
                   </DialogHeader>
                   <DialogFooter>
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setShowDeleteDialog(false)}
-                    >
-                      Cancel
-                    </Button>
-                    <Button 
-                      variant="destructive"
-                      onClick={() => {
-                        onRemoveWatchlist(watchlist.id);
-                        setShowDeleteDialog(false);
-                      }}
-                    >
-                      Delete
-                    </Button>
+                    <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Cancel</Button>
+                    <Button variant="destructive" onClick={() => { onRemoveWatchlist(watchlist.id); setShowDeleteDialog(false); }}>Delete</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -789,25 +720,119 @@ function WatchlistHeader({
             onKeyDown={(e) => onKeyPress(e, onAddTicker)}
             className="text-xs sm:text-sm h-7 sm:h-8"
           />
-          <Button 
-            onClick={onAddTicker}
-            title="Add ticker"
-            className="h-7 sm:h-8 whitespace-nowrap flex-shrink-0 min-w-0 px-2 sm:px-3"
-          >
+          <Button onClick={onAddTicker} title="Add ticker" className="h-7 sm:h-8 whitespace-nowrap flex-shrink-0 min-w-0 px-2 sm:px-3">
             <Plus className="h-3 w-3 sm:h-4 sm:w-4 md:mr-1" />
             <span className="hidden md:inline">Add Ticker</span>
             <span className="inline md:hidden ml-0.5">Add</span>
           </Button>
         </div>
-
       </CardContent>
     </>
   );
 }
 
-// Table component that re-renders when watchlist data changes
-function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
-  const { sortColumn, sortDirection, handleSort } = useSortableTable();
+// ---------------------------------------------------------------------------
+// Table header renderer
+// ---------------------------------------------------------------------------
+
+function renderColumnHeader(
+  col: TableColumnDef,
+  sortColumn: string | null,
+  sortDirection: 'asc' | 'desc',
+  handleSort: (column: string) => void,
+  isSortActive: boolean,
+  enableRowReorder: boolean,
+  anchorExtra?: React.ReactNode,
+) {
+  if (col.isAnchor) {
+    const showDragSpace = enableRowReorder && !isSortActive;
+    return (
+      <SortableHeader
+        key={col.id}
+        column={col.id}
+        label={
+          <div className={cn("flex items-center gap-1.5 whitespace-nowrap", showDragSpace && "pl-10")}>
+            {typeof col.label === 'string' ? col.label : col.label}
+            {anchorExtra}
+          </div>
+        }
+        sortColumn={sortColumn}
+        sortDirection={sortDirection}
+        onSort={handleSort}
+        className="sticky left-0 z-20 !bg-background border-r border-border"
+      />
+    );
+  }
+
+  if (col.id === 'actions') {
+    return <TableHead key={col.id} className="text-center">Actions</TableHead>;
+  }
+
+  const sortable = col.sortable !== false;
+
+  if (col.tooltip) {
+    return (
+      <SortableHeader
+        key={col.id}
+        column={col.id}
+        label={
+          <span className="flex items-center gap-1">
+            {typeof col.label === 'string' ? col.label : col.label}
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                    <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" sideOffset={5}>
+                  <p>{col.tooltip}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </span>
+        }
+        sortColumn={sortColumn}
+        sortDirection={sortDirection}
+        onSort={sortable ? handleSort : () => {}}
+        className="border-r"
+      />
+    );
+  }
+
+  return (
+    <SortableHeader
+      key={col.id}
+      column={col.id}
+      label={col.label}
+      sortColumn={sortColumn}
+      sortDirection={sortDirection}
+      onSort={sortable ? handleSort : () => {}}
+      className="border-r"
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// WatchlistTable
+// ---------------------------------------------------------------------------
+
+interface WatchlistTableProps {
+  watchlist: WatchlistCard;
+  onRemoveTicker: (watchlistId: string, ticker: string) => void;
+  visibleColumns: TableColumnDef[];
+  sortColumn: string | null;
+  sortDirection: 'asc' | 'desc';
+  handleSort: (column: string) => void;
+  enableRowReorder: boolean;
+  orderedColumns: TableColumnDef[];
+  hiddenColumns: Set<string>;
+  onToggleColumn: (columnId: string) => void;
+  onReorderColumns: (newOrder: string[]) => void;
+  onResetColumns: () => void;
+}
+
+function WatchlistTable({ watchlist, onRemoveTicker, visibleColumns, sortColumn, sortDirection, handleSort, enableRowReorder, orderedColumns, hiddenColumns, onToggleColumn, onReorderColumns, onResetColumns }: WatchlistTableProps) {
   const isSortActive = sortColumn !== null;
 
   // Batch fetch all quotes
@@ -825,7 +850,6 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
     }))
   });
 
-  // Batch fetch all profiles
   const profileResults = useQueries({
     queries: watchlist.tickers.map(ticker => ({
       queryKey: ['profile', ticker.symbol, getTodayDate()],
@@ -839,7 +863,6 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
     }))
   });
 
-  // Batch fetch all dividend yields
   const dividendResults = useQueries({
     queries: watchlist.tickers.map(ticker => ({
       queryKey: ['dividend-yield', ticker.symbol],
@@ -849,7 +872,6 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
     }))
   });
 
-  // Batch fetch all price changes
   const priceChangeResults = useQueries({
     queries: watchlist.tickers.map(ticker => ({
       queryKey: ['price-changes', ticker.symbol],
@@ -862,26 +884,13 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
     }))
   });
 
-  // Build a data lookup map by symbol
   const tickerDataMap = useMemo(() => {
-    const map = new Map<string, {
-      quote?: Ticker;
-      isQuoteLoading: boolean;
-      profile?: CompanyProfile;
-      isProfileLoading: boolean;
-      dividendYield?: number | null;
-      isDividendLoading: boolean;
-      priceChanges?: PriceChangesData;
-      isPriceChangesLoading: boolean;
-      volumeRunRate?: number | null;
-      isVolumeRunRateLoading: boolean;
-    }>();
+    const map = new Map<string, TickerRowData>();
 
     watchlist.tickers.forEach((ticker, i) => {
       const quote = quoteResults[i]?.data;
       const priceChanges = priceChangeResults[i]?.data as PriceChangesData | undefined;
       const avgVol20D = priceChanges?.avgVolume20D;
-
       const volumeRunRate = (quote?.volume && avgVol20D && avgVol20D > 0)
         ? (quote.volume / avgVol20D) * 100
         : null;
@@ -903,7 +912,6 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
     return map;
   }, [watchlist.tickers, quoteResults, profileResults, dividendResults, priceChangeResults]);
 
-  // Sort tickers based on current sort state
   const sortedTickers = useMemo(() => {
     if (!sortColumn) return watchlist.tickers;
 
@@ -917,89 +925,39 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
       let bVal: number | string = 0;
 
       switch (sortColumn) {
-        case 'symbol':
-          aVal = a.symbol;
-          bVal = b.symbol;
-          break;
-        case 'price':
-          aVal = aQuote?.price ?? 0;
-          bVal = bQuote?.price ?? 0;
-          break;
-        case 'change':
-          aVal = aQuote?.change ?? 0;
-          bVal = bQuote?.change ?? 0;
-          break;
-        case 'changePercent':
-          aVal = aQuote?.changesPercentage ?? 0;
-          bVal = bQuote?.changesPercentage ?? 0;
-          break;
-        case 'volume':
-          aVal = aQuote?.volume ?? 0;
-          bVal = bQuote?.volume ?? 0;
-          break;
-        case 'avgVol20D':
-          aVal = aData?.priceChanges?.avgVolume20D ?? -Infinity;
-          bVal = bData?.priceChanges?.avgVolume20D ?? -Infinity;
-          break;
-        case 'volRunRate':
-          aVal = aData?.volumeRunRate ?? -Infinity;
-          bVal = bData?.volumeRunRate ?? -Infinity;
-          break;
-        case '1yChange':
-          aVal = aData?.priceChanges?.oneYear?.changePercent ?? -Infinity;
-          bVal = bData?.priceChanges?.oneYear?.changePercent ?? -Infinity;
-          break;
-        case '3yChange':
-          aVal = aData?.priceChanges?.threeYear?.changePercent ?? -Infinity;
-          bVal = bData?.priceChanges?.threeYear?.changePercent ?? -Infinity;
-          break;
-        case '5yChange':
-          aVal = aData?.priceChanges?.fiveYear?.changePercent ?? -Infinity;
-          bVal = bData?.priceChanges?.fiveYear?.changePercent ?? -Infinity;
-          break;
-        case 'marketCap':
-          aVal = aQuote?.marketCap ?? 0;
-          bVal = bQuote?.marketCap ?? 0;
-          break;
-        case 'sector':
-          aVal = aData?.profile?.sector ?? '';
-          bVal = bData?.profile?.sector ?? '';
-          break;
-        case 'industry':
-          aVal = aData?.profile?.industry ?? '';
-          bVal = bData?.profile?.industry ?? '';
-          break;
-        case 'peRatio':
-          aVal = aQuote?.pe ?? -Infinity;
-          bVal = bQuote?.pe ?? -Infinity;
-          break;
-        case 'divYield':
-          aVal = aData?.dividendYield ?? -Infinity;
-          bVal = bData?.dividendYield ?? -Infinity;
-          break;
+        case 'symbol': aVal = a.symbol; bVal = b.symbol; break;
+        case 'price': aVal = aQuote?.price ?? 0; bVal = bQuote?.price ?? 0; break;
+        case 'change': aVal = aQuote?.change ?? 0; bVal = bQuote?.change ?? 0; break;
+        case 'changePercent': aVal = aQuote?.changesPercentage ?? 0; bVal = bQuote?.changesPercentage ?? 0; break;
+        case 'volume': aVal = aQuote?.volume ?? 0; bVal = bQuote?.volume ?? 0; break;
+        case 'avgVol20D': aVal = aData?.priceChanges?.avgVolume20D ?? -Infinity; bVal = bData?.priceChanges?.avgVolume20D ?? -Infinity; break;
+        case 'volRunRate': aVal = aData?.volumeRunRate ?? -Infinity; bVal = bData?.volumeRunRate ?? -Infinity; break;
+        case '1yChange': aVal = aData?.priceChanges?.oneYear?.changePercent ?? -Infinity; bVal = bData?.priceChanges?.oneYear?.changePercent ?? -Infinity; break;
+        case '3yChange': aVal = aData?.priceChanges?.threeYear?.changePercent ?? -Infinity; bVal = bData?.priceChanges?.threeYear?.changePercent ?? -Infinity; break;
+        case '5yChange': aVal = aData?.priceChanges?.fiveYear?.changePercent ?? -Infinity; bVal = bData?.priceChanges?.fiveYear?.changePercent ?? -Infinity; break;
+        case 'marketCap': aVal = aQuote?.marketCap ?? 0; bVal = bQuote?.marketCap ?? 0; break;
+        case 'sector': aVal = aData?.profile?.sector ?? ''; bVal = bData?.profile?.sector ?? ''; break;
+        case 'industry': aVal = aData?.profile?.industry ?? ''; bVal = bData?.profile?.industry ?? ''; break;
+        case 'peRatio': aVal = aQuote?.pe ?? -Infinity; bVal = bQuote?.pe ?? -Infinity; break;
+        case 'divYield': aVal = aData?.dividendYield ?? -Infinity; bVal = bData?.dividendYield ?? -Infinity; break;
         case 'dcr': {
           const aDcr = aQuote ? calculateDCR(aQuote.price, aQuote.dayLow, aQuote.dayHigh) : null;
           const bDcr = bQuote ? calculateDCR(bQuote.price, bQuote.dayLow, bQuote.dayHigh) : null;
-          aVal = aDcr ?? -Infinity;
-          bVal = bDcr ?? -Infinity;
-          break;
+          aVal = aDcr ?? -Infinity; bVal = bDcr ?? -Infinity; break;
         }
         case 'earnings': {
           aVal = aQuote?.earningsAnnouncement ? new Date(aQuote.earningsAnnouncement).getTime() : 0;
           bVal = bQuote?.earningsAnnouncement ? new Date(bQuote.earningsAnnouncement).getTime() : 0;
           break;
         }
-        default:
-          return 0;
+        default: return 0;
       }
 
-      // String comparison
       if (typeof aVal === 'string' && typeof bVal === 'string') {
         const cmp = aVal.localeCompare(bVal);
         return sortDirection === 'asc' ? cmp : -cmp;
       }
 
-      // Numeric comparison
       const aNum = typeof aVal === 'number' ? aVal : Number(aVal);
       const bNum = typeof bVal === 'number' ? bVal : Number(bVal);
       return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
@@ -1017,111 +975,27 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
             <Table>
               <TableHeader>
                 <TableRow className="border-b-2">
-                  <SortableHeader
-                    column="symbol"
-                    label={
-                      <div className={cn("flex items-center whitespace-nowrap", !isSortActive && "pl-10")}>
-                        Symbol
-                      </div>
-                    }
-                    sortColumn={sortColumn}
-                    sortDirection={sortDirection}
-                    onSort={handleSort}
-                    className="sticky left-0 z-20 !bg-background border-r border-border"
-                  />
-                  <SortableHeader column="price" label="Price" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                  <SortableHeader column="change" label="Change ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                  <SortableHeader column="changePercent" label="Change (%)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                  <SortableHeader column="volume" label="Volume" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                  <SortableHeader
-                    column="avgVol20D"
-                    label={
-                      <span className="flex items-center gap-1">
-                        Avg Vol 20D
-                        <TooltipProvider delayDuration={0}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                <InfoIcon className="h-3 w-3 text-muted-foreground" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" sideOffset={5}>
-                              <p>Average volume over the last 20 completed trading days</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </span>
-                    }
-                    sortColumn={sortColumn}
-                    sortDirection={sortDirection}
-                    onSort={handleSort}
-                    className="border-r"
-                  />
-                  <SortableHeader
-                    column="volRunRate"
-                    label={
-                      <span className="flex items-center gap-1">
-                        Vol RR
-                        <TooltipProvider delayDuration={0}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                <InfoIcon className="h-3 w-3 text-muted-foreground" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" sideOffset={5}>
-                              <p>Volume Run Rate: Today&apos;s Volume / 20D Avg Volume × 100</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </span>
-                    }
-                    sortColumn={sortColumn}
-                    sortDirection={sortDirection}
-                    onSort={handleSort}
-                    className="border-r"
-                  />
-                  <SortableHeader column="1yChange" label="1Y Change" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                  <SortableHeader column="3yChange" label="3Y Change" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                  <SortableHeader column="5yChange" label="5Y Change" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                  <SortableHeader column="marketCap" label="Market Cap" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                  <SortableHeader column="sector" label="Sector" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                  <SortableHeader column="industry" label="Industry" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                  <SortableHeader column="peRatio" label="P/E Ratio" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                  <SortableHeader column="divYield" label="Div. Yield" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                  <SortableHeader
-                    column="dcr"
-                    label={
-                      <span className="flex items-center gap-1">
-                        DCR
-                        <TooltipProvider delayDuration={0}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                <InfoIcon className="h-3 w-3 text-muted-foreground" />
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" sideOffset={5}>
-                              <p>Daily Closing Range: (Close - Low) / (High - Low) × 100</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </span>
-                    }
-                    sortColumn={sortColumn}
-                    sortDirection={sortDirection}
-                    onSort={handleSort}
-                    className="border-r"
-                  />
-                  <SortableHeader column="earnings" label="Next Earnings" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                  <TableHead className="text-center">Actions</TableHead>
+                  {visibleColumns.map(col =>
+                    renderColumnHeader(
+                      col, sortColumn, sortDirection, handleSort, isSortActive, enableRowReorder,
+                      col.isAnchor ? (
+                        <ColumnSettingsPopover
+                          columns={orderedColumns}
+                          hiddenColumns={hiddenColumns}
+                          onToggleColumn={onToggleColumn}
+                          onReorderColumns={onReorderColumns}
+                          onReset={onResetColumns}
+                        />
+                      ) : undefined
+                    )
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {watchlist.tickers.length === 0 ? (
                   <TableRow>
-                    <TableCell 
-                      colSpan={19} 
+                    <TableCell
+                      colSpan={visibleColumns.length}
                       className="h-12 sm:h-12 text-center text-xs sm:text-sm text-muted-foreground"
                     >
                       No tickers added yet.
@@ -1136,17 +1010,16 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
                         symbol={ticker.symbol}
                         watchlistId={watchlist.id}
                         onRemoveTicker={onRemoveTicker}
-                        quote={data?.quote}
-                        isQuoteLoading={data?.isQuoteLoading ?? true}
-                        profile={data?.profile}
-                        isProfileLoading={data?.isProfileLoading ?? true}
-                        dividendYield={data?.dividendYield}
-                        isDividendLoading={data?.isDividendLoading ?? true}
-                        priceChanges={data?.priceChanges}
-                        isPriceChangesLoading={data?.isPriceChangesLoading ?? true}
+                        data={data ?? {
+                          isQuoteLoading: true,
+                          isProfileLoading: true,
+                          isDividendLoading: true,
+                          isPriceChangesLoading: true,
+                          isVolumeRunRateLoading: true,
+                        }}
                         isSortActive={isSortActive}
-                        volumeRunRate={data?.volumeRunRate}
-                        isVolumeRunRateLoading={data?.isVolumeRunRateLoading ?? true}
+                        enableRowReorder={enableRowReorder}
+                        visibleColumns={visibleColumns}
                       />
                     );
                   })
@@ -1158,6 +1031,24 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
       </SortableContext>
     </CardContent>
   );
+}
+
+// ---------------------------------------------------------------------------
+// WatchlistDetail (public export)
+// ---------------------------------------------------------------------------
+
+interface WatchlistDetailProps {
+  watchlist: WatchlistCard;
+  editNameInput: string;
+  onEditNameChange: (value: string) => void;
+  onSaveWatchlistName: () => void;
+  onToggleEditMode: () => void;
+  newTickerInput: string;
+  onNewTickerChange: (value: string) => void;
+  onAddTicker: () => void;
+  onKeyPress: (e: React.KeyboardEvent, action: () => void) => void;
+  onRemoveTicker: (watchlistId: string, ticker: string) => void;
+  onRemoveWatchlist: (watchlistId: string) => void;
 }
 
 export function WatchlistDetail({
@@ -1173,6 +1064,23 @@ export function WatchlistDetail({
   onRemoveTicker,
   onRemoveWatchlist,
 }: WatchlistDetailProps) {
+  const {
+    sortColumn,
+    sortDirection,
+    handleSort,
+    visibleColumns,
+    hiddenColumns,
+    toggleColumn,
+    reorderColumns,
+    resetColumnsToDefaults,
+    enableRowReorder,
+    orderedColumns,
+  } = useSortableTable({
+    columns: WATCHLIST_COLUMNS,
+    tableId: 'watchlist-detail',
+    enableRowReorder: true,
+  });
+
   return (
     <Card className="border-0 shadow-none w-full">
       <WatchlistHeader
@@ -1186,12 +1094,23 @@ export function WatchlistDetail({
         onAddTicker={onAddTicker}
         onKeyPress={onKeyPress}
         onRemoveWatchlist={onRemoveWatchlist}
+        visibleColumns={visibleColumns}
       />
       <WatchlistTable
-        key={`table-${watchlist.id}-${watchlist.tickers.map(t => t.symbol).join(',')}`} // Re-render when tickers or their order change
+        key={`table-${watchlist.id}-${watchlist.tickers.map(t => t.symbol).join(',')}`}
         watchlist={watchlist}
         onRemoveTicker={onRemoveTicker}
+        visibleColumns={visibleColumns}
+        sortColumn={sortColumn}
+        sortDirection={sortDirection}
+        handleSort={handleSort}
+        enableRowReorder={enableRowReorder}
+        orderedColumns={orderedColumns}
+        hiddenColumns={hiddenColumns}
+        onToggleColumn={toggleColumn}
+        onReorderColumns={reorderColumns}
+        onResetColumns={resetColumnsToDefaults}
       />
     </Card>
   );
-} 
+}

@@ -62,10 +62,13 @@ export interface SupabasePortfolioPosition {
   days_in_trade: number;
 }
 
+export type TableSettings = Record<string, { hiddenColumns: string[]; columnOrder?: string[] }>;
+
 export interface SupabaseUserPreferences {
   user_id: string;
   default_watchlist_id: string | null;
   default_portfolio_key: number | null;
+  table_settings: TableSettings | null;
   created_at: string;
   updated_at: string;
-} 
+}
