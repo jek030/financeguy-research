@@ -99,6 +99,7 @@ type PriceChangesData = {
   oneYear?: PriceChangePeriodData;
   threeYear?: PriceChangePeriodData;
   fiveYear?: PriceChangePeriodData;
+  avgVolume20D?: number;
 };
 
 // Helper component for price change cells with tooltips (data-driven)
@@ -162,6 +163,8 @@ interface QuoteRowProps {
   priceChanges?: PriceChangesData;
   isPriceChangesLoading: boolean;
   isSortActive: boolean;
+  volumeRunRate?: number | null;
+  isVolumeRunRateLoading: boolean;
 }
 
 function LoadingRow({ isSortActive }: { isSortActive?: boolean }) {
@@ -179,7 +182,7 @@ function LoadingRow({ isSortActive }: { isSortActive?: boolean }) {
           </div>
         </div>
       </TableCell>
-      {Array(15).fill(0).map((_, i) => (
+      {Array(17).fill(0).map((_, i) => (
         <TableCell key={i}>
           <Skeleton className="h-4 w-16" />
         </TableCell>
@@ -201,6 +204,8 @@ function QuoteRow({
   priceChanges,
   isPriceChangesLoading,
   isSortActive,
+  volumeRunRate,
+  isVolumeRunRateLoading,
 }: QuoteRowProps) {
   const {
     attributes,
@@ -280,6 +285,48 @@ function QuoteRow({
         </span>
       </TableCell>
       <TableCell className="text-xs sm:text-sm">{formatNumber(quote.volume)}</TableCell>
+      <TableCell className="text-xs sm:text-sm">
+        {isPriceChangesLoading ? (
+          <Skeleton className="h-4 w-16" />
+        ) : priceChanges?.avgVolume20D ? (
+          formatNumber(priceChanges.avgVolume20D)
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )}
+      </TableCell>
+      <TableCell className="text-xs sm:text-sm">
+        {isVolumeRunRateLoading ? (
+          <Skeleton className="h-4 w-16" />
+        ) : volumeRunRate !== null && volumeRunRate !== undefined ? (
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className={cn(
+                  "cursor-help",
+                  volumeRunRate >= 150 ? "text-positive font-semibold" :
+                  volumeRunRate >= 100 ? "text-positive" :
+                  volumeRunRate <= 50 ? "text-destructive" :
+                  "text-foreground"
+                )}>
+                  {volumeRunRate.toFixed(0)}%
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={5}>
+                <div className="space-y-1">
+                  <p>Today&apos;s Vol: {formatNumber(quote.volume)}</p>
+                  <p>20D Avg Vol: {formatNumber(priceChanges?.avgVolume20D ?? 0)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {volumeRunRate >= 150 ? 'Unusually high volume' :
+                     volumeRunRate >= 100 ? 'Above average volume' :
+                     volumeRunRate <= 50 ? 'Unusually low volume' :
+                     'Below average volume'}
+                  </p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : <span className="text-muted-foreground">-</span>}
+      </TableCell>
       <TableCell>
         <PriceChangeCell periodData={priceChanges?.oneYear} period="1Y" isLoading={isPriceChangesLoading} />
       </TableCell>
@@ -388,6 +435,7 @@ async function fetchPriceChanges(symbol: string): Promise<{
   oneYear?: { changePercent: number; currentPrice: number; historicalPrice: number; currentDate: string; historicalDate: string };
   threeYear?: { changePercent: number; currentPrice: number; historicalPrice: number; currentDate: string; historicalDate: string };
   fiveYear?: { changePercent: number; currentPrice: number; historicalPrice: number; currentDate: string; historicalDate: string };
+  avgVolume20D?: number;
 }> {
   if (!symbol) {
     throw new Error('Symbol is required');
@@ -448,10 +496,19 @@ async function fetchPriceChanges(symbol: string): Promise<{
     };
   };
 
+  // Calculate 20-day average volume: mean of the last 20 completed trading days (exclude today if present)
+  const todayStr = getTodayDate();
+  const completedDays = sortedHistorical.filter((d: { date: string }) => d.date < todayStr);
+  const last20TradingDays = completedDays.slice(0, 20);
+  const avgVolume20D = last20TradingDays.length === 20
+    ? last20TradingDays.reduce((sum: number, d: { volume: number }) => sum + d.volume, 0) / 20
+    : undefined;
+
   return {
     oneYear: createPriceChangeData(oneYearData),
     threeYear: createPriceChangeData(threeYearData),
     fiveYear: createPriceChangeData(fiveYearData),
+    avgVolume20D,
   };
 }
 
@@ -511,7 +568,7 @@ function ExportButton({ watchlist }: ExportButtonProps) {
 
   const handleExport = () => {
     // Create CSV header
-    const headers = ['Symbol', 'Price', 'Change ($)', 'Change (%)', 'Volume', '1Y Change (%)', '3Y Change (%)', '5Y Change (%)', 'Market Cap', 'Sector', 'Industry', 'P/E Ratio', 'Dividend Yield (%)', 'DCR (%)', 'Next Earnings'];
+    const headers = ['Symbol', 'Price', 'Change ($)', 'Change (%)', 'Volume', 'Avg Vol 20D', 'Vol Run Rate (%)', '1Y Change (%)', '3Y Change (%)', '5Y Change (%)', 'Market Cap', 'Sector', 'Industry', 'P/E Ratio', 'Dividend Yield (%)', 'DCR (%)', 'Next Earnings'];
     const csvRows = [headers.map(header => `"${header}"`)];
 
     // Use the data that's already loaded
@@ -525,12 +582,19 @@ function ExportButton({ watchlist }: ExportButtonProps) {
         return `"${change.changePercent >= 0 ? '+' : ''}${formatPercentage(change.changePercent)}"`;
       };
 
+      const avgVol20D = priceChanges?.avgVolume20D;
+      const volRunRate = (quote?.volume && avgVol20D && avgVol20D > 0)
+        ? (quote.volume / avgVol20D) * 100
+        : null;
+
       const row = [
         `"${ticker.symbol}"`,
         quote ? `"$${formatNumber(quote.price)}"` : '""',
         quote ? `"${quote.change >= 0 ? '+' : '-'}${formatNumber(Math.abs(quote.change))}"` : '""',
         quote ? `"${quote.changesPercentage >= 0 ? '+' : ''}${formatPercentage(quote.changesPercentage)}"` : '""',
         quote ? `"${formatNumber(quote.volume)}"` : '""',
+        priceChanges?.avgVolume20D ? `"${formatNumber(priceChanges.avgVolume20D)}"` : '""',
+        volRunRate !== null ? `"${volRunRate.toFixed(0)}%"` : '""',
         formatPriceChange(priceChanges?.oneYear),
         formatPriceChange(priceChanges?.threeYear),
         formatPriceChange(priceChanges?.fiveYear),
@@ -809,18 +873,30 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
       isDividendLoading: boolean;
       priceChanges?: PriceChangesData;
       isPriceChangesLoading: boolean;
+      volumeRunRate?: number | null;
+      isVolumeRunRateLoading: boolean;
     }>();
 
     watchlist.tickers.forEach((ticker, i) => {
+      const quote = quoteResults[i]?.data;
+      const priceChanges = priceChangeResults[i]?.data as PriceChangesData | undefined;
+      const avgVol20D = priceChanges?.avgVolume20D;
+
+      const volumeRunRate = (quote?.volume && avgVol20D && avgVol20D > 0)
+        ? (quote.volume / avgVol20D) * 100
+        : null;
+
       map.set(ticker.symbol, {
-        quote: quoteResults[i]?.data,
+        quote,
         isQuoteLoading: quoteResults[i]?.isLoading ?? true,
         profile: profileResults[i]?.data,
         isProfileLoading: profileResults[i]?.isLoading ?? true,
         dividendYield: dividendResults[i]?.data,
         isDividendLoading: dividendResults[i]?.isLoading ?? true,
-        priceChanges: priceChangeResults[i]?.data as PriceChangesData | undefined,
+        priceChanges,
         isPriceChangesLoading: priceChangeResults[i]?.isLoading ?? true,
+        volumeRunRate,
+        isVolumeRunRateLoading: (quoteResults[i]?.isLoading ?? true) || (priceChangeResults[i]?.isLoading ?? true),
       });
     });
 
@@ -860,6 +936,14 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
         case 'volume':
           aVal = aQuote?.volume ?? 0;
           bVal = bQuote?.volume ?? 0;
+          break;
+        case 'avgVol20D':
+          aVal = aData?.priceChanges?.avgVolume20D ?? -Infinity;
+          bVal = bData?.priceChanges?.avgVolume20D ?? -Infinity;
+          break;
+        case 'volRunRate':
+          aVal = aData?.volumeRunRate ?? -Infinity;
+          bVal = bData?.volumeRunRate ?? -Infinity;
           break;
         case '1yChange':
           aVal = aData?.priceChanges?.oneYear?.changePercent ?? -Infinity;
@@ -949,6 +1033,54 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
                   <SortableHeader column="change" label="Change ($)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
                   <SortableHeader column="changePercent" label="Change (%)" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
                   <SortableHeader column="volume" label="Volume" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
+                  <SortableHeader
+                    column="avgVol20D"
+                    label={
+                      <span className="flex items-center gap-1">
+                        Avg Vol 20D
+                        <TooltipProvider delayDuration={0}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" sideOffset={5}>
+                              <p>Average volume over the last 20 completed trading days</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </span>
+                    }
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                    onSort={handleSort}
+                    className="border-r"
+                  />
+                  <SortableHeader
+                    column="volRunRate"
+                    label={
+                      <span className="flex items-center gap-1">
+                        Vol RR
+                        <TooltipProvider delayDuration={0}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                                <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" sideOffset={5}>
+                              <p>Volume Run Rate: Today&apos;s Volume / 20D Avg Volume × 100</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </span>
+                    }
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                    onSort={handleSort}
+                    className="border-r"
+                  />
                   <SortableHeader column="1yChange" label="1Y Change" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
                   <SortableHeader column="3yChange" label="3Y Change" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
                   <SortableHeader column="5yChange" label="5Y Change" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
@@ -989,7 +1121,7 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
                 {watchlist.tickers.length === 0 ? (
                   <TableRow>
                     <TableCell 
-                      colSpan={17} 
+                      colSpan={19} 
                       className="h-12 sm:h-12 text-center text-xs sm:text-sm text-muted-foreground"
                     >
                       No tickers added yet.
@@ -1013,6 +1145,8 @@ function WatchlistTable({ watchlist, onRemoveTicker }: WatchlistTableProps) {
                         priceChanges={data?.priceChanges}
                         isPriceChangesLoading={data?.isPriceChangesLoading ?? true}
                         isSortActive={isSortActive}
+                        volumeRunRate={data?.volumeRunRate}
+                        isVolumeRunRateLoading={data?.isVolumeRunRateLoading ?? true}
                       />
                     );
                   })
