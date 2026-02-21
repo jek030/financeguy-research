@@ -289,7 +289,7 @@ function QuoteRow({
         {isPriceChangesLoading ? (
           <Skeleton className="h-4 w-16" />
         ) : priceChanges?.avgVolume20D ? (
-          formatNumber(priceChanges.avgVolume20D)
+          formatNumber(Math.round(priceChanges.avgVolume20D))
         ) : (
           <span className="text-muted-foreground">-</span>
         )}
@@ -314,7 +314,7 @@ function QuoteRow({
               <TooltipContent side="top" sideOffset={5}>
                 <div className="space-y-1">
                   <p>Today&apos;s Vol: {formatNumber(quote.volume)}</p>
-                  <p>20D Avg Vol: {formatNumber(priceChanges?.avgVolume20D ?? 0)}</p>
+                  <p>20D Avg Vol: {formatNumber(Math.round(priceChanges?.avgVolume20D ?? 0))}</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     {volumeRunRate >= 150 ? 'Unusually high volume' :
                      volumeRunRate >= 100 ? 'Above average volume' :
@@ -593,7 +593,7 @@ function ExportButton({ watchlist }: ExportButtonProps) {
         quote ? `"${quote.change >= 0 ? '+' : '-'}${formatNumber(Math.abs(quote.change))}"` : '""',
         quote ? `"${quote.changesPercentage >= 0 ? '+' : ''}${formatPercentage(quote.changesPercentage)}"` : '""',
         quote ? `"${formatNumber(quote.volume)}"` : '""',
-        priceChanges?.avgVolume20D ? `"${formatNumber(priceChanges.avgVolume20D)}"` : '""',
+        priceChanges?.avgVolume20D ? `"${formatNumber(Math.round(priceChanges.avgVolume20D))}"` : '""',
         volRunRate !== null ? `"${volRunRate.toFixed(0)}%"` : '""',
         formatPriceChange(priceChanges?.oneYear),
         formatPriceChange(priceChanges?.threeYear),
