@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { CalendarIcon, InfoIcon, X, Loader2, Pencil, ChevronUp, ChevronDown, PlusCircle, Star } from 'lucide-react';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { useSortableTable } from '@/hooks/useSortableTable';
+import { ColumnSettingsPopover } from '@/components/ui/ColumnSettingsPopover';
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { format, differenceInCalendarDays } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -21,6 +22,7 @@ import { quoteQueryOptions, useQuote } from '@/hooks/FMP/useQuote';
 import { usePortfolio, type StockPosition } from '@/hooks/usePortfolio';
 import { useAuth } from '@/lib/context/auth-context';
 import Link from 'next/link';
+import type { TableColumnDef } from '@/lib/table-types';
 
 // Helper function to format currency
 const currencyFormatter = new Intl.NumberFormat('en-US', {
@@ -70,7 +72,7 @@ const getOpenRiskDisplay = (position: StockPosition) => {
 
   return {
     text: `${openRiskPercent >= 0 ? '+' : ''}${openRiskPercent.toFixed(2)}% (${formatCurrency(openRiskAmount)})`,
-    colorClass: openRiskPercent < 0 ? 'text-red-400' : 'text-emerald-400',
+    colorClass: openRiskPercent < 0 ? 'text-red-400' : 'text-green-600 dark:text-green-400',
   };
 };
 
@@ -96,6 +98,9 @@ const getOpenHeatColorClass = (heatPercent: number | null) => {
   return heatPercent > 2 ? 'text-red-400' : 'text-orange-400';
 };
 
+const formatSignedPercent = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
+const getSignedPercentColorClass = (value: number) => (value >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-400');
+
 const normalizeToLocalMidnight = (date: Date) => {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 };
@@ -117,6 +122,108 @@ const allocationColors = [
   'hsl(189, 94%, 43%)',
   'hsl(48, 96%, 53%)',
 ];
+
+const PORTFOLIO_COLUMNS: TableColumnDef[] = [
+  { id: 'symbol', label: 'Symbol', isAnchor: true },
+  { id: 'price', label: 'Price' },
+  { id: 'type', label: 'Type' },
+  { id: 'cost', label: 'Cost' },
+  { id: 'quantity', label: 'Qty' },
+  { id: 'remainingShares', label: 'Rem. Shares' },
+  { id: 'netCost', label: 'Net Cost' },
+  { id: 'equity', label: 'Equity' },
+  { id: 'gainLoss', label: 'Gain/Loss $' },
+  { id: 'realizedGain', label: 'Realized $' },
+  { id: 'portfolioPercent', label: '% Portfolio' },
+  { id: 'initialStopLoss', label: 'Init. SL' },
+  { id: 'stopLoss', label: 'Stop Loss' },
+  { id: 'openRisk', label: 'Open Risk %', tooltip: '% change from cost to stop loss' },
+  { id: 'openHeat', label: 'Open Heat %', tooltip: '% of portfolio risked if stop loss is hit' },
+  { id: 'priceTarget2R', label: 'PT 1', tooltip: '2R Price Target' },
+  { id: 'priceTarget2RShares', label: 'PT 1 #', tooltip: 'Shares sold at PT 1' },
+  { id: 'priceTarget5R', label: 'PT 2', tooltip: '5R Price Target' },
+  { id: 'priceTarget5RShares', label: 'PT 2 #', tooltip: 'Shares sold at PT 2' },
+  { id: 'priceTarget21Day', label: '21 Day Trail' },
+  { id: 'openDate', label: 'Open Date' },
+  { id: 'closedDate', label: 'Closed Date' },
+  { id: 'daysInTrade', label: 'Days' },
+  { id: 'actions', label: 'Actions', alwaysVisible: true, sortable: false },
+];
+
+function renderPortfolioColumnHeader(
+  col: TableColumnDef,
+  sortColumn: string | null,
+  sortDirection: 'asc' | 'desc',
+  handleSort: (column: string) => void,
+  anchorExtra?: React.ReactNode,
+) {
+  if (col.isAnchor) {
+    return (
+      <SortableHeader
+        key={col.id}
+        column={col.id}
+        label={
+          <div className="flex items-center gap-1.5 whitespace-nowrap">
+            {typeof col.label === 'string' ? col.label : col.label}
+            {anchorExtra}
+          </div>
+        }
+        sortColumn={sortColumn}
+        sortDirection={sortDirection}
+        onSort={handleSort}
+        className="sticky left-0 z-20 !bg-background border-r border-border"
+      />
+    );
+  }
+
+  if (col.id === 'actions') {
+    return <TableHead key={col.id} className="text-center">Actions</TableHead>;
+  }
+
+  const sortable = col.sortable !== false;
+
+  if (col.tooltip) {
+    return (
+      <SortableHeader
+        key={col.id}
+        column={col.id}
+        label={
+          <span className="flex items-center gap-1">
+            {typeof col.label === 'string' ? col.label : col.label}
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
+                    <InfoIcon className="h-3 w-3 text-muted-foreground" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" sideOffset={5}>
+                  <p>{col.tooltip}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </span>
+        }
+        sortColumn={sortColumn}
+        sortDirection={sortDirection}
+        onSort={sortable ? handleSort : () => {}}
+        className="border-r"
+      />
+    );
+  }
+
+  return (
+    <SortableHeader
+      key={col.id}
+      column={col.id}
+      label={col.label}
+      sortColumn={sortColumn}
+      sortDirection={sortDirection}
+      onSort={sortable ? handleSort : () => {}}
+      className="border-r"
+    />
+  );
+}
 
 // Helper function to calculate gain/loss
 const calculateGainLoss = (currentPrice: number, cost: number, quantity: number, type: 'Long' | 'Short') => {
@@ -195,10 +302,9 @@ function PriceCell({ symbol }: { symbol: string }) {
   return (
     <div className="flex flex-col gap-0.5">
       <span className="font-medium">{formatCurrency(quote.price)}</span>
-      <PercentageChange 
-        value={quote.changesPercentage} 
-        size="sm"
-      />
+      <span className={cn("text-xs font-medium", getSignedPercentColorClass(quote.changesPercentage))}>
+        {formatSignedPercent(quote.changesPercentage)}
+      </span>
     </div>
   );
 }
@@ -247,10 +353,9 @@ function GainLossCell({
       )}>
         {formatCurrency(gainLoss)}
       </span>
-      <PercentageChange 
-        value={displayPercent} 
-        size="sm"
-      />
+      <span className={cn("text-xs font-medium", getSignedPercentColorClass(displayPercent))}>
+        {formatSignedPercent(displayPercent)}
+      </span>
     </div>
   );
 }
@@ -342,7 +447,6 @@ interface PortfolioHeroProps {
   portfolioName: string;
   portfolioValue: number;
   positions: StockPosition[];
-  exposure: number;
   isEditingPortfolio: boolean;
   tempPortfolioName: string;
   tempPortfolioValue: string;
@@ -394,7 +498,6 @@ function PortfolioHero({
   portfolioName,
   portfolioValue,
   positions,
-  exposure,
   isEditingPortfolio,
   tempPortfolioName,
   tempPortfolioValue,
@@ -425,7 +528,7 @@ function PortfolioHero({
   const totalOpenRisk = useMemo(() => calculateTotalOpenRisk(positions), [positions]);
   const riskPercent = portfolioValue > 0 ? (totalOpenRisk / portfolioValue) * 100 : 0;
   const openPositionsForPnl = useMemo(
-    () => positions.filter((position) => position.priceTarget21Day <= 0 && position.remainingShares > 0),
+    () => positions.filter((position) => !isPositionFullyClosed(position) && position.remainingShares > 0),
     [positions],
   );
   const pnlQuoteQueries = useQueries({
@@ -440,6 +543,16 @@ function PortfolioHero({
         return total;
       }
       return total + calculateGainLoss(currentPrice, position.cost, position.remainingShares, position.type);
+    }, 0);
+  }, [openPositionsForPnl, pnlQuoteQueries]);
+
+  const openEquity = useMemo(() => {
+    return openPositionsForPnl.reduce((total, position, index) => {
+      const currentPrice = pnlQuoteQueries[index]?.data?.price;
+      if (typeof currentPrice !== 'number') {
+        return total;
+      }
+      return total + (currentPrice * position.remainingShares);
     }, 0);
   }, [openPositionsForPnl, pnlQuoteQueries]);
 
@@ -462,8 +575,17 @@ function PortfolioHero({
 
   const unrealizedPercent = portfolioValue > 0 ? (unrealizedGain / portfolioValue) * 100 : 0;
   const realizedPercent = portfolioValue > 0 ? (realizedGain / portfolioValue) * 100 : 0;
-  const currentBalance = portfolioValue + unrealizedGain + realizedGain;
+  const currentBalance = portfolioValue + realizedGain;
+  const unrealizedBalance = currentBalance + unrealizedGain;
   const currentBalancePercent = portfolioValue > 0 ? ((currentBalance - portfolioValue) / portfolioValue) * 100 : 0;
+  const unrealizedBalancePercent = portfolioValue > 0 ? ((unrealizedBalance - portfolioValue) / portfolioValue) * 100 : 0;
+
+  const exposure = useMemo(() => {
+    if (currentBalance <= 0) {
+      return openPositionsForPnl.length === 0 ? 0 : 100;
+    }
+    return (openEquity / currentBalance) * 100;
+  }, [openEquity, currentBalance, openPositionsForPnl.length]);
   
   // Exposure color logic
   const exposureColorClass = exposure > 100 
@@ -684,7 +806,7 @@ function PortfolioHero({
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
             {portfolioName}
           </p>
-          <div className="grid grid-cols-1 xl:grid-cols-[1.3fr_1fr] gap-4 mb-6">
+          <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_1fr_1fr] gap-4 mb-6">
             <div className="rounded-xl border border-border/60 bg-background/40 p-4 md:p-5">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
                 Starting Balance
@@ -715,7 +837,31 @@ function PortfolioHero({
                     ? `${currentBalancePercent >= 0 ? "+" : ""}${currentBalancePercent.toFixed(2)}% vs start`
                     : "Set starting balance to track %"}
               </p>
-              <p className="text-[10px] text-muted-foreground mt-1">Starting + Unrealized + Realized</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Starting + Realized</p>
+            </div>
+
+            <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-4 md:p-5">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                Unrealized Balance
+              </p>
+              {isUnrealizedLoading ? (
+                <div className="h-10 w-40 bg-muted animate-pulse rounded" />
+              ) : (
+                <p className={cn(
+                  "text-3xl font-bold font-mono tracking-tight",
+                  unrealizedBalance >= portfolioValue ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                )}>
+                  {formatCurrency(unrealizedBalance)}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                {isUnrealizedLoading
+                  ? "Calculating unrealized balance..."
+                  : portfolioValue > 0
+                    ? `${unrealizedBalancePercent >= 0 ? "+" : ""}${unrealizedBalancePercent.toFixed(2)}% vs start`
+                    : "Set starting balance to track %"}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-1">Current + Unrealized</p>
             </div>
           </div>
 
@@ -731,6 +877,7 @@ function PortfolioHero({
                 barMax={100}
                 barColorClass={exposureBarColor}
                 valueColorClass={exposureColorClass}
+                isLoading={isUnrealizedLoading}
               />
             </div>
             <div className="rounded-lg border border-border/60 bg-background/30 p-3.5">
@@ -982,7 +1129,8 @@ function EquityCell({
 function SummaryTotalsRow({ 
   positions,
   portfolioValue,
-  summaryTotals
+  summaryTotals,
+  visibleColumns,
 }: { 
   positions: StockPosition[];
   portfolioValue: number;
@@ -992,6 +1140,7 @@ function SummaryTotalsRow({
     netCost: number;
     realizedGain: number;
   };
+  visibleColumns: TableColumnDef[];
 }) {
   const closedPositions = useMemo(
     () => positions.filter((position) => isPositionFullyClosed(position)),
@@ -1037,46 +1186,70 @@ function SummaryTotalsRow({
 
   return (
     <TableRow className="bg-muted/50 font-bold border-t-2">
-      <TableCell className="border-r">Total</TableCell>
-      <TableCell className="border-r">-</TableCell>
-      <TableCell className="border-r">-</TableCell>
-      <TableCell className="border-r">-</TableCell>
-      <TableCell className="border-r">{summaryTotals.quantity}</TableCell>
-      <TableCell className="border-r text-center">{summaryTotals.remainingShares}</TableCell>
-      <TableCell className="border-r font-medium">{formatCurrency(summaryTotals.netCost)}</TableCell>
-      <TableCell className="border-r font-medium">
-        {isLoading ? (
-          <div className="h-4 w-16 bg-muted animate-pulse rounded"></div>
-        ) : (
-          formatCurrency(totals.equity)
-        )}
-      </TableCell>
-      <TableCell className="border-r font-medium">
-        {isLoading ? (
-          <div className="h-4 w-16 bg-muted animate-pulse rounded"></div>
-        ) : (
-          <span className={cn(
-            totals.gainLoss >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-          )}>
-            {formatCurrency(totals.gainLoss)}
-          </span>
-        )}
-      </TableCell>
-      <TableCell className="border-r font-medium">
-        <span className={cn(
-          summaryTotals.realizedGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-        )}>
-          {formatCurrency(summaryTotals.realizedGain)}
-        </span>
-      </TableCell>
-      <TableCell className="border-r font-medium">
-        {isLoading ? (
-          <div className="h-4 w-16 bg-muted animate-pulse rounded"></div>
-        ) : (
-          `${totalPortfolioPercent.toFixed(2)}%`
-        )}
-      </TableCell>
-      <TableCell colSpan={13}></TableCell>
+      {visibleColumns.map((col) => {
+        const baseClass = col.isAnchor
+          ? "border-r sticky left-0 z-20 !bg-background"
+          : col.id === 'actions'
+            ? ""
+            : "border-r";
+
+        if (col.id === 'symbol') {
+          return <TableCell key={col.id} className={baseClass}>Total</TableCell>;
+        }
+        if (col.id === 'quantity') {
+          return <TableCell key={col.id} className={baseClass}>{summaryTotals.quantity}</TableCell>;
+        }
+        if (col.id === 'remainingShares') {
+          return <TableCell key={col.id} className={cn(baseClass, "text-center")}>{summaryTotals.remainingShares}</TableCell>;
+        }
+        if (col.id === 'netCost') {
+          return <TableCell key={col.id} className={cn(baseClass, "font-medium")}>{formatCurrency(summaryTotals.netCost)}</TableCell>;
+        }
+        if (col.id === 'equity') {
+          return (
+            <TableCell key={col.id} className={cn(baseClass, "font-medium")}>
+              {isLoading ? <div className="h-4 w-16 bg-muted animate-pulse rounded"></div> : formatCurrency(totals.equity)}
+            </TableCell>
+          );
+        }
+        if (col.id === 'gainLoss') {
+          return (
+            <TableCell key={col.id} className={cn(baseClass, "font-medium")}>
+              {isLoading ? (
+                <div className="h-4 w-16 bg-muted animate-pulse rounded"></div>
+              ) : (
+                <span className={cn(
+                  totals.gainLoss >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                )}>
+                  {formatCurrency(totals.gainLoss)}
+                </span>
+              )}
+            </TableCell>
+          );
+        }
+        if (col.id === 'realizedGain') {
+          return (
+            <TableCell key={col.id} className={cn(baseClass, "font-medium")}>
+              <span className={cn(
+                summaryTotals.realizedGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+              )}>
+                {formatCurrency(summaryTotals.realizedGain)}
+              </span>
+            </TableCell>
+          );
+        }
+        if (col.id === 'portfolioPercent') {
+          return (
+            <TableCell key={col.id} className={cn(baseClass, "font-medium")}>
+              {isLoading ? <div className="h-4 w-16 bg-muted animate-pulse rounded"></div> : `${totalPortfolioPercent.toFixed(2)}%`}
+            </TableCell>
+          );
+        }
+        if (col.id === 'actions') {
+          return <TableCell key={col.id} className={baseClass}></TableCell>;
+        }
+        return <TableCell key={col.id} className={baseClass}>-</TableCell>;
+      })}
     </TableRow>
   );
 }
@@ -1692,8 +1865,23 @@ export default function Portfolio() {
   const [tempPortfolioName, setTempPortfolioName] = useState<string>('');
   const [tempPortfolioValue, setTempPortfolioValue] = useState<string>('');
   
-  // Sorting state
-  const { sortColumn, sortDirection, handleSort } = useSortableTable({ defaultColumn: 'closedDate', defaultDirection: 'desc' });
+  // Sorting + column settings state
+  const {
+    sortColumn,
+    sortDirection,
+    handleSort,
+    visibleColumns,
+    hiddenColumns,
+    toggleColumn,
+    reorderColumns,
+    resetColumnsToDefaults,
+    orderedColumns,
+  } = useSortableTable({
+    defaultColumn: 'closedDate',
+    defaultDirection: 'desc',
+    columns: PORTFOLIO_COLUMNS,
+    tableId: 'portfolio-table',
+  });
   
   // Delete confirmation state
   const [positionToDelete, setPositionToDelete] = useState<StockPosition | null>(null);
@@ -1828,17 +2016,6 @@ export default function Portfolio() {
   };
 
   const isAddButtonDisabled = !symbol.trim() || !cost.trim() || !quantity.trim() || !initialStopLoss.trim();
-
-  // Calculate exposure percentage (only for open positions)
-  const exposure = useMemo(() => {
-    const openPos = positions.filter(pos => !pos.closedDate);
-    const totalNetCost = openPos.reduce((sum, position) => sum + position.netCost, 0);
-    const portfolioValueNum = portfolio?.portfolio_value || 0;
-    if (portfolioValueNum === 0) {
-      return openPos.length === 0 ? 0 : 100; // If no portfolio value set, show 100% if there are open positions
-    }
-    return (totalNetCost / portfolioValueNum) * 100;
-  }, [positions, portfolio?.portfolio_value]);
 
   // R-based calculations
   const calculateRPriceTargets = (cost: number, stopLoss: number, type: 'Long' | 'Short') => {
@@ -2341,7 +2518,6 @@ export default function Portfolio() {
             portfolioName={portfolioName}
             portfolioValue={portfolio?.portfolio_value ?? (portfolioValue ? parseFloat(portfolioValue) : 0)}
             positions={positions}
-            exposure={exposure}
             isEditingPortfolio={isEditingPortfolio}
             tempPortfolioName={tempPortfolioName}
             tempPortfolioValue={tempPortfolioValue}
@@ -2376,172 +2552,27 @@ export default function Portfolio() {
                 <Table>
                   <TableHeader>
                     <TableRow className="border-b-2">
-                      <SortableHeader column="symbol" label="Symbol" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                      <SortableHeader column="price" label="Price" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                      <SortableHeader column="type" label="Type" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                      <SortableHeader column="cost" label="Cost" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                      <SortableHeader column="quantity" label="Qty" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                      <SortableHeader column="remainingShares" label="Rem. Shares" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                      <SortableHeader column="netCost" label="Net Cost" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                      <SortableHeader column="equity" label="Equity" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                      <SortableHeader column="gainLoss" label="Gain/Loss $" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                      <SortableHeader column="realizedGain" label="Realized $" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                      <SortableHeader column="portfolioPercent" label="% Portfolio" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                      <SortableHeader column="initialStopLoss" label="Init. SL" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                      <SortableHeader column="stopLoss" label="Stop Loss" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                      <SortableHeader 
-                        column="openRisk" 
-                        label={
-                          <span className="flex items-center gap-1">
-                            Open Risk %
-                            <TooltipProvider delayDuration={0}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                    <InfoIcon className="h-3 w-3 text-muted-foreground" />
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" sideOffset={5}>
-                                  <p>% change from cost to stop loss</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </span>
-                        }
-                        sortColumn={sortColumn} 
-                        sortDirection={sortDirection} 
-                        onSort={handleSort} 
-                        className="border-r" 
-                      />
-                      <SortableHeader 
-                        column="openHeat" 
-                        label={
-                          <span className="flex items-center gap-1">
-                            Open Heat %
-                            <TooltipProvider delayDuration={0}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                    <InfoIcon className="h-3 w-3 text-muted-foreground" />
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" sideOffset={5}>
-                                  <p>% of portfolio risked if stop loss is hit</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </span>
-                        }
-                        sortColumn={sortColumn} 
-                        sortDirection={sortDirection} 
-                        onSort={handleSort} 
-                        className="border-r" 
-                      />
-                      <SortableHeader 
-                        column="priceTarget2R" 
-                        label={
-                          <span className="flex items-center gap-1">
-                            PT 1
-                            <TooltipProvider delayDuration={0}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                    <InfoIcon className="h-3 w-3 text-muted-foreground" />
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" sideOffset={5}>
-                                  <p>2R Price Target</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </span>
-                        }
-                        sortColumn={sortColumn} 
-                        sortDirection={sortDirection} 
-                        onSort={handleSort} 
-                        className="border-r" 
-                      />
-                      <SortableHeader 
-                        column="priceTarget2RShares" 
-                        label={
-                          <span className="flex items-center gap-1">
-                            PT 1 #
-                            <TooltipProvider delayDuration={0}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                    <InfoIcon className="h-3 w-3 text-muted-foreground" />
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" sideOffset={5}>
-                                  <p>Shares sold at PT 1</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </span>
-                        }
-                        sortColumn={sortColumn} 
-                        sortDirection={sortDirection} 
-                        onSort={handleSort} 
-                        className="border-r" 
-                      />
-                      <SortableHeader 
-                        column="priceTarget5R" 
-                        label={
-                          <span className="flex items-center gap-1">
-                            PT 2
-                            <TooltipProvider delayDuration={0}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                    <InfoIcon className="h-3 w-3 text-muted-foreground" />
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" sideOffset={5}>
-                                  <p>5R Price Target</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </span>
-                        }
-                        sortColumn={sortColumn} 
-                        sortDirection={sortDirection} 
-                        onSort={handleSort} 
-                        className="border-r" 
-                      />
-                      <SortableHeader 
-                        column="priceTarget5RShares" 
-                        label={
-                          <span className="flex items-center gap-1">
-                            PT 2 #
-                            <TooltipProvider delayDuration={0}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button className="inline-flex" onClick={(e) => e.stopPropagation()}>
-                                    <InfoIcon className="h-3 w-3 text-muted-foreground" />
-                                  </button>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" sideOffset={5}>
-                                  <p>Shares sold at PT 2</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </span>
-                        }
-                        sortColumn={sortColumn} 
-                        sortDirection={sortDirection} 
-                        onSort={handleSort} 
-                        className="border-r" 
-                      />
-                      <SortableHeader column="priceTarget21Day" label="21 Day Trail" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                      <SortableHeader column="openDate" label="Open Date" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                      <SortableHeader column="closedDate" label="Closed Date" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                      <SortableHeader column="daysInTrade" label="Days" sortColumn={sortColumn} sortDirection={sortDirection} onSort={handleSort} className="border-r" />
-                      <TableHead className="text-center">Actions</TableHead>
+                      {visibleColumns.map((col) =>
+                        renderPortfolioColumnHeader(
+                          col,
+                          sortColumn,
+                          sortDirection,
+                          handleSort,
+                          col.isAnchor ? (
+                            <ColumnSettingsPopover
+                              columns={orderedColumns}
+                              hiddenColumns={hiddenColumns}
+                              onToggleColumn={toggleColumn}
+                              onReorderColumns={reorderColumns}
+                              onReset={resetColumnsToDefaults}
+                            />
+                          ) : undefined
+                        )
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {displayedPositions.map((position, index) => {
+                    {displayedPositions.map((position) => {
                       const isFullyClosed = isPositionFullyClosed(position);
                       const realizedGain = calculateRealizedGainForPosition(position);
                       const openRiskDisplay = getOpenRiskDisplay(position);
@@ -2549,148 +2580,192 @@ export default function Portfolio() {
 
                       return (
                       <TableRow key={position.id} className={cn(
-                        "border-b hover:bg-muted/50",
-                        index % 2 === 0 ? "bg-muted/30" : ""
+                        "border-b even:bg-muted/20 hover:bg-muted/40 transition-colors"
                       )}>
-                        <TableCell className="font-medium border-r font-mono">{position.symbol}</TableCell>
-                        <TableCell className="border-r font-mono">
-                          <PriceCell symbol={position.symbol} />
-                        </TableCell>
-                        <TableCell className="border-r">
-                          <span className={cn(
-                            "px-2 py-1 rounded-full text-xs font-medium",
-                            position.type === 'Long' 
-                              ? "bg-emerald-500/20 text-emerald-400" 
-                              : "bg-red-500/20 text-red-400"
-                          )}>
-                            {position.type}
-                          </span>
-                        </TableCell>
-                        <TableCell className="border-r font-mono">{formatCurrency(position.cost)}</TableCell>
-                        <TableCell className="border-r font-mono">{position.quantity}</TableCell>
-                        <TableCell className="border-r">
-                          <div className="text-center font-medium font-mono">
-                            {position.priceTarget21Day > 0 ? '0' : position.remainingShares}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-medium border-r font-mono">{formatCurrency(position.netCost)}</TableCell>
-                        <TableCell className="border-r font-mono">
-                          <EquityCell symbol={position.symbol} quantity={position.priceTarget21Day > 0 ? 0 : position.remainingShares} />
-                        </TableCell>
-                        <TableCell className="border-r font-mono">
-                          {isFullyClosed ? (
-                            <span className={cn(
-                              "font-medium",
-                              realizedGain >= 0 ? "text-emerald-400" : "text-red-400"
-                            )}>
-                              {formatCurrency(realizedGain)}
-                            </span>
-                          ) : (
-                            <GainLossCell 
-                              symbol={position.symbol}
-                              cost={position.cost}
-                              quantity={position.remainingShares}
-                              type={position.type}
-                            />
-                          )}
-                        </TableCell>
-                        <TableCell className="border-r font-mono">
-                          <span className={cn(
-                            "font-medium",
-                            realizedGain >= 0 ? "text-emerald-400" : "text-red-400"
-                          )}>
-                            {formatCurrency(realizedGain)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="border-r font-mono">
-                          <PortfolioPercentCell 
-                            symbol={position.symbol} 
-                            quantity={position.priceTarget21Day > 0 ? 0 : position.remainingShares}
-                            portfolioValue={portfolioValueNumber}
-                          />
-                        </TableCell>
-                        <TableCell className="border-r font-mono">
-                          <span>{formatCurrency(position.initialStopLoss)}</span>
-                        </TableCell>
-                        <TableCell className="border-r font-mono">
-                          <span className="font-medium">{formatCurrency(position.stopLoss)}</span>
-                        </TableCell>
-                        <TableCell className="border-r font-mono">
-                          <span className={cn("font-medium", openRiskDisplay.colorClass)}>
-                            {openRiskDisplay.text}
-                          </span>
-                        </TableCell>
-                        <TableCell className="border-r font-mono">
-                          <span className={cn(
-                            "font-medium",
-                            getOpenHeatColorClass(openHeatPercent)
-                          )}>
-                            {openHeatPercent === null ? "N/A" : `${openHeatPercent.toFixed(2)}%`}
-                          </span>
-                        </TableCell>
-                        <TableCell className="border-r font-mono">
-                          <div className="flex flex-col gap-0.5">
-                            <span>{position.priceTarget2R > 0 ? formatCurrency(position.priceTarget2R) : '-'}</span>
-                            {position.priceTarget2R > 0 && (
-                              <PercentageChange 
-                                value={calculatePercentageChange(position.priceTarget2R, position.cost)} 
-                                size="sm"
-                              />
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="border-r font-mono">
-                          <span className="font-medium">{position.priceTarget2RShares || 0}</span>
-                        </TableCell>
-                        <TableCell className="border-r font-mono">
-                          <div className="flex flex-col gap-0.5">
-                            <span>{position.priceTarget5R > 0 ? formatCurrency(position.priceTarget5R) : '-'}</span>
-                            {position.priceTarget5R > 0 && (
-                              <PercentageChange 
-                                value={calculatePercentageChange(position.priceTarget5R, position.cost)} 
-                                size="sm"
-                              />
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="border-r font-mono">
-                          <span className="font-medium">{position.priceTarget5RShares || 0}</span>
-                        </TableCell>
-                        <TableCell className="border-r font-mono">
-                          <div className="flex flex-col gap-0.5">
-                            <span>{position.priceTarget21Day > 0 ? formatCurrency(position.priceTarget21Day) : '-'}</span>
-                            {position.priceTarget21Day > 0 && (
-                              <PercentageChange 
-                                value={calculatePercentageChange(position.priceTarget21Day, position.cost)} 
-                                size="sm"
-                              />
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="border-r font-mono">{format(position.openDate, "MM/dd/yy")}</TableCell>
-                        <TableCell className="border-r font-mono">
-                          {position.closedDate ? format(position.closedDate, "MM/dd/yy") : <span className="text-muted-foreground">-</span>}
-                        </TableCell>
-                        <TableCell className="border-r font-mono">
-                          <span className="font-medium">
-                            {`${calculateDaysInTrade(position.openDate, position.closedDate)}d`}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1">
-                            <Button size="sm" variant="ghost" onClick={() => handleEditPosition(position)} className="h-7 w-7 p-0">
-                              <Pencil className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              onClick={() => handleDeletePosition(position)}
-                              className="h-7 w-7 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </TableCell>
+                        {visibleColumns.map((col) => {
+                          const baseCellClass = col.isAnchor
+                            ? "font-medium border-r font-mono sticky left-0 z-20 !bg-background"
+                            : col.id === 'actions'
+                              ? ""
+                              : "border-r font-mono";
+
+                          switch (col.id) {
+                            case 'symbol':
+                              return <TableCell key={col.id} className={baseCellClass}>{position.symbol}</TableCell>;
+                            case 'price':
+                              return <TableCell key={col.id} className={baseCellClass}><PriceCell symbol={position.symbol} /></TableCell>;
+                            case 'type':
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  <span className={cn(
+                                    "px-2 py-1 rounded-full text-xs font-medium",
+                                    position.type === 'Long' ? "bg-green-500/15 text-green-600 dark:text-green-400" : "bg-red-500/20 text-red-400"
+                                  )}>
+                                    {position.type}
+                                  </span>
+                                </TableCell>
+                              );
+                            case 'cost':
+                              return <TableCell key={col.id} className={baseCellClass}>{formatCurrency(position.cost)}</TableCell>;
+                            case 'quantity':
+                              return <TableCell key={col.id} className={baseCellClass}>{position.quantity}</TableCell>;
+                            case 'remainingShares':
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  <div className="text-center font-medium font-mono">
+                                    {position.priceTarget21Day > 0 ? '0' : position.remainingShares}
+                                  </div>
+                                </TableCell>
+                              );
+                            case 'netCost':
+                              return <TableCell key={col.id} className={cn(baseCellClass, "font-medium")}>{formatCurrency(position.netCost)}</TableCell>;
+                            case 'equity':
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  <EquityCell symbol={position.symbol} quantity={position.priceTarget21Day > 0 ? 0 : position.remainingShares} />
+                                </TableCell>
+                              );
+                            case 'gainLoss':
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  {isFullyClosed ? (
+                                    <span className={cn("font-medium", realizedGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-400")}>
+                                      {formatCurrency(realizedGain)}
+                                    </span>
+                                  ) : (
+                                    <GainLossCell
+                                      symbol={position.symbol}
+                                      cost={position.cost}
+                                      quantity={position.remainingShares}
+                                      type={position.type}
+                                    />
+                                  )}
+                                </TableCell>
+                              );
+                            case 'realizedGain':
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  <span className={cn("font-medium", realizedGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-400")}>
+                                    {formatCurrency(realizedGain)}
+                                  </span>
+                                </TableCell>
+                              );
+                            case 'portfolioPercent':
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  <PortfolioPercentCell
+                                    symbol={position.symbol}
+                                    quantity={position.priceTarget21Day > 0 ? 0 : position.remainingShares}
+                                    portfolioValue={portfolioValueNumber}
+                                  />
+                                </TableCell>
+                              );
+                            case 'initialStopLoss':
+                              return <TableCell key={col.id} className={baseCellClass}><span>{formatCurrency(position.initialStopLoss)}</span></TableCell>;
+                            case 'stopLoss':
+                              return <TableCell key={col.id} className={baseCellClass}><span className="font-medium">{formatCurrency(position.stopLoss)}</span></TableCell>;
+                            case 'openRisk':
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  <span className={cn("font-medium", openRiskDisplay.colorClass)}>{openRiskDisplay.text}</span>
+                                </TableCell>
+                              );
+                            case 'openHeat':
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  <span className={cn("font-medium", getOpenHeatColorClass(openHeatPercent))}>
+                                    {openHeatPercent === null ? "N/A" : `${openHeatPercent.toFixed(2)}%`}
+                                  </span>
+                                </TableCell>
+                              );
+                            case 'priceTarget2R':
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  <div className="flex flex-col gap-0.5">
+                                    <span>{position.priceTarget2R > 0 ? formatCurrency(position.priceTarget2R) : '-'}</span>
+                                    {position.priceTarget2R > 0 && (
+                                      <span className={cn(
+                                        "text-xs font-medium",
+                                        getSignedPercentColorClass(calculatePercentageChange(position.priceTarget2R, position.cost))
+                                      )}>
+                                        {formatSignedPercent(calculatePercentageChange(position.priceTarget2R, position.cost))}
+                                      </span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              );
+                            case 'priceTarget2RShares':
+                              return <TableCell key={col.id} className={baseCellClass}><span className="font-medium">{position.priceTarget2RShares || 0}</span></TableCell>;
+                            case 'priceTarget5R':
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  <div className="flex flex-col gap-0.5">
+                                    <span>{position.priceTarget5R > 0 ? formatCurrency(position.priceTarget5R) : '-'}</span>
+                                    {position.priceTarget5R > 0 && (
+                                      <span className={cn(
+                                        "text-xs font-medium",
+                                        getSignedPercentColorClass(calculatePercentageChange(position.priceTarget5R, position.cost))
+                                      )}>
+                                        {formatSignedPercent(calculatePercentageChange(position.priceTarget5R, position.cost))}
+                                      </span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              );
+                            case 'priceTarget5RShares':
+                              return <TableCell key={col.id} className={baseCellClass}><span className="font-medium">{position.priceTarget5RShares || 0}</span></TableCell>;
+                            case 'priceTarget21Day':
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  <div className="flex flex-col gap-0.5">
+                                    <span>{position.priceTarget21Day > 0 ? formatCurrency(position.priceTarget21Day) : '-'}</span>
+                                    {position.priceTarget21Day > 0 && (
+                                      <span className={cn(
+                                        "text-xs font-medium",
+                                        getSignedPercentColorClass(calculatePercentageChange(position.priceTarget21Day, position.cost))
+                                      )}>
+                                        {formatSignedPercent(calculatePercentageChange(position.priceTarget21Day, position.cost))}
+                                      </span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              );
+                            case 'openDate':
+                              return <TableCell key={col.id} className={baseCellClass}>{format(position.openDate, "MM/dd/yy")}</TableCell>;
+                            case 'closedDate':
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  {position.closedDate ? format(position.closedDate, "MM/dd/yy") : <span className="text-muted-foreground">-</span>}
+                                </TableCell>
+                              );
+                            case 'daysInTrade':
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  <span className="font-medium">{`${calculateDaysInTrade(position.openDate, position.closedDate)}d`}</span>
+                                </TableCell>
+                              );
+                            case 'actions':
+                              return (
+                                <TableCell key={col.id}>
+                                  <div className="flex gap-1">
+                                    <Button size="sm" variant="ghost" onClick={() => handleEditPosition(position)} className="h-7 w-7 p-0">
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => handleDeletePosition(position)}
+                                      className="h-7 w-7 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              );
+                            default:
+                              return null;
+                          }
+                        })}
                       </TableRow>
                     )})}
                     {hasDisplayedPositions && (
@@ -2698,6 +2773,7 @@ export default function Portfolio() {
                         positions={displayedPositions}
                         portfolioValue={portfolioValueNumber}
                         summaryTotals={summaryTotals}
+                        visibleColumns={visibleColumns}
                       />
                     )}
                   </TableBody>
