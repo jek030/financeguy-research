@@ -9,6 +9,13 @@ const normalizePortfolioKey = (key: number | string): number => {
   return typeof key === 'string' ? parseInt(key, 10) : key;
 };
 
+const formatDateForDb = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export interface StockPosition {
   id: string;
   symbol: string;
@@ -148,8 +155,8 @@ export function usePortfolio() {
       price_target_3: position.priceTarget21Day,
       remaining_shares: remainingShares, // Store the calculated remaining shares
       realized_gain: realizedGain, // Store the calculated realized gain
-      open_date: position.openDate.toISOString().split('T')[0], // YYYY-MM-DD format
-      close_date: position.closedDate ? position.closedDate.toISOString().split('T')[0] : null,
+      open_date: formatDateForDb(position.openDate), // Local YYYY-MM-DD format
+      close_date: position.closedDate ? formatDateForDb(position.closedDate) : null,
       days_in_trade: diffDays,
     };
 
@@ -370,6 +377,11 @@ export function usePortfolio() {
     }
 
     try {
+      const currentPosition = positions.find((p) => p.id === positionId);
+      if (!currentPosition) {
+        throw new Error('Position not found');
+      }
+
       const [portfolioKeyStr, tradeKeyStr] = positionId.split('-');
       const portfolioKey = parseInt(portfolioKeyStr, 10);
       const tradeKey = parseInt(tradeKeyStr, 10);
@@ -383,13 +395,13 @@ export function usePortfolio() {
       if (updates.stopLoss !== undefined) {
         // Calculate the Open Risk % percentage: (stopLoss - cost) / cost * 100
         // This is the value that should be stored in the open_risk column
-        const cost = updates.cost !== undefined ? updates.cost : positions.find(p => p.id === positionId)?.cost!;
+        const cost = updates.cost !== undefined ? updates.cost : currentPosition.cost;
         const openRiskPercentage = ((updates.stopLoss - cost) / cost) * 100;
         supabaseUpdates.open_risk = openRiskPercentage;
       }
       if (updates.type !== undefined) supabaseUpdates.type = updates.type;
-      if (updates.openDate !== undefined) supabaseUpdates.open_date = updates.openDate.toISOString().split('T')[0];
-      if (updates.closedDate !== undefined) supabaseUpdates.close_date = updates.closedDate ? updates.closedDate.toISOString().split('T')[0] : null;
+      if (updates.openDate !== undefined) supabaseUpdates.open_date = formatDateForDb(updates.openDate);
+      if (updates.closedDate !== undefined) supabaseUpdates.close_date = updates.closedDate ? formatDateForDb(updates.closedDate) : null;
       if (updates.priceTarget2R !== undefined) supabaseUpdates.price_target_1 = updates.priceTarget2R;
       if (updates.priceTarget2RShares !== undefined) supabaseUpdates.price_target_1_quantity = updates.priceTarget2RShares;
       if (updates.priceTarget5R !== undefined) supabaseUpdates.price_target_2 = updates.priceTarget5R;
@@ -398,9 +410,9 @@ export function usePortfolio() {
 
       // Recalculate remaining shares if quantity, PT 1 #, or PT 2 # change
       if (updates.quantity !== undefined || updates.priceTarget2RShares !== undefined || updates.priceTarget5RShares !== undefined) {
-        const quantity = updates.quantity !== undefined ? updates.quantity : positions.find(p => p.id === positionId)?.quantity!;
-        const pt1Shares = updates.priceTarget2RShares !== undefined ? updates.priceTarget2RShares : positions.find(p => p.id === positionId)?.priceTarget2RShares!;
-        const pt2Shares = updates.priceTarget5RShares !== undefined ? updates.priceTarget5RShares : positions.find(p => p.id === positionId)?.priceTarget5RShares!;
+        const quantity = updates.quantity !== undefined ? updates.quantity : currentPosition.quantity;
+        const pt1Shares = updates.priceTarget2RShares !== undefined ? updates.priceTarget2RShares : currentPosition.priceTarget2RShares;
+        const pt2Shares = updates.priceTarget5RShares !== undefined ? updates.priceTarget5RShares : currentPosition.priceTarget5RShares;
         const remainingShares = quantity - pt1Shares - pt2Shares;
         supabaseUpdates.remaining_shares = remainingShares;
       }
@@ -409,31 +421,28 @@ export function usePortfolio() {
       if (updates.priceTarget2R !== undefined || updates.priceTarget2RShares !== undefined ||
           updates.priceTarget5R !== undefined || updates.priceTarget5RShares !== undefined ||
           updates.priceTarget21Day !== undefined || updates.cost !== undefined || updates.type !== undefined) {
-        const currentPosition = positions.find(p => p.id === positionId);
-        if (currentPosition) {
-          const updatedPosition: Omit<StockPosition, 'id' | 'currentPrice'> = {
-            ...currentPosition,
-            ...updates,
-            cost: updates.cost !== undefined ? updates.cost : currentPosition.cost,
-            type: updates.type !== undefined ? updates.type : currentPosition.type,
-            priceTarget2R: updates.priceTarget2R !== undefined ? updates.priceTarget2R : currentPosition.priceTarget2R,
-            priceTarget2RShares: updates.priceTarget2RShares !== undefined ? updates.priceTarget2RShares : currentPosition.priceTarget2RShares,
-            priceTarget5R: updates.priceTarget5R !== undefined ? updates.priceTarget5R : currentPosition.priceTarget5R,
-            priceTarget5RShares: updates.priceTarget5RShares !== undefined ? updates.priceTarget5RShares : currentPosition.priceTarget5RShares,
-            priceTarget21Day: updates.priceTarget21Day !== undefined ? updates.priceTarget21Day : currentPosition.priceTarget21Day,
-            quantity: updates.quantity !== undefined ? updates.quantity : currentPosition.quantity,
-          };
-          const realizedGain = calculateRealizedGainForPosition(updatedPosition);
-          supabaseUpdates.realized_gain = realizedGain;
-        }
+        const updatedPosition: Omit<StockPosition, 'id' | 'currentPrice'> = {
+          ...currentPosition,
+          ...updates,
+          cost: updates.cost !== undefined ? updates.cost : currentPosition.cost,
+          type: updates.type !== undefined ? updates.type : currentPosition.type,
+          priceTarget2R: updates.priceTarget2R !== undefined ? updates.priceTarget2R : currentPosition.priceTarget2R,
+          priceTarget2RShares: updates.priceTarget2RShares !== undefined ? updates.priceTarget2RShares : currentPosition.priceTarget2RShares,
+          priceTarget5R: updates.priceTarget5R !== undefined ? updates.priceTarget5R : currentPosition.priceTarget5R,
+          priceTarget5RShares: updates.priceTarget5RShares !== undefined ? updates.priceTarget5RShares : currentPosition.priceTarget5RShares,
+          priceTarget21Day: updates.priceTarget21Day !== undefined ? updates.priceTarget21Day : currentPosition.priceTarget21Day,
+          quantity: updates.quantity !== undefined ? updates.quantity : currentPosition.quantity,
+        };
+        const realizedGain = calculateRealizedGainForPosition(updatedPosition);
+        supabaseUpdates.realized_gain = realizedGain;
       }
 
       // Recalculate % Portfolio if cost, quantity, or portfolio value changes
       if (updates.cost !== undefined || updates.quantity !== undefined) {
-        const cost = updates.cost !== undefined ? updates.cost : positions.find(p => p.id === positionId)?.cost!;
-        const quantity = updates.quantity !== undefined ? updates.quantity : positions.find(p => p.id === positionId)?.quantity!;
-        const pt1Shares = updates.priceTarget2RShares !== undefined ? updates.priceTarget2RShares : positions.find(p => p.id === positionId)?.priceTarget2RShares!;
-        const pt2Shares = updates.priceTarget5RShares !== undefined ? updates.priceTarget5RShares : positions.find(p => p.id === positionId)?.priceTarget5RShares!;
+        const cost = updates.cost !== undefined ? updates.cost : currentPosition.cost;
+        const quantity = updates.quantity !== undefined ? updates.quantity : currentPosition.quantity;
+        const pt1Shares = updates.priceTarget2RShares !== undefined ? updates.priceTarget2RShares : currentPosition.priceTarget2RShares;
+        const pt2Shares = updates.priceTarget5RShares !== undefined ? updates.priceTarget5RShares : currentPosition.priceTarget5RShares;
         const remainingShares = quantity - pt1Shares - pt2Shares;
         const equity = cost * remainingShares; // Calculate equity based on remaining shares
         const portfolioPercent = portfolio && portfolio.portfolio_value > 0 ? (equity / portfolio.portfolio_value) * 100 : 0;
@@ -443,7 +452,7 @@ export function usePortfolio() {
 
       // Recalculate days_in_trade if dates changed
       if (updates.openDate !== undefined || updates.closedDate !== undefined) {
-        const openDate = updates.openDate || positions.find(p => p.id === positionId)?.openDate!;
+        const openDate = updates.openDate || currentPosition.openDate;
         const endDate = updates.closedDate || new Date();
         const diffTime = Math.abs(endDate.getTime() - openDate.getTime());
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -526,21 +535,23 @@ export function usePortfolio() {
 
       // Recalculate percent_of_portfolio for all positions
       if (value > 0) {
-        for (const position of positions) {
+        const updateRequests = positions.map((position) => {
           const remainingShares = position.quantity - position.priceTarget2RShares - position.priceTarget5RShares;
           const equity = position.cost * remainingShares; // Calculate equity based on remaining shares
           const portfolioPercent = (equity / value) * 100;
-          
+
           const [portfolioKeyStr, tradeKeyStr] = position.id.split('-');
           const portfolioKey = parseInt(portfolioKeyStr, 10);
           const tradeKey = parseInt(tradeKeyStr, 10);
 
-          await supabase
+          return supabase
             .from('tblPortfolioPositions')
             .update({ percent_of_portfolio: portfolioPercent, equity: equity })
             .eq('portfolio_key', portfolioKey)
             .eq('trade_key', tradeKey);
-        }
+        });
+
+        await Promise.all(updateRequests);
       }
     } catch (err) {
       console.error('Error updating portfolio value:', err);

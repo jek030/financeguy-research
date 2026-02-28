@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { Ticker } from '@/lib/types';
 
-async function fetchQuote(symbol: string): Promise<Ticker[]> {
+export async function fetchQuote(symbol: string): Promise<Ticker[]> {
   if (!symbol) {
     throw new Error('Symbol is required');
   }
@@ -15,8 +15,8 @@ async function fetchQuote(symbol: string): Promise<Ticker[]> {
   return response.json();
 }
 
-export function useQuote(symbol: string) {
-  return useQuery({
+export function quoteQueryOptions(symbol: string) {
+  return {
     queryKey: ['quote', symbol],
     queryFn: () => fetchQuote(symbol),
     select: (data: Ticker[]) => data[0],
@@ -26,5 +26,9 @@ export function useQuote(symbol: string) {
     gcTime: 5 * 60 * 1000, // Keep unused data in cache for 5 minutes
     retry: 1,
     retryDelay: 3000,
-  });
+  } as const;
+}
+
+export function useQuote(symbol: string) {
+  return useQuery(quoteQueryOptions(symbol));
 } 
