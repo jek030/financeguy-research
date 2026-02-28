@@ -360,6 +360,53 @@ function GainLossCell({
   );
 }
 
+function SummaryGainLossCell({
+  symbol,
+  positions,
+}: {
+  symbol: string;
+  positions: StockPosition[];
+}) {
+  const { data: quote, isLoading, error } = useQuote(symbol);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2">
+        <div className="h-4 w-16 bg-muted animate-pulse rounded"></div>
+      </div>
+    );
+  }
+
+  if (error || !quote) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-muted-foreground text-sm">N/A</span>
+      </div>
+    );
+  }
+
+  const gainLoss = positions.reduce(
+    (sum, position) => sum + calculateGainLoss(quote.price, position.cost, position.remainingShares, position.type),
+    0,
+  );
+  const totalCostBasis = positions.reduce((sum, position) => sum + (position.cost * position.remainingShares), 0);
+  const gainLossPercent = totalCostBasis > 0 ? (gainLoss / totalCostBasis) * 100 : 0;
+
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className={cn(
+        "font-medium",
+        gainLoss >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+      )}>
+        {formatCurrency(gainLoss)}
+      </span>
+      <span className={cn("text-xs font-medium", getSignedPercentColorClass(gainLossPercent))}>
+        {formatSignedPercent(gainLossPercent)}
+      </span>
+    </div>
+  );
+}
+
 // Progress bar component for metrics
 function ProgressBar({ 
   value, 
@@ -470,6 +517,9 @@ interface PortfolioHeroProps {
   handleEditPortfolio: () => void;
   showClosedPositions: boolean;
   setShowClosedPositions: (value: boolean) => void;
+  summarizeOpenPositions: boolean;
+  setSummarizeOpenPositions: (value: boolean) => void;
+  canSummarizeOpenPositions: boolean;
   closedPositionsCount: number;
   tradeStatistics: {
     totalClosed: number;
@@ -521,6 +571,9 @@ function PortfolioHero({
   handleEditPortfolio,
   showClosedPositions,
   setShowClosedPositions,
+  summarizeOpenPositions,
+  setSummarizeOpenPositions,
+  canSummarizeOpenPositions,
   closedPositionsCount,
   tradeStatistics,
 }: PortfolioHeroProps) {
@@ -750,6 +803,15 @@ function PortfolioHero({
             className="h-7 text-xs"
           >
             {showClosedPositions ? "Hide" : "Show"} Closed ({closedPositionsCount})
+          </Button>
+          <Button
+            size="sm"
+            variant={summarizeOpenPositions ? "secondary" : "ghost"}
+            onClick={() => setSummarizeOpenPositions(!summarizeOpenPositions)}
+            disabled={!canSummarizeOpenPositions}
+            className="h-7 text-xs"
+          >
+            {summarizeOpenPositions ? "Show Individual" : "Summarize Symbols"}
           </Button>
         </div>
       </div>
@@ -1063,6 +1125,20 @@ interface CollapsiblePanelProps {
   defaultOpen?: boolean;
   children: React.ReactNode;
 }
+
+type PortfolioTableRow =
+  | { kind: 'position'; position: StockPosition }
+  | {
+      kind: 'summary';
+      symbol: string;
+      typeLabel: string;
+      quantity: number;
+      remainingShares: number;
+      netCost: number;
+      weightedCost: number;
+      realizedGain: number;
+      positions: StockPosition[];
+    };
 
 function CollapsiblePanel({ title, defaultOpen = false, children }: CollapsiblePanelProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -1889,6 +1965,7 @@ export default function Portfolio() {
   
   // Filter state
   const [showClosedPositions, setShowClosedPositions] = useState(false);
+  const [summarizeOpenPositions, setSummarizeOpenPositions] = useState(false);
   const [symbolFilterInput, setSymbolFilterInput] = useState<string>('');
   const [symbolFilters, setSymbolFilters] = useState<string[]>(() => {
     // Initialize from localStorage on first render
@@ -2157,6 +2234,18 @@ export default function Portfolio() {
     );
   }, [positions, symbolFilters]);
 
+  const canSummarizeOpenPositions = useMemo(() => {
+    const symbolCounts = new Map<string, number>();
+    for (const position of filteredPositions) {
+      if (isPositionFullyClosed(position)) continue;
+      symbolCounts.set(position.symbol, (symbolCounts.get(position.symbol) ?? 0) + 1);
+      if ((symbolCounts.get(position.symbol) ?? 0) > 1) {
+        return true;
+      }
+    }
+    return false;
+  }, [filteredPositions]);
+
   // Sort positions
   const sortedPositions = useMemo(() => {
     const basePositions = [...filteredPositions];
@@ -2297,6 +2386,66 @@ export default function Portfolio() {
     [showClosedPositions, sortedPositions],
   );
 
+  const tableRows = useMemo<PortfolioTableRow[]>(() => {
+    if (!summarizeOpenPositions) {
+      return displayedPositions.map((position) => ({ kind: 'position', position }));
+    }
+
+    const openGroups = new Map<string, StockPosition[]>();
+    for (const position of displayedPositions) {
+      if (isPositionFullyClosed(position)) continue;
+      const list = openGroups.get(position.symbol);
+      if (list) {
+        list.push(position);
+      } else {
+        openGroups.set(position.symbol, [position]);
+      }
+    }
+
+    const seenSymbols = new Set<string>();
+    const rows: PortfolioTableRow[] = [];
+
+    for (const position of displayedPositions) {
+      if (isPositionFullyClosed(position)) {
+        rows.push({ kind: 'position', position });
+        continue;
+      }
+
+      if (seenSymbols.has(position.symbol)) {
+        continue;
+      }
+      seenSymbols.add(position.symbol);
+
+      const grouped = openGroups.get(position.symbol) ?? [position];
+      if (grouped.length <= 1) {
+        rows.push({ kind: 'position', position });
+        continue;
+      }
+
+      const quantity = grouped.reduce((sum, p) => sum + p.quantity, 0);
+      const remainingShares = grouped.reduce((sum, p) => sum + p.remainingShares, 0);
+      const netCost = grouped.reduce((sum, p) => sum + p.netCost, 0);
+      const weightedCost = quantity > 0 ? netCost / quantity : 0;
+      const realizedGain = grouped.reduce((sum, p) => sum + calculateRealizedGainForPosition(p), 0);
+      const uniqueTypes = new Set(grouped.map((p) => p.type));
+      const typeLabel = uniqueTypes.size === 1 ? grouped[0].type : 'Mixed';
+
+      rows.push({
+        kind: 'summary',
+        symbol: position.symbol,
+        typeLabel,
+        quantity,
+        remainingShares,
+        netCost,
+        weightedCost,
+        realizedGain,
+        positions: grouped,
+      });
+    }
+
+    return rows;
+  }, [displayedPositions, summarizeOpenPositions]);
+
   // Calculate summary totals for displayed positions
   const summaryTotals = useMemo(() => {
     let totalQuantity = 0;
@@ -2423,7 +2572,7 @@ export default function Portfolio() {
   }, [openPositions, portfolioValueNumber]);
 
   const hasPositions = positions.length > 0;
-  const hasDisplayedPositions = displayedPositions.length > 0;
+  const hasDisplayedPositions = tableRows.length > 0;
   const allocationSlices = allocationSummary.slices;
   const totalAllocation = allocationSummary.total;
   const openEquityValue = allocationSummary.openEquity;
@@ -2541,6 +2690,9 @@ export default function Portfolio() {
             handleEditPortfolio={handleEditPortfolio}
             showClosedPositions={showClosedPositions}
             setShowClosedPositions={setShowClosedPositions}
+            summarizeOpenPositions={summarizeOpenPositions}
+            setSummarizeOpenPositions={setSummarizeOpenPositions}
+            canSummarizeOpenPositions={canSummarizeOpenPositions}
             closedPositionsCount={closedPositions.length}
             tradeStatistics={tradeStatistics}
           />
@@ -2572,14 +2724,16 @@ export default function Portfolio() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {displayedPositions.map((position) => {
+                    {tableRows.map((row) => {
+                      const isSummaryRow = row.kind === 'summary';
+                      const position = row.kind === 'position' ? row.position : row.positions[0];
                       const isFullyClosed = isPositionFullyClosed(position);
-                      const realizedGain = calculateRealizedGainForPosition(position);
+                      const realizedGain = row.kind === 'summary' ? row.realizedGain : calculateRealizedGainForPosition(position);
                       const openRiskDisplay = getOpenRiskDisplay(position);
                       const openHeatPercent = getOpenHeatPercent(position, portfolioValueNumber);
 
                       return (
-                      <TableRow key={position.id} className={cn(
+                      <TableRow key={row.kind === 'summary' ? `summary-${row.symbol}` : position.id} className={cn(
                         "border-b even:bg-muted/20 hover:bg-muted/40 transition-colors"
                       )}>
                         {visibleColumns.map((col) => {
@@ -2591,7 +2745,18 @@ export default function Portfolio() {
 
                           switch (col.id) {
                             case 'symbol':
-                              return <TableCell key={col.id} className={baseCellClass}>{position.symbol}</TableCell>;
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  {isSummaryRow ? (
+                                    <span className="inline-flex items-center gap-2">
+                                      <span>{row.symbol}</span>
+                                      <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Summary</span>
+                                    </span>
+                                  ) : (
+                                    position.symbol
+                                  )}
+                                </TableCell>
+                              );
                             case 'price':
                               return <TableCell key={col.id} className={baseCellClass}><PriceCell symbol={position.symbol} /></TableCell>;
                             case 'type':
@@ -2599,36 +2764,51 @@ export default function Portfolio() {
                                 <TableCell key={col.id} className={baseCellClass}>
                                   <span className={cn(
                                     "px-2 py-1 rounded-full text-xs font-medium",
-                                    position.type === 'Long' ? "bg-green-500/15 text-green-600 dark:text-green-400" : "bg-red-500/20 text-red-400"
+                                    (isSummaryRow ? row.typeLabel : position.type) === 'Long'
+                                      ? "bg-green-500/15 text-green-600 dark:text-green-400"
+                                      : (isSummaryRow ? row.typeLabel : position.type) === 'Short'
+                                        ? "bg-red-500/20 text-red-400"
+                                        : "bg-muted text-muted-foreground"
                                   )}>
-                                    {position.type}
+                                    {isSummaryRow ? row.typeLabel : position.type}
                                   </span>
                                 </TableCell>
                               );
                             case 'cost':
-                              return <TableCell key={col.id} className={baseCellClass}>{formatCurrency(position.cost)}</TableCell>;
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  {isSummaryRow ? formatCurrencyTwoDecimals(row.weightedCost) : formatCurrency(position.cost)}
+                                </TableCell>
+                              );
                             case 'quantity':
-                              return <TableCell key={col.id} className={baseCellClass}>{position.quantity}</TableCell>;
+                              return <TableCell key={col.id} className={baseCellClass}>{isSummaryRow ? row.quantity : position.quantity}</TableCell>;
                             case 'remainingShares':
                               return (
                                 <TableCell key={col.id} className={baseCellClass}>
                                   <div className="text-center font-medium font-mono">
-                                    {position.priceTarget21Day > 0 ? '0' : position.remainingShares}
+                                    {isSummaryRow
+                                      ? row.remainingShares
+                                      : (position.priceTarget21Day > 0 ? '0' : position.remainingShares)}
                                   </div>
                                 </TableCell>
                               );
                             case 'netCost':
-                              return <TableCell key={col.id} className={cn(baseCellClass, "font-medium")}>{formatCurrency(position.netCost)}</TableCell>;
+                              return <TableCell key={col.id} className={cn(baseCellClass, "font-medium")}>{formatCurrency(isSummaryRow ? row.netCost : position.netCost)}</TableCell>;
                             case 'equity':
                               return (
                                 <TableCell key={col.id} className={baseCellClass}>
-                                  <EquityCell symbol={position.symbol} quantity={position.priceTarget21Day > 0 ? 0 : position.remainingShares} />
+                                  <EquityCell
+                                    symbol={position.symbol}
+                                    quantity={isSummaryRow ? row.remainingShares : (position.priceTarget21Day > 0 ? 0 : position.remainingShares)}
+                                  />
                                 </TableCell>
                               );
                             case 'gainLoss':
                               return (
                                 <TableCell key={col.id} className={baseCellClass}>
-                                  {isFullyClosed ? (
+                                  {isSummaryRow ? (
+                                    <SummaryGainLossCell symbol={row.symbol} positions={row.positions} />
+                                  ) : isFullyClosed ? (
                                     <span className={cn("font-medium", realizedGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-400")}>
                                       {formatCurrency(realizedGain)}
                                     </span>
@@ -2655,111 +2835,123 @@ export default function Portfolio() {
                                 <TableCell key={col.id} className={baseCellClass}>
                                   <PortfolioPercentCell
                                     symbol={position.symbol}
-                                    quantity={position.priceTarget21Day > 0 ? 0 : position.remainingShares}
+                                    quantity={isSummaryRow ? row.remainingShares : (position.priceTarget21Day > 0 ? 0 : position.remainingShares)}
                                     portfolioValue={portfolioValueNumber}
                                   />
                                 </TableCell>
                               );
                             case 'initialStopLoss':
-                              return <TableCell key={col.id} className={baseCellClass}><span>{formatCurrency(position.initialStopLoss)}</span></TableCell>;
+                              return <TableCell key={col.id} className={baseCellClass}>{isSummaryRow ? '-' : <span>{formatCurrency(position.initialStopLoss)}</span>}</TableCell>;
                             case 'stopLoss':
-                              return <TableCell key={col.id} className={baseCellClass}><span className="font-medium">{formatCurrency(position.stopLoss)}</span></TableCell>;
+                              return <TableCell key={col.id} className={baseCellClass}>{isSummaryRow ? '-' : <span className="font-medium">{formatCurrency(position.stopLoss)}</span>}</TableCell>;
                             case 'openRisk':
                               return (
                                 <TableCell key={col.id} className={baseCellClass}>
-                                  <span className={cn("font-medium", openRiskDisplay.colorClass)}>{openRiskDisplay.text}</span>
+                                  {isSummaryRow ? '-' : <span className={cn("font-medium", openRiskDisplay.colorClass)}>{openRiskDisplay.text}</span>}
                                 </TableCell>
                               );
                             case 'openHeat':
                               return (
                                 <TableCell key={col.id} className={baseCellClass}>
-                                  <span className={cn("font-medium", getOpenHeatColorClass(openHeatPercent))}>
-                                    {openHeatPercent === null ? "N/A" : `${openHeatPercent.toFixed(2)}%`}
-                                  </span>
+                                  {isSummaryRow ? '-' : (
+                                    <span className={cn("font-medium", getOpenHeatColorClass(openHeatPercent))}>
+                                      {openHeatPercent === null ? "N/A" : `${openHeatPercent.toFixed(2)}%`}
+                                    </span>
+                                  )}
                                 </TableCell>
                               );
                             case 'priceTarget2R':
                               return (
                                 <TableCell key={col.id} className={baseCellClass}>
-                                  <div className="flex flex-col gap-0.5">
-                                    <span>{position.priceTarget2R > 0 ? formatCurrency(position.priceTarget2R) : '-'}</span>
-                                    {position.priceTarget2R > 0 && (
-                                      <span className={cn(
-                                        "text-xs font-medium",
-                                        getSignedPercentColorClass(calculatePercentageChange(position.priceTarget2R, position.cost))
-                                      )}>
-                                        {formatSignedPercent(calculatePercentageChange(position.priceTarget2R, position.cost))}
-                                      </span>
-                                    )}
-                                  </div>
+                                  {isSummaryRow ? '-' : (
+                                    <div className="flex flex-col gap-0.5">
+                                      <span>{position.priceTarget2R > 0 ? formatCurrency(position.priceTarget2R) : '-'}</span>
+                                      {position.priceTarget2R > 0 && (
+                                        <span className={cn(
+                                          "text-xs font-medium",
+                                          getSignedPercentColorClass(calculatePercentageChange(position.priceTarget2R, position.cost))
+                                        )}>
+                                          {formatSignedPercent(calculatePercentageChange(position.priceTarget2R, position.cost))}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
                                 </TableCell>
                               );
                             case 'priceTarget2RShares':
-                              return <TableCell key={col.id} className={baseCellClass}><span className="font-medium">{position.priceTarget2RShares || 0}</span></TableCell>;
+                              return <TableCell key={col.id} className={baseCellClass}>{isSummaryRow ? '-' : <span className="font-medium">{position.priceTarget2RShares || 0}</span>}</TableCell>;
                             case 'priceTarget5R':
                               return (
                                 <TableCell key={col.id} className={baseCellClass}>
-                                  <div className="flex flex-col gap-0.5">
-                                    <span>{position.priceTarget5R > 0 ? formatCurrency(position.priceTarget5R) : '-'}</span>
-                                    {position.priceTarget5R > 0 && (
-                                      <span className={cn(
-                                        "text-xs font-medium",
-                                        getSignedPercentColorClass(calculatePercentageChange(position.priceTarget5R, position.cost))
-                                      )}>
-                                        {formatSignedPercent(calculatePercentageChange(position.priceTarget5R, position.cost))}
-                                      </span>
-                                    )}
-                                  </div>
+                                  {isSummaryRow ? '-' : (
+                                    <div className="flex flex-col gap-0.5">
+                                      <span>{position.priceTarget5R > 0 ? formatCurrency(position.priceTarget5R) : '-'}</span>
+                                      {position.priceTarget5R > 0 && (
+                                        <span className={cn(
+                                          "text-xs font-medium",
+                                          getSignedPercentColorClass(calculatePercentageChange(position.priceTarget5R, position.cost))
+                                        )}>
+                                          {formatSignedPercent(calculatePercentageChange(position.priceTarget5R, position.cost))}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
                                 </TableCell>
                               );
                             case 'priceTarget5RShares':
-                              return <TableCell key={col.id} className={baseCellClass}><span className="font-medium">{position.priceTarget5RShares || 0}</span></TableCell>;
+                              return <TableCell key={col.id} className={baseCellClass}>{isSummaryRow ? '-' : <span className="font-medium">{position.priceTarget5RShares || 0}</span>}</TableCell>;
                             case 'priceTarget21Day':
                               return (
                                 <TableCell key={col.id} className={baseCellClass}>
-                                  <div className="flex flex-col gap-0.5">
-                                    <span>{position.priceTarget21Day > 0 ? formatCurrency(position.priceTarget21Day) : '-'}</span>
-                                    {position.priceTarget21Day > 0 && (
-                                      <span className={cn(
-                                        "text-xs font-medium",
-                                        getSignedPercentColorClass(calculatePercentageChange(position.priceTarget21Day, position.cost))
-                                      )}>
-                                        {formatSignedPercent(calculatePercentageChange(position.priceTarget21Day, position.cost))}
-                                      </span>
-                                    )}
-                                  </div>
+                                  {isSummaryRow ? '-' : (
+                                    <div className="flex flex-col gap-0.5">
+                                      <span>{position.priceTarget21Day > 0 ? formatCurrency(position.priceTarget21Day) : '-'}</span>
+                                      {position.priceTarget21Day > 0 && (
+                                        <span className={cn(
+                                          "text-xs font-medium",
+                                          getSignedPercentColorClass(calculatePercentageChange(position.priceTarget21Day, position.cost))
+                                        )}>
+                                          {formatSignedPercent(calculatePercentageChange(position.priceTarget21Day, position.cost))}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
                                 </TableCell>
                               );
                             case 'openDate':
-                              return <TableCell key={col.id} className={baseCellClass}>{format(position.openDate, "MM/dd/yy")}</TableCell>;
+                              return <TableCell key={col.id} className={baseCellClass}>{isSummaryRow ? '-' : format(position.openDate, "MM/dd/yy")}</TableCell>;
                             case 'closedDate':
                               return (
                                 <TableCell key={col.id} className={baseCellClass}>
-                                  {position.closedDate ? format(position.closedDate, "MM/dd/yy") : <span className="text-muted-foreground">-</span>}
+                                  {isSummaryRow ? '-' : (position.closedDate ? format(position.closedDate, "MM/dd/yy") : <span className="text-muted-foreground">-</span>)}
                                 </TableCell>
                               );
                             case 'daysInTrade':
                               return (
                                 <TableCell key={col.id} className={baseCellClass}>
-                                  <span className="font-medium">{`${calculateDaysInTrade(position.openDate, position.closedDate)}d`}</span>
+                                  {isSummaryRow ? '-' : <span className="font-medium">{`${calculateDaysInTrade(position.openDate, position.closedDate)}d`}</span>}
                                 </TableCell>
                               );
                             case 'actions':
                               return (
                                 <TableCell key={col.id}>
-                                  <div className="flex gap-1">
-                                    <Button size="sm" variant="ghost" onClick={() => handleEditPosition(position)} className="h-7 w-7 p-0">
-                                      <Pencil className="h-3.5 w-3.5" />
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => handleDeletePosition(position)}
-                                      className="h-7 w-7 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                                    >
-                                      <X className="h-3.5 w-3.5" />
-                                    </Button>
-                                  </div>
+                                  {isSummaryRow ? (
+                                    <span className="text-muted-foreground text-xs">-</span>
+                                  ) : (
+                                    <div className="flex gap-1">
+                                      <Button size="sm" variant="ghost" onClick={() => handleEditPosition(position)} className="h-7 w-7 p-0">
+                                        <Pencil className="h-3.5 w-3.5" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleDeletePosition(position)}
+                                        className="h-7 w-7 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                      >
+                                        <X className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </div>
+                                  )}
                                 </TableCell>
                               );
                             default:
