@@ -34,6 +34,15 @@ const formatCurrency = (value: number) => {
   return currencyFormatter.format(value);
 };
 
+const formatCurrencyTwoDecimals = (value: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+};
+
 // Helper function to calculate percentage change from cost
 const calculatePercentageChange = (targetValue: number, cost: number) => {
   if (cost === 0) return 0;
@@ -118,6 +127,8 @@ const calculateGainLoss = (currentPrice: number, cost: number, quantity: number,
     return (cost - currentPrice) * quantity;
   }
 };
+
+const roundToTwoDecimals = (value: number) => Math.round(value * 100) / 100;
 
 // Helper function to calculate realized gain for a position
 const calculateRealizedGainForPosition = (position: StockPosition): number => {
@@ -241,73 +252,6 @@ function GainLossCell({
         size="sm"
       />
     </div>
-  );
-}
-
-// Component to display realized gain/loss from closed positions
-function RealizedGainDisplay({ positions }: { positions: StockPosition[] }) {
-  const realizedGain = useMemo(() => {
-    return positions.reduce((total, position) => {
-      const hasRealizedShares =
-        (position.priceTarget2RShares > 0 && position.priceTarget2R > 0) ||
-        (position.priceTarget5RShares > 0 && position.priceTarget5R > 0) ||
-        position.priceTarget21Day > 0;
-
-      if (!hasRealizedShares) {
-        return total;
-      }
-
-      return total + calculateRealizedGainForPosition(position);
-    }, 0);
-  }, [positions]);
-
-  return (
-    <span className={cn(
-      "font-medium",
-      realizedGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-    )}>
-      {formatCurrency(realizedGain)}
-    </span>
-  );
-}
-
-// Component to display total unrealized gain/loss for open positions
-function UnrealizedGainDisplay({ positions }: { positions: StockPosition[] }) {
-  const openPositions = useMemo(
-    () => positions.filter((position) => position.priceTarget21Day <= 0 && position.remainingShares > 0),
-    [positions],
-  );
-
-  const quoteQueries = useQueries({
-    queries: openPositions.map((position) => quoteQueryOptions(position.symbol)),
-  });
-
-  const isCalculating = quoteQueries.some((query) => query.isLoading);
-
-  const totalGain = useMemo(() => {
-    return openPositions.reduce((total, position, index) => {
-      const currentPrice = quoteQueries[index]?.data?.price;
-      if (typeof currentPrice !== 'number') {
-        return total;
-      }
-
-      return total + calculateGainLoss(currentPrice, position.cost, position.remainingShares, position.type);
-    }, 0);
-  }, [openPositions, quoteQueries]);
-
-  if (isCalculating) {
-    return (
-      <div className="h-8 w-24 bg-muted animate-pulse rounded"></div>
-    );
-  }
-
-  return (
-    <span className={cn(
-      "font-medium",
-      totalGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-    )}>
-      {formatCurrency(totalGain)}
-    </span>
   );
 }
 
@@ -480,6 +424,46 @@ function PortfolioHero({
   // Calculate metrics
   const totalOpenRisk = useMemo(() => calculateTotalOpenRisk(positions), [positions]);
   const riskPercent = portfolioValue > 0 ? (totalOpenRisk / portfolioValue) * 100 : 0;
+  const openPositionsForPnl = useMemo(
+    () => positions.filter((position) => position.priceTarget21Day <= 0 && position.remainingShares > 0),
+    [positions],
+  );
+  const pnlQuoteQueries = useQueries({
+    queries: openPositionsForPnl.map((position) => quoteQueryOptions(position.symbol)),
+  });
+  const isUnrealizedLoading = pnlQuoteQueries.some((query) => query.isLoading);
+
+  const unrealizedGain = useMemo(() => {
+    return openPositionsForPnl.reduce((total, position, index) => {
+      const currentPrice = pnlQuoteQueries[index]?.data?.price;
+      if (typeof currentPrice !== 'number') {
+        return total;
+      }
+      return total + calculateGainLoss(currentPrice, position.cost, position.remainingShares, position.type);
+    }, 0);
+  }, [openPositionsForPnl, pnlQuoteQueries]);
+
+  const realizedGain = useMemo(() => {
+    const total = positions.reduce((sum, position) => {
+      const hasRealizedShares =
+        (position.priceTarget2RShares > 0 && position.priceTarget2R > 0) ||
+        (position.priceTarget5RShares > 0 && position.priceTarget5R > 0) ||
+        position.priceTarget21Day > 0;
+
+      if (!hasRealizedShares) {
+        return sum;
+      }
+
+      return sum + calculateRealizedGainForPosition(position);
+    }, 0);
+
+    return roundToTwoDecimals(total);
+  }, [positions]);
+
+  const unrealizedPercent = portfolioValue > 0 ? (unrealizedGain / portfolioValue) * 100 : 0;
+  const realizedPercent = portfolioValue > 0 ? (realizedGain / portfolioValue) * 100 : 0;
+  const currentBalance = portfolioValue + unrealizedGain + realizedGain;
+  const currentBalancePercent = portfolioValue > 0 ? ((currentBalance - portfolioValue) / portfolioValue) * 100 : 0;
   
   // Exposure color logic
   const exposureColorClass = exposure > 100 
@@ -696,56 +680,106 @@ function PortfolioHero({
           </div>
         </div>
       ) : (
-        <div className="p-6">
-          {/* Portfolio Name & Value */}
-          <div className="mb-6">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-              {portfolioName}
-            </p>
-            <p className="text-4xl font-bold font-mono tracking-tight">
-              {formatCurrency(portfolioValue)}
-            </p>
+        <div className="p-5 md:p-6">
+          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
+            {portfolioName}
+          </p>
+          <div className="grid grid-cols-1 xl:grid-cols-[1.3fr_1fr] gap-4 mb-6">
+            <div className="rounded-xl border border-border/60 bg-background/40 p-4 md:p-5">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                Starting Balance
+              </p>
+              <p className="text-3xl md:text-4xl font-bold font-mono tracking-tight">
+                {formatCurrency(portfolioValue)}
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-4 md:p-5">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                Current Balance
+              </p>
+              {isUnrealizedLoading ? (
+                <div className="h-10 w-40 bg-muted animate-pulse rounded" />
+              ) : (
+                <p className={cn(
+                  "text-3xl font-bold font-mono tracking-tight",
+                  currentBalance >= portfolioValue ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                )}>
+                  {formatCurrency(currentBalance)}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                {isUnrealizedLoading
+                  ? "Calculating live balance..."
+                  : portfolioValue > 0
+                    ? `${currentBalancePercent >= 0 ? "+" : ""}${currentBalancePercent.toFixed(2)}% vs start`
+                    : "Set starting balance to track %"}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-1">Starting + Unrealized + Realized</p>
+            </div>
           </div>
-          
+
           {/* Metrics Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <MetricCard
-              label="Exposure"
-              value={`${exposure.toFixed(1)}%`}
-              subValue={exposure > 100 ? "Over-leveraged" : exposure > 80 ? "High" : "Normal"}
-              showBar
-              barValue={exposure}
-              barMax={100}
-              barColorClass={exposureBarColor}
-              valueColorClass={exposureColorClass}
-            />
-            <MetricCard
-              label="Total Open Risk"
-              value={formatCurrency(totalOpenRisk)}
-              subValue={`${riskPercent.toFixed(2)}% of portfolio`}
-              showBar
-              barValue={riskPercent}
-              barMax={15}
-              barColorClass={riskBarColor}
-              valueColorClass={riskColorClass}
-            />
-            <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
+            <div className="rounded-lg border border-border/60 bg-background/30 p-3.5">
+              <MetricCard
+                label="Exposure"
+                value={`${exposure.toFixed(1)}%`}
+                subValue={exposure > 100 ? "Over-leveraged" : exposure > 80 ? "High" : "Normal"}
+                showBar
+                barValue={exposure}
+                barMax={100}
+                barColorClass={exposureBarColor}
+                valueColorClass={exposureColorClass}
+              />
+            </div>
+            <div className="rounded-lg border border-border/60 bg-background/30 p-3.5">
+              <MetricCard
+                label="Total Open Risk"
+                value={formatCurrency(totalOpenRisk)}
+                subValue={`${riskPercent.toFixed(2)}% of portfolio`}
+                showBar
+                barValue={riskPercent}
+                barMax={15}
+                barColorClass={riskBarColor}
+                valueColorClass={riskColorClass}
+              />
+            </div>
+            <div className="rounded-lg border border-border/60 bg-background/30 p-3.5 space-y-2">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                 Unrealized P&L
               </p>
               <div className="text-lg font-bold font-mono">
-                <UnrealizedGainDisplay positions={positions} />
+                {isUnrealizedLoading ? (
+                  <div className="h-8 w-24 bg-muted animate-pulse rounded"></div>
+                ) : (
+                  <span className={cn(
+                    unrealizedGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                  )}>
+                    {formatCurrency(unrealizedGain)}
+                  </span>
+                )}
               </div>
-              <p className="text-xs text-muted-foreground">On remaining shares</p>
+              <p className="text-xs text-muted-foreground">
+                {isUnrealizedLoading
+                  ? "On remaining shares"
+                  : `${unrealizedPercent >= 0 ? "+" : ""}${unrealizedPercent.toFixed(2)}% of starting balance`}
+              </p>
             </div>
-            <div className="space-y-2">
+            <div className="rounded-lg border border-border/60 bg-background/30 p-3.5 space-y-2">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                 Realized P&L
               </p>
               <div className="text-lg font-bold font-mono">
-                <RealizedGainDisplay positions={positions} />
+                <span className={cn(
+                  realizedGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                )}>
+                  {formatCurrencyTwoDecimals(realizedGain)}
+                </span>
               </div>
-              <p className="text-xs text-muted-foreground">From closed shares</p>
+              <p className="text-xs text-muted-foreground">
+                {`${realizedPercent >= 0 ? "+" : ""}${realizedPercent.toFixed(2)}% of starting balance`}
+              </p>
             </div>
           </div>
 
