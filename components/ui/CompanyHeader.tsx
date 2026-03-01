@@ -5,8 +5,14 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { PriceChange, PercentageChange } from '@/components/ui/PriceIndicator';
 import { safeFormat } from '@/lib/formatters';
-import { Calendar, MapPin, Globe, Users, Building2, Briefcase } from 'lucide-react';
+import { Calendar, MapPin, Globe, Users, Building2, Briefcase, Plus } from 'lucide-react';
 import type { Ticker } from '@/lib/types';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/Select';
+import { Button } from '@/components/ui/Button';
+import { useAuth } from '@/lib/context/auth-context';
+import { supabase } from '@/lib/supabase';
+import { useToast } from '@/components/ui/use-toast';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 
 // Shared CSS classes for consistent styling across the page
 export const pageStyles = {
@@ -19,6 +25,11 @@ export const pageStyles = {
   // Card styling
   card: "border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 rounded-xl shadow-sm",
 };
+
+interface WatchlistOption {
+  id: string;
+  watchlist_name: string;
+}
 
 interface CompanyHeaderProps {
   companyName: string;
@@ -33,6 +44,167 @@ interface CompanyHeaderProps {
     timestamp: number;
   } | null;
   nextEarnings?: string;
+}
+
+function AddToWatchlistControl({ symbol }: { symbol: string }) {
+  const { user, isLoading: isAuthLoading } = useAuth();
+  const { toast } = useToast();
+  const { defaultWatchlistId, isLoading: isPreferencesLoading } = useUserPreferences();
+  const [watchlists, setWatchlists] = React.useState<WatchlistOption[]>([]);
+  const [selectedWatchlistId, setSelectedWatchlistId] = React.useState<string>('');
+  const [isLoadingWatchlists, setIsLoadingWatchlists] = React.useState(false);
+  const [isAdding, setIsAdding] = React.useState(false);
+  const [alreadyInWatchlist, setAlreadyInWatchlist] = React.useState(false);
+
+  React.useEffect(() => {
+    const fetchWatchlists = async () => {
+      if (!user) {
+        setWatchlists([]);
+        setSelectedWatchlistId('');
+        return;
+      }
+
+      setIsLoadingWatchlists(true);
+      try {
+        const { data, error } = await supabase
+          .from('watchlists')
+          .select('id, watchlist_name')
+          .eq('user_id', user.id)
+          .order('order_index', { ascending: true });
+
+        if (error) throw error;
+
+        const fetchedWatchlists = data ?? [];
+        setWatchlists(fetchedWatchlists);
+        setSelectedWatchlistId((currentSelectedWatchlistId) => {
+          if (currentSelectedWatchlistId && fetchedWatchlists.some((watchlist) => watchlist.id === currentSelectedWatchlistId)) {
+            return currentSelectedWatchlistId;
+          }
+
+          if (defaultWatchlistId && fetchedWatchlists.some((watchlist) => watchlist.id === defaultWatchlistId)) {
+            return defaultWatchlistId;
+          }
+
+          return fetchedWatchlists[0]?.id ?? '';
+        });
+      } catch (error) {
+        console.error('Error loading watchlists for symbol page:', error);
+      } finally {
+        setIsLoadingWatchlists(false);
+      }
+    };
+
+    if (!isPreferencesLoading) {
+      fetchWatchlists();
+    }
+  }, [defaultWatchlistId, isPreferencesLoading, user]);
+
+  React.useEffect(() => {
+    const checkWatchlistMembership = async () => {
+      if (!user || !selectedWatchlistId) {
+        setAlreadyInWatchlist(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('watchlist_tickers')
+          .select('symbol')
+          .eq('watchlist_id', selectedWatchlistId)
+          .eq('symbol', symbol.toUpperCase())
+          .maybeSingle();
+
+        if (error) throw error;
+        setAlreadyInWatchlist(Boolean(data));
+      } catch (error) {
+        console.error('Error checking watchlist membership:', error);
+        setAlreadyInWatchlist(false);
+      }
+    };
+
+    checkWatchlistMembership();
+  }, [selectedWatchlistId, symbol, user]);
+
+  const handleAddToWatchlist = async () => {
+    if (!user || !selectedWatchlistId || alreadyInWatchlist) return;
+
+    setIsAdding(true);
+    try {
+      const { error } = await supabase
+        .from('watchlist_tickers')
+        .insert({
+          watchlist_id: selectedWatchlistId,
+          symbol: symbol.toUpperCase(),
+        });
+
+      if (error) {
+        if (error.code === '23505') {
+          setAlreadyInWatchlist(true);
+          toast({
+            title: 'Already in watchlist',
+            description: `${symbol.toUpperCase()} is already in this watchlist.`,
+          });
+          return;
+        }
+        throw error;
+      }
+
+      setAlreadyInWatchlist(true);
+      toast({
+        title: 'Added to watchlist',
+        description: `${symbol.toUpperCase()} was added successfully.`,
+      });
+    } catch (error) {
+      console.error('Error adding symbol to watchlist:', error);
+      toast({
+        title: 'Unable to add symbol',
+        description: 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  if (isAuthLoading || isPreferencesLoading || !user) return null;
+
+  if (!isLoadingWatchlists && watchlists.length === 0) {
+    return (
+      <Link
+        href="/watchlists"
+        className="text-xs font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 hover:underline underline-offset-2 transition-colors"
+      >
+        Create watchlist
+      </Link>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-end gap-2 w-full lg:w-auto">
+      <Select value={selectedWatchlistId} onValueChange={setSelectedWatchlistId} disabled={isLoadingWatchlists || watchlists.length === 0}>
+        <SelectTrigger className="h-8 w-[170px] text-xs">
+          <SelectValue placeholder="Select watchlist" />
+        </SelectTrigger>
+        <SelectContent>
+          {watchlists.map((watchlist) => (
+            <SelectItem key={watchlist.id} value={watchlist.id}>
+              {watchlist.watchlist_name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button
+        type="button"
+        size="sm"
+        className="h-8 px-2.5"
+        disabled={isLoadingWatchlists || isAdding || !selectedWatchlistId || alreadyInWatchlist}
+        onClick={handleAddToWatchlist}
+      >
+        <Plus className="h-3.5 w-3.5 mr-1" />
+        {alreadyInWatchlist ? 'Added' : 'Add'}
+      </Button>
+    </div>
+  );
 }
 
 export function CompanyHeader({
@@ -132,22 +304,29 @@ export function CompanyHeader({
           </div>
         </div>
         
-        {/* Right Section: Next Earnings */}
-        {nextEarnings && (
-          <div className="lg:text-right flex lg:flex-col items-center lg:items-end gap-2 lg:gap-1 pt-2 lg:pt-0 border-t lg:border-t-0 border-neutral-200 dark:border-neutral-800 mt-2 lg:mt-0">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
-              <Calendar className="w-3.5 h-3.5" />
-              <span>Next Earnings</span>
+        {/* Right Section: Next Earnings + Watchlist actions */}
+        <div className="flex flex-col lg:items-end justify-between pt-2 lg:pt-0 border-t lg:border-t-0 border-neutral-200 dark:border-neutral-800 mt-2 lg:mt-0 lg:text-right gap-3">
+          {nextEarnings ? (
+            <div className="flex flex-col items-start lg:items-end gap-1">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
+                <Calendar className="w-3.5 h-3.5" />
+                <span>Next Earnings</span>
+              </div>
+              <p className="text-base sm:text-lg font-semibold text-neutral-900 dark:text-white">
+                {new Date(nextEarnings).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
+              </p>
             </div>
-            <p className="text-base sm:text-lg font-semibold text-neutral-900 dark:text-white">
-              {new Date(nextEarnings).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              })}
-            </p>
+          ) : (
+            <div />
+          )}
+          <div className="w-full flex justify-start lg:justify-end">
+            <AddToWatchlistControl symbol={symbol} />
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
