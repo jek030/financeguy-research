@@ -1,13 +1,12 @@
 "use client";
 
 import { ColumnDef } from '@tanstack/react-table';
-import { ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ArrowUpDown, ArrowUp, ArrowDown, FolderInput } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { BrokerageTransaction, getActionCategory } from '@/lib/types/transactions';
+import { BrokerageTransaction, getActionCategory, isTradeAction } from '@/lib/types/transactions';
 import { formatCurrency } from '@/utils/transactionCalculations';
 import { cn } from '@/lib/utils';
 
-// Sortable header component
 function SortableHeader({ 
   column, 
   label 
@@ -35,7 +34,6 @@ function SortableHeader({
   );
 }
 
-// Action badge component
 function ActionBadge({ action }: { action: string }) {
   const category = getActionCategory(action);
   
@@ -57,7 +55,6 @@ function ActionBadge({ action }: { action: string }) {
   );
 }
 
-// Amount cell with color coding
 function AmountCell({ amount }: { amount: number }) {
   const isPositive = amount > 0;
   const isNegative = amount < 0;
@@ -73,8 +70,12 @@ function AmountCell({ amount }: { amount: number }) {
   );
 }
 
-export function getTransactionTableColumns(): ColumnDef<BrokerageTransaction>[] {
-  return [
+interface ColumnOptions {
+  onAddToPortfolio?: (transaction: BrokerageTransaction) => void;
+}
+
+export function getTransactionTableColumns(options?: ColumnOptions): ColumnDef<BrokerageTransaction>[] {
+  const columns: ColumnDef<BrokerageTransaction>[] = [
     {
       accessorKey: 'date',
       header: ({ column }) => <SortableHeader column={column} label="Date" />,
@@ -160,4 +161,36 @@ export function getTransactionTableColumns(): ColumnDef<BrokerageTransaction>[] 
       cell: ({ row }) => <AmountCell amount={row.original.amount} />,
     },
   ];
+
+  if (options?.onAddToPortfolio) {
+    const handler = options.onAddToPortfolio;
+    columns.push({
+      id: 'addToPortfolio',
+      header: () => null,
+      cell: ({ row }) => {
+        const txn = row.original;
+        const eligible =
+          isTradeAction(txn.action) &&
+          txn.quantity !== null &&
+          txn.price !== null;
+
+        if (!eligible) return null;
+
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-[10px] text-muted-foreground hover:text-primary"
+            onClick={() => handler(txn)}
+          >
+            <FolderInput className="h-3 w-3 mr-1" />
+            Portfolio
+          </Button>
+        );
+      },
+      enableSorting: false,
+    });
+  }
+
+  return columns;
 }

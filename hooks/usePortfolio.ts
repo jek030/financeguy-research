@@ -407,6 +407,8 @@ export function usePortfolio() {
       if (updates.priceTarget5R !== undefined) supabaseUpdates.price_target_2 = updates.priceTarget5R;
       if (updates.priceTarget5RShares !== undefined) supabaseUpdates.price_target_2_quantity = updates.priceTarget5RShares;
       if (updates.priceTarget21Day !== undefined) supabaseUpdates.price_target_3 = updates.priceTarget21Day;
+      if (updates.realizedGain !== undefined) supabaseUpdates.realized_gain = updates.realizedGain;
+      if (updates.remainingShares !== undefined) supabaseUpdates.remaining_shares = updates.remainingShares;
 
       // Recalculate remaining shares if quantity, PT 1 #, or PT 2 # change
       if (updates.quantity !== undefined || updates.priceTarget2RShares !== undefined || updates.priceTarget5RShares !== undefined) {

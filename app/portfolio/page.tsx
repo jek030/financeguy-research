@@ -21,6 +21,7 @@ import { PercentageChange } from '@/components/ui/PriceIndicator';
 import { quoteQueryOptions, useQuote } from '@/hooks/FMP/useQuote';
 import { usePortfolio, type StockPosition } from '@/hooks/usePortfolio';
 import { useAuth } from '@/lib/context/auth-context';
+import { calculateRPriceTargets } from '@/utils/portfolioCalculations';
 import Link from 'next/link';
 import type { TableColumnDef } from '@/lib/table-types';
 
@@ -2094,23 +2095,6 @@ export default function Portfolio() {
 
   const isAddButtonDisabled = !symbol.trim() || !cost.trim() || !quantity.trim() || !initialStopLoss.trim();
 
-  // R-based calculations
-  const calculateRPriceTargets = (cost: number, stopLoss: number, type: 'Long' | 'Short') => {
-    const initialRisk = Math.abs(cost - stopLoss);
-    
-    if (type === 'Long') {
-      return {
-        priceTarget2R: cost + (2 * initialRisk),
-        priceTarget5R: cost + (5 * initialRisk),
-      };
-    } else {
-      // For short positions, targets are below the entry price
-      return {
-        priceTarget2R: cost - (2 * initialRisk),
-        priceTarget5R: cost - (5 * initialRisk),
-      };
-    }
-  };
 
   // Edit functions
   const handleEditPosition = (position: StockPosition) => {

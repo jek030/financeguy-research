@@ -21,6 +21,7 @@ import { BrokerageTransaction } from '@/lib/types/transactions';
 import { cn } from '@/lib/utils';
 import { getTransactionTableColumns } from './TransactionTableColumns';
 import { getUniqueSymbols, getUniqueActions } from '@/utils/transactionCalculations';
+import AddToPortfolioModal from './AddToPortfolioModal';
 
 interface TransactionTableProps {
   data: BrokerageTransaction[];
@@ -32,8 +33,18 @@ export default function TransactionTable({ data, className }: TransactionTablePr
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [globalFilter, setGlobalFilter] = useState('');
   const [pageSize, setPageSize] = useState(25);
+  const [modalTransaction, setModalTransaction] = useState<BrokerageTransaction | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
-  const columns = useMemo(() => getTransactionTableColumns(), []);
+  const handleAddToPortfolio = React.useCallback((txn: BrokerageTransaction) => {
+    setModalTransaction(txn);
+    setModalOpen(true);
+  }, []);
+
+  const columns = useMemo(
+    () => getTransactionTableColumns({ onAddToPortfolio: handleAddToPortfolio }),
+    [handleAddToPortfolio]
+  );
   const uniqueSymbols = useMemo(() => getUniqueSymbols(data), [data]);
   const uniqueActions = useMemo(() => getUniqueActions(data), [data]);
 
@@ -277,6 +288,12 @@ export default function TransactionTable({ data, className }: TransactionTablePr
           </div>
         </div>
       </CardContent>
+
+      <AddToPortfolioModal
+        transaction={modalTransaction}
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+      />
     </Card>
   );
 }
