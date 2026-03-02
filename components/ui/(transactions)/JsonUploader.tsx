@@ -102,34 +102,34 @@ export default function JsonUploader({ onDataLoaded, className }: JsonUploaderPr
   }, []);
 
   return (
-    <Card className={cn("w-full", className)}>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <FileJson className="h-5 w-5" />
-          Import Transaction Data
+    <Card className={cn("w-full border-border bg-background font-mono", className)}>
+      <CardHeader className="pb-2">
+        <CardTitle className="flex items-center gap-2 text-sm tracking-wide">
+          <FileJson className="h-4 w-4" />
+          Data Feed
         </CardTitle>
       </CardHeader>
       <CardContent>
         {isLoaded && fileName ? (
-          <div className="flex items-center justify-between p-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10">
+          <div className="flex items-center justify-between rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3">
             <div className="flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-emerald-500" />
+              <CheckCircle className="h-4 w-4 text-emerald-500" />
               <div>
-                <p className="text-sm font-medium">{fileName}</p>
-                <p className="text-xs text-muted-foreground">File loaded successfully</p>
+                <p className="text-xs font-medium text-foreground">{fileName}</p>
+                <p className="text-[11px] text-emerald-500">Loaded</p>
               </div>
             </div>
-            <Button variant="ghost" size="sm" onClick={handleClear}>
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleClear}>
               <X className="h-4 w-4" />
             </Button>
           </div>
         ) : (
           <div
             className={cn(
-              "relative border-2 border-dashed rounded-lg p-8 transition-colors",
+              "relative rounded-md border border-dashed p-5 transition-colors",
               isDragging 
                 ? "border-primary bg-primary/5" 
-                : "border-muted-foreground/25 hover:border-muted-foreground/50",
+                : "border-border hover:border-foreground/40",
               error && "border-red-500/50 bg-red-500/5"
             )}
             onDrop={handleDrop}
@@ -142,21 +142,21 @@ export default function JsonUploader({ onDataLoaded, className }: JsonUploaderPr
               onChange={handleFileSelect}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
-            <div className="flex flex-col items-center gap-3 text-center">
+            <div className="flex flex-col items-center gap-2 text-center">
               <div className={cn(
-                "h-12 w-12 rounded-full flex items-center justify-center",
-                isDragging ? "bg-primary/20" : "bg-muted"
+                "flex h-9 w-9 items-center justify-center rounded-sm border border-border",
+                isDragging ? "bg-primary/20" : "bg-muted/50"
               )}>
                 <Upload className={cn(
-                  "h-6 w-6",
+                  "h-4 w-4",
                   isDragging ? "text-primary" : "text-muted-foreground"
                 )} />
               </div>
               <div>
-                <p className="text-sm font-medium">
-                  {isDragging ? "Drop your file here" : "Drop your JSON file here"}
+                <p className="text-xs font-medium text-foreground">
+                  {isDragging ? "Drop JSON file" : "Drag JSON file"}
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="mt-1 text-[11px] text-muted-foreground">
                   or click to browse
                 </p>
               </div>
@@ -165,8 +165,8 @@ export default function JsonUploader({ onDataLoaded, className }: JsonUploaderPr
         )}
         
         {error && (
-          <div className="mt-3 p-3 rounded-lg bg-red-500/10 border border-red-500/30">
-            <p className="text-sm text-red-500">{error}</p>
+          <div className="mt-3 rounded-md border border-red-500/40 bg-red-500/10 p-2">
+            <p className="text-[11px] text-red-500">{error}</p>
           </div>
         )}
       </CardContent>

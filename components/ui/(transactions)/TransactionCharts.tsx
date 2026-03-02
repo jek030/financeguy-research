@@ -39,10 +39,10 @@ function CustomBarTooltip({ active, payload, label }: { active?: boolean; payloa
   if (!active || !payload) return null;
   
   return (
-    <div className="rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur-sm">
-      <p className="text-xs font-semibold mb-2">{label}</p>
+    <div className="rounded-md border border-border bg-background p-3 shadow-sm">
+      <p className="mb-2 text-[11px] font-semibold text-foreground">{label}</p>
       {payload.map((entry, index) => (
-        <p key={index} className="text-xs" style={{ color: entry.color }}>
+        <p key={index} className="font-mono text-[11px]" style={{ color: entry.color }}>
           {entry.dataKey === 'buyVolume' ? 'Buy' : entry.dataKey === 'sellVolume' ? 'Sell' : 'Net'}: {formatCurrency(entry.value)}
         </p>
       ))}
@@ -56,10 +56,10 @@ function CustomPieTooltip({ active, payload }: { active?: boolean; payload?: Arr
   
   const data = payload[0].payload;
   return (
-    <div className="rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur-sm">
-      <p className="text-xs font-semibold">{data.action}</p>
-      <p className="text-xs text-muted-foreground">{data.count} transactions</p>
-      <p className="text-xs font-mono">{formatCurrency(Math.abs(data.value))}</p>
+    <div className="rounded-md border border-border bg-background p-3 shadow-sm">
+      <p className="text-[11px] font-semibold text-foreground">{data.action}</p>
+      <p className="text-[11px] text-muted-foreground">{data.count} transactions</p>
+      <p className="font-mono text-[11px]">{formatCurrency(Math.abs(data.value))}</p>
     </div>
   );
 }
@@ -85,18 +85,6 @@ export default function TransactionCharts({ dailyVolume, actionSummary, classNam
     }));
   }, [actionSummary]);
 
-  // Prepare action breakdown for trades only
-  const tradeBreakdown = useMemo(() => {
-    return actionSummary
-      .filter((item) => getActionCategory(item.action) === 'trade')
-      .map((item) => ({
-        action: item.action,
-        amount: Math.abs(item.totalAmount),
-        count: item.transactionCount,
-      }))
-      .sort((a, b) => b.amount - a.amount);
-  }, [actionSummary]);
-
   // Format date for chart
   const formattedDailyVolume = useMemo(() => {
     return dailyVolume.map((d) => ({
@@ -106,28 +94,34 @@ export default function TransactionCharts({ dailyVolume, actionSummary, classNam
   }, [dailyVolume]);
 
   return (
-    <div className={cn("grid grid-cols-1 lg:grid-cols-2 gap-4", className)}>
+    <div className={cn("grid grid-cols-1 gap-4 lg:grid-cols-2", className)}>
       {/* Daily Volume Chart */}
-      <Card className="bg-card/80 backdrop-blur-sm border-border/50">
+      <Card className="border-border bg-background">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Daily Volume</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-sm font-medium tracking-wide">Daily Volume</CardTitle>
+            <span className="inline-flex items-center gap-1 rounded-sm border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] text-emerald-500">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+              LIVE
+            </span>
+          </div>
         </CardHeader>
         <CardContent>
           {formattedDailyVolume.length > 0 ? (
             <div className="h-[280px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={formattedDailyVolume} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} />
+                  <CartesianGrid strokeDasharray="2 4" stroke="hsl(var(--border))" opacity={0.55} />
                   <XAxis 
                     dataKey="date" 
-                    tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                    tick={{ fontSize: 10, fill: 'hsl(var(--foreground))' }}
                     tickLine={{ stroke: 'hsl(var(--border))' }}
                     angle={-45}
                     textAnchor="end"
                     height={60}
                   />
                   <YAxis 
-                    tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
+                    tick={{ fontSize: 10, fill: 'hsl(var(--foreground))' }}
                     tickLine={{ stroke: 'hsl(var(--border))' }}
                     tickFormatter={(value) => formatCompactCurrency(value)}
                     width={60}
@@ -139,7 +133,7 @@ export default function TransactionCharts({ dailyVolume, actionSummary, classNam
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="h-[280px] flex items-center justify-center text-sm text-muted-foreground">
+            <div className="flex h-[280px] items-center justify-center text-xs text-muted-foreground">
               No volume data available
             </div>
           )}
@@ -147,9 +141,9 @@ export default function TransactionCharts({ dailyVolume, actionSummary, classNam
       </Card>
 
       {/* Category Distribution Pie Chart */}
-      <Card className="bg-card/80 backdrop-blur-sm border-border/50">
+      <Card className="border-border bg-background">
         <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Volume by Category</CardTitle>
+          <CardTitle className="text-sm font-medium tracking-wide">Volume by Category</CardTitle>
         </CardHeader>
         <CardContent>
           {pieData.length > 0 ? (
@@ -175,58 +169,19 @@ export default function TransactionCharts({ dailyVolume, actionSummary, classNam
                     verticalAlign="bottom" 
                     height={36}
                     formatter={(value: string) => (
-                      <span className="text-xs text-muted-foreground">{value}</span>
+                      <span className="font-mono text-[11px] text-foreground">{value}</span>
                     )}
                   />
                 </PieChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="h-[280px] flex items-center justify-center text-sm text-muted-foreground">
+            <div className="flex h-[280px] items-center justify-center text-xs text-muted-foreground">
               No category data available
             </div>
           )}
         </CardContent>
       </Card>
-
-      {/* Trade Type Breakdown */}
-      {tradeBreakdown.length > 0 && (
-        <Card className="lg:col-span-2 bg-card/80 backdrop-blur-sm border-border/50">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium">Trade Actions Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={tradeBreakdown} layout="vertical" margin={{ top: 10, right: 10, left: 80, bottom: 10 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.3} horizontal={true} vertical={false} />
-                  <XAxis 
-                    type="number"
-                    tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-                    tickFormatter={(value) => formatCompactCurrency(value)}
-                  />
-                  <YAxis 
-                    type="category"
-                    dataKey="action"
-                    tick={{ fontSize: 10, fill: 'hsl(var(--muted-foreground))' }}
-                    width={70}
-                  />
-                  <Tooltip 
-                    formatter={(value: number) => [formatCurrency(value), 'Volume']}
-                    labelStyle={{ fontSize: 12 }}
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--background))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: 8,
-                    }}
-                  />
-                  <Bar dataKey="amount" fill="#3b82f6" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

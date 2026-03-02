@@ -207,30 +207,30 @@ export default function SymbolSummaryTable({ data, onSymbolClick, className }: S
   }, [stockSymbols]);
 
   return (
-    <Card className={cn("w-full", className)}>
+    <Card className={cn("w-full border-border bg-background font-mono", className)}>
       <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-lg">By Symbol</CardTitle>
+          <CardTitle className="text-sm uppercase tracking-[0.14em]">By Symbol</CardTitle>
           <div className="flex items-center gap-2">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search symbols..."
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              className="w-[180px] h-8 text-sm"
+              className="h-8 w-[180px] text-xs"
             />
           </div>
         </div>
       </CardHeader>
       
       <CardContent>
-        <div className="rounded-md border overflow-x-auto">
+        <div className="overflow-x-auto rounded-md border border-border">
           <Table className="min-w-full text-xs">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="bg-muted/30">
+                <TableRow key={headerGroup.id} className="bg-muted/40">
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} className="px-2 py-2 text-[10px] font-semibold whitespace-nowrap">
+                    <TableHead key={header.id} className="whitespace-nowrap px-2 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {header.isPlaceholder
                         ? null
                         : flexRender(header.column.columnDef.header, header.getContext())}
@@ -246,8 +246,8 @@ export default function SymbolSummaryTable({ data, onSymbolClick, className }: S
                     <TableRow
                       key={row.id}
                       className={cn(
-                        "hover:bg-muted/50",
-                        index % 2 === 0 ? "bg-background" : "bg-muted/20"
+                        "hover:bg-muted/60",
+                        index % 2 === 0 ? "bg-background" : "bg-muted/25"
                       )}
                     >
                       {row.getVisibleCells().map((cell) => (
@@ -258,7 +258,7 @@ export default function SymbolSummaryTable({ data, onSymbolClick, className }: S
                     </TableRow>
                   ))}
                   {/* Totals Row */}
-                  <TableRow className="bg-muted/50 font-semibold border-t-2">
+                  <TableRow className="border-t-2 bg-muted/55 font-semibold">
                     <TableCell className="px-2 py-2 text-[11px]">TOTAL</TableCell>
                     <TableCell className="px-2 py-2 text-[11px] font-mono">{totals.transactionCount}</TableCell>
                     <TableCell className="px-2 py-2 text-[11px]">-</TableCell>
@@ -287,7 +287,7 @@ export default function SymbolSummaryTable({ data, onSymbolClick, className }: S
           </Table>
         </div>
         
-        <div className="mt-2 text-xs text-muted-foreground">
+        <div className="mt-2 text-[11px] text-muted-foreground">
           {table.getFilteredRowModel().rows.length} symbols
           {nonStockItems.length > 0 && (
             <span> • {nonStockItems.length} non-stock transactions (see Action Summary)</span>

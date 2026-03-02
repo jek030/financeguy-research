@@ -75,19 +75,19 @@ export default function TransactionSummaryCards({ summary, className }: Transact
   ];
 
   return (
-    <div className={cn("space-y-4", className)}>
+    <div className={cn("space-y-3 font-mono", className)}>
       {/* Main Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {summaryItems.map((item, index) => {
           const Icon = item.icon;
           return (
-            <Card key={index} className="relative overflow-hidden bg-card/80 backdrop-blur-sm border-border/50">
+            <Card key={index} className="relative overflow-hidden border-border bg-background">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <CardTitle className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
                   {item.title}
                 </CardTitle>
                 <div className={cn(
-                  "h-8 w-8 rounded-full flex items-center justify-center",
+                  "flex h-7 w-7 items-center justify-center rounded-sm border",
                   item.trend === 'positive' && "bg-emerald-500/20 text-emerald-400",
                   item.trend === 'negative' && "bg-red-500/20 text-red-400",
                   item.trend === 'neutral' && "bg-blue-500/20 text-blue-400"
@@ -97,13 +97,13 @@ export default function TransactionSummaryCards({ summary, className }: Transact
               </CardHeader>
               <CardContent>
                 <div className={cn(
-                  "text-2xl font-bold font-mono mb-1",
+                  "mb-1 text-xl font-bold",
                   item.trend === 'positive' && "text-emerald-400",
                   item.trend === 'negative' && "text-red-400"
                 )}>
                   {item.value}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-[11px] text-muted-foreground">
                   {item.description}
                 </p>
               </CardContent>
@@ -113,19 +113,19 @@ export default function TransactionSummaryCards({ summary, className }: Transact
       </div>
 
       {/* Secondary Metrics */}
-      <Card className="bg-card/80 backdrop-blur-sm border-border/50">
+      <Card className="border-border bg-background">
         <CardContent className="py-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             {volumeMetrics.map((metric, index) => {
               const Icon = metric.icon;
               return (
                 <div key={index} className="flex items-center gap-3">
-                  <div className={cn("p-2 rounded-lg bg-muted/50", metric.color)}>
+                  <div className={cn("rounded-sm border border-border bg-muted/40 p-2", metric.color)}>
                     <Icon className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground">{metric.label}</p>
-                    <p className={cn("font-semibold font-mono text-sm", metric.color)}>
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{metric.label}</p>
+                    <p className={cn("text-sm font-semibold", metric.color)}>
                       {metric.value}
                     </p>
                   </div>
@@ -138,7 +138,7 @@ export default function TransactionSummaryCards({ summary, className }: Transact
 
       {/* Action Breakdown */}
       {Object.keys(summary.actionBreakdown).length > 0 && (
-        <Card className="bg-card/80 backdrop-blur-sm border-border/50">
+        <Card className="border-border bg-background">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Transaction Types</CardTitle>
           </CardHeader>
@@ -149,10 +149,10 @@ export default function TransactionSummaryCards({ summary, className }: Transact
                 .map(([action, count]) => (
                   <div 
                     key={action} 
-                    className="px-3 py-1.5 rounded-full bg-muted/50 border border-border/50"
+                    className="rounded-sm border border-border bg-muted/30 px-2 py-1"
                   >
-                    <span className="text-xs font-medium">{action}</span>
-                    <span className="text-xs text-muted-foreground ml-2">({count})</span>
+                    <span className="text-[11px] font-medium">{action}</span>
+                    <span className="ml-2 text-[11px] text-muted-foreground">({count})</span>
                   </div>
                 ))}
             </div>

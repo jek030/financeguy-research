@@ -106,18 +106,22 @@ export default function TransactionsPage() {
   };
 
   return (
-    <div className="w-full p-4 min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      <div className="max-w-[1800px] mx-auto space-y-6">
-        {/* Header */}
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold tracking-tight">Transaction History</h1>
-          <p className="text-sm text-muted-foreground">
-            Analyze your brokerage transactions, view summaries by symbol and action type.
-          </p>
+    <div className="min-h-screen w-full bg-background p-4 font-mono">
+      <div className="mx-auto max-w-[1800px] space-y-5">
+        <div className="rounded-md border border-border bg-background/95 p-4 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-1">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+                Market Data Terminal
+              </p>
+              <h1 className="text-xl font-semibold tracking-tight text-foreground">Transactions</h1>
+              <p className="text-xs text-muted-foreground">
+                High-contrast execution monitor for positions, fills, and symbol-level activity.
+              </p>
+            </div>
+            <JsonUploader onDataLoaded={handleDataLoaded} className="w-full max-w-xl" />
+          </div>
         </div>
-
-        {/* Upload Section */}
-        <JsonUploader onDataLoaded={handleDataLoaded} className="max-w-xl" />
 
         {/* Content - Only show when data is loaded */}
         {transactionData && summary && (
@@ -133,21 +137,21 @@ export default function TransactionsPage() {
 
             {/* Filter Indicator */}
             {(symbolFilter || actionFilter) && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
-                <span className="text-sm">
-                  Filtering by: 
+              <div className="flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 p-3">
+                <span className="text-xs text-primary">
+                  Filter:
                   {symbolFilter && (
-                    <span className="ml-1 font-semibold text-primary">{symbolFilter}</span>
+                    <span className="ml-2 font-semibold">{symbolFilter}</span>
                   )}
                   {actionFilter && (
-                    <span className="ml-1 font-semibold text-primary">{actionFilter}</span>
+                    <span className="ml-2 font-semibold">{actionFilter}</span>
                   )}
                 </span>
                 <button
                   onClick={clearFilters}
-                  className="ml-auto text-xs text-primary hover:underline"
+                  className="ml-auto text-[11px] text-primary hover:underline"
                 >
-                  Clear filter
+                  Clear
                 </button>
               </div>
             )}
@@ -157,14 +161,14 @@ export default function TransactionsPage() {
 
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className="grid w-full max-w-md grid-cols-3">
-                <TabsTrigger value="all" className="text-xs">
-                  All Transactions
+              <TabsList className="grid h-9 w-full max-w-lg grid-cols-3 rounded-md border border-border bg-muted/30 p-1">
+                <TabsTrigger value="all" className="h-7 rounded-sm text-[11px] data-[state=active]:bg-background">
+                  Transactions
                 </TabsTrigger>
-                <TabsTrigger value="symbols" className="text-xs">
+                <TabsTrigger value="symbols" className="h-7 rounded-sm text-[11px] data-[state=active]:bg-background">
                   By Symbol
                 </TabsTrigger>
-                <TabsTrigger value="actions" className="text-xs">
+                <TabsTrigger value="actions" className="h-7 rounded-sm text-[11px] data-[state=active]:bg-background">
                   By Action
                 </TabsTrigger>
               </TabsList>
@@ -192,10 +196,10 @@ export default function TransactionsPage() {
 
         {/* Empty State */}
         {!transactionData && (
-          <div className="flex items-center justify-center py-20">
-            <div className="text-center space-y-3">
-              <p className="text-lg text-muted-foreground">No transaction data loaded</p>
-              <p className="text-sm text-muted-foreground">
+          <div className="flex items-center justify-center rounded-md border border-dashed border-border py-24">
+            <div className="space-y-3 text-center">
+              <p className="text-sm text-foreground">No transaction data loaded</p>
+              <p className="text-xs text-muted-foreground">
                 Upload a JSON file from your brokerage to get started
               </p>
             </div>

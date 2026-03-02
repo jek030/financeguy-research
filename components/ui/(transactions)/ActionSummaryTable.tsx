@@ -181,9 +181,9 @@ export default function ActionSummaryTable({ data, onActionClick, className }: A
   }, [data]);
 
   return (
-    <Card className={cn("w-full", className)}>
+    <Card className={cn("w-full border-border bg-background font-mono", className)}>
       <CardHeader className="pb-4">
-        <CardTitle className="text-lg">By Action Type</CardTitle>
+        <CardTitle className="text-sm uppercase tracking-[0.14em]">By Action Type</CardTitle>
       </CardHeader>
       
       <CardContent className="space-y-4">
@@ -201,12 +201,9 @@ export default function ActionSummaryTable({ data, onActionClick, className }: A
             return (
               <div 
                 key={category} 
-                className={cn(
-                  "p-3 rounded-lg border",
-                  colorClasses[category as keyof typeof colorClasses]
-                )}
+                className={cn("rounded-sm border p-3", colorClasses[category as keyof typeof colorClasses])}
               >
-                <p className="text-[10px] uppercase text-muted-foreground font-medium">{category}</p>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{category}</p>
                 <p className="font-mono text-sm font-bold">{data.count}</p>
                 <p className={cn(
                   "font-mono text-xs",
@@ -220,13 +217,13 @@ export default function ActionSummaryTable({ data, onActionClick, className }: A
         </div>
 
         {/* Detailed Table */}
-        <div className="rounded-md border overflow-x-auto">
+        <div className="overflow-x-auto rounded-md border border-border">
           <Table className="min-w-full text-xs">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="bg-muted/30">
+                <TableRow key={headerGroup.id} className="bg-muted/40">
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} className="px-2 py-2 text-[10px] font-semibold whitespace-nowrap">
+                    <TableHead key={header.id} className="whitespace-nowrap px-2 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {header.isPlaceholder
                         ? null
                         : flexRender(header.column.columnDef.header, header.getContext())}
@@ -242,8 +239,8 @@ export default function ActionSummaryTable({ data, onActionClick, className }: A
                     <TableRow
                       key={row.id}
                       className={cn(
-                        "hover:bg-muted/50",
-                        index % 2 === 0 ? "bg-background" : "bg-muted/20"
+                        "hover:bg-muted/60",
+                        index % 2 === 0 ? "bg-background" : "bg-muted/25"
                       )}
                     >
                       {row.getVisibleCells().map((cell) => (
@@ -254,7 +251,7 @@ export default function ActionSummaryTable({ data, onActionClick, className }: A
                     </TableRow>
                   ))}
                   {/* Totals Row */}
-                  <TableRow className="bg-muted/50 font-semibold border-t-2">
+                  <TableRow className="border-t-2 bg-muted/55 font-semibold">
                     <TableCell className="px-2 py-2 text-[11px]">TOTAL</TableCell>
                     <TableCell className="px-2 py-2 text-[11px] font-mono">{totals.transactionCount}</TableCell>
                     <TableCell className={cn(
