@@ -9,6 +9,9 @@ CREATE TABLE IF NOT EXISTS "public"."earnings_calendar" (
   "revenue_actual" BIGINT,
   "revenue_estimated" BIGINT,
   "report_time" VARCHAR(10),
+  "is_active" BOOLEAN NOT NULL DEFAULT true,
+  "superseded_by_id" INTEGER,
+  "superseded_reason" VARCHAR(64),
   "updated_at" TIMESTAMP NOT NULL DEFAULT NOW(),
   "created_at" TIMESTAMP NOT NULL DEFAULT NOW(),
   UNIQUE("symbol", "report_date")
@@ -16,6 +19,7 @@ CREATE TABLE IF NOT EXISTS "public"."earnings_calendar" (
 
 CREATE INDEX IF NOT EXISTS "earnings_calendar_report_date_idx" ON "public"."earnings_calendar" ("report_date");
 CREATE INDEX IF NOT EXISTS "earnings_calendar_symbol_idx" ON "public"."earnings_calendar" ("symbol");
+CREATE INDEX IF NOT EXISTS "earnings_calendar_active_report_date_idx" ON "public"."earnings_calendar" ("is_active", "report_date");
 
 -- Create income_statements table
 CREATE TABLE IF NOT EXISTS "public"."income_statements" (

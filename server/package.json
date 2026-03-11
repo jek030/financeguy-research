@@ -8,7 +8,9 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "lint": "tsc --noEmit",
-    "job:earnings": "tsx src/jobs/run-earnings.ts"
+    "job:earnings": "tsx src/jobs/run-earnings.ts",
+    "job:earnings:reconcile:dry": "tsx src/jobs/run-earnings.ts --reconcile-only --dry-run --lookback-days=3650",
+    "job:earnings:reconcile:live": "tsx src/jobs/run-earnings.ts --reconcile-only --lookback-days=3650"
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",

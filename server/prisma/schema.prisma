@@ -18,12 +18,16 @@ model EarningsCalendar {
   revenueActual    BigInt?   @map("revenue_actual")
   revenueEstimated BigInt?   @map("revenue_estimated")
   reportTime       String?   @map("report_time") @db.VarChar(10)
+  isActive         Boolean   @default(true) @map("is_active")
+  supersededById   Int?      @map("superseded_by_id")
+  supersededReason String?   @map("superseded_reason") @db.VarChar(64)
   updatedAt        DateTime  @updatedAt @map("updated_at")
   createdAt        DateTime  @default(now()) @map("created_at")
 
   @@unique([symbol, reportDate])
   @@index([reportDate])
   @@index([symbol])
+  @@index([isActive, reportDate])
   @@map("earnings_calendar")
 }
 

@@ -7,6 +7,37 @@ function toNumberOrNull(value: unknown): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+function isMissingIsActiveColumn(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const err = error as { code?: string; message?: string };
+  return err.code === '42703' || (err.message || '').includes('is_active');
+}
+
+async function queryCalendarRows(from: string, to: string, symbols?: string[]) {
+  const runQuery = async (useActiveFilter: boolean) => {
+    let query = supabase
+      .from('earnings_calendar')
+      .select('*')
+      .gte('report_date', from)
+      .lte('report_date', to)
+      .not('symbol', 'like', '%.%')
+      .order('report_date', { ascending: true });
+
+    if (symbols && symbols.length > 0) query = query.in('symbol', symbols);
+    if (useActiveFilter) query = query.eq('is_active', true);
+    if (!symbols || symbols.length === 0) query = query.range(0, 9999);
+
+    return query;
+  };
+
+  const primary = await runQuery(true);
+  if (!primary.error) return primary;
+  if (!isMissingIsActiveColumn(primary.error)) return primary;
+
+  console.warn('[earnings-calendar] is_active column missing; retrying without canonical filter.');
+  return runQuery(false);
+}
+
 // Helper to map database rows to the shape the frontend expects
 function mapRows(data: Record<string, unknown>[]) {
   return data.map((row) => ({
@@ -43,14 +74,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const { data, error } = await supabase
-      .from('earnings_calendar')
-      .select('*')
-      .gte('report_date', from)
-      .lte('report_date', to)
-      .not('symbol', 'like', '%.%')   // Exclude non-US exchanges (e.g. SAP.DE, RY.TO)
-      .order('report_date', { ascending: true })
-      .range(0, 9999);
+    const { data, error } = await queryCalendarRows(from, to);
 
     if (error) {
       console.error('Supabase query error:', error);
@@ -94,14 +118,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data, error } = await supabase
-      .from('earnings_calendar')
-      .select('*')
-      .gte('report_date', from)
-      .lte('report_date', to)
-      .in('symbol', symbols)
-      .not('symbol', 'like', '%.%')   // Exclude non-US exchanges
-      .order('report_date', { ascending: true });
+    const { data, error } = await queryCalendarRows(from, to, symbols);
 
     if (error) {
       console.error('Supabase query error:', error);
