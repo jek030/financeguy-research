@@ -1103,14 +1103,10 @@ const CalendarPage: React.FC = () => {
                         <CardTitle className="mb-1 flex items-center justify-center gap-2 text-xl">
                           {headerTitle}
                         </CardTitle>
-                        {viewMode !== 'table' && (
-                          <>
-                            <p className="text-sm text-muted-foreground mb-3">
-                              Click any day to view detailed earnings reports
-                            </p>
-                            {renderCategoryLegend()}
-                          </>
-                        )}
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Click any day to view detailed earnings reports
+                        </p>
+                        {renderCategoryLegend()}
                       </div>
                       <button onClick={navigateForward} className="p-2 hover:bg-muted/50 rounded-xl transition-colors">
                         <ChevronRight className="w-5 h-5" />
