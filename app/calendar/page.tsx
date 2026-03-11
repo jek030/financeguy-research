@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Clock, TrendingUp, TrendingDown, ExternalLink, Sparkles, BarChart3, Target, ArrowUpRight, ArrowDownRight, Search, Sun, Moon, List } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { useRouter } from 'next/navigation';
 import { pageStyles } from '@/components/ui/CompanyHeader';
@@ -20,7 +21,9 @@ import { pageStyles } from '@/components/ui/CompanyHeader';
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type FilterMode = 'all' | 'sp500' | 'dow' | 'nasdaq100' | 'watchlist';
-type ViewMode = 'monthly' | 'weekly';
+type SelectableFilterMode = Exclude<FilterMode, 'all'>;
+type ViewMode = 'monthly' | 'weekly' | 'table';
+const DEFAULT_ACTIVE_FILTERS: SelectableFilterMode[] = ['sp500', 'dow', 'nasdaq100', 'watchlist'];
 
 interface CalendarEvent {
   title: string;
@@ -106,7 +109,7 @@ const CalendarPage: React.FC = () => {
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeTab, setActiveTab] = useState<string>('previous');
-  const [activeFilter, setActiveFilter] = useState<FilterMode>('all');
+  const [activeFilters, setActiveFilters] = useState<Set<SelectableFilterMode>>(new Set(DEFAULT_ACTIVE_FILTERS));
   const [viewMode, setViewMode] = useState<ViewMode>('monthly');
 
   // ── Auth ────────────────────────────────────────────────────────────────────
@@ -149,32 +152,36 @@ const CalendarPage: React.FC = () => {
   const spDataMap = useMemo(() => spData?.dataMap || EMPTY_MAP, [spData?.dataMap]);
   const nasdaq100DataMap = useMemo(() => nasdaq100Data?.dataMap || EMPTY_MAP, [nasdaq100Data?.dataMap]);
 
-  // ── Compute which symbols to fetch based on active filter ──────────────────
+  // ── Compute which symbols to fetch based on active filters ─────────────────
   const indexConstituentsLoaded = !dowLoading && !spLoading && !nasdaq100Loading;
 
   const selectedSymbols = useMemo((): string[] | undefined => {
-    // "All" = no symbol filtering at all — fetch every earning in the date range
-    if (activeFilter === 'all') return undefined;
+    // No active filters = "All" (fetch every earning in the date range)
+    if (activeFilters.size === 0) return undefined;
 
-    if (activeFilter === 'watchlist') {
-      return watchlistSymbols.length > 0 ? watchlistSymbols : [];
-    }
+    const hasIndexFilter =
+      activeFilters.has('sp500') ||
+      activeFilters.has('dow') ||
+      activeFilters.has('nasdaq100');
 
-    // For index-based filters, wait until constituent data is loaded
-    if (!indexConstituentsLoaded) return [];
+    // Wait for index constituents before fetching index-filtered results
+    if (hasIndexFilter && !indexConstituentsLoaded) return [];
 
     const combined = new Set<string>();
-    if (activeFilter === 'sp500') {
+    if (activeFilters.has('sp500')) {
       spConstituents.forEach((s: string) => combined.add(s));
     }
-    if (activeFilter === 'dow') {
+    if (activeFilters.has('dow')) {
       dowConstituents.forEach((s: string) => combined.add(s));
     }
-    if (activeFilter === 'nasdaq100') {
+    if (activeFilters.has('nasdaq100')) {
       nasdaq100Constituents.forEach((s: string) => combined.add(s));
     }
+    if (activeFilters.has('watchlist')) {
+      watchlistSymbols.forEach((s: string) => combined.add(s));
+    }
     return Array.from(combined);
-  }, [activeFilter, indexConstituentsLoaded, spConstituents, dowConstituents, nasdaq100Constituents, watchlistSymbols]);
+  }, [activeFilters, indexConstituentsLoaded, spConstituents, dowConstituents, nasdaq100Constituents, watchlistSymbols]);
 
   // ── Date range for the current view ────────────────────────────────────────
   const weekInfo = useMemo(() => getWeekRange(currentDate), [currentDate]);
@@ -232,6 +239,38 @@ const CalendarPage: React.FC = () => {
     if (!dateStr) return '';
     const date = parseLocalDate(dateStr);
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+
+  const formatDateTime = (dateStr: string | undefined): string => {
+    if (!dateStr) return '\u2014';
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return dateStr;
+    return d.toLocaleString('en-US');
+  };
+
+  const getOrdinalSuffix = (day: number): string => {
+    if (day >= 11 && day <= 13) return 'th';
+    switch (day % 10) {
+      case 1: return 'st';
+      case 2: return 'nd';
+      case 3: return 'rd';
+      default: return 'th';
+    }
+  };
+
+  const formatDateDividerLabel = (dateStr: string | undefined): string => {
+    if (!dateStr) return 'Unknown Date';
+    const date = parseLocalDate(dateStr);
+    const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
+    const month = date.toLocaleDateString('en-US', { month: 'long' });
+    const day = date.getDate();
+    const year = date.getFullYear();
+    return `${weekday}, ${month} ${day}${getOrdinalSuffix(day)}, ${year}`;
+  };
+
+  const getBeatPercentage = (actual: number | null | undefined, estimated: number | null | undefined): number | null => {
+    if (actual === null || actual === undefined || estimated === null || estimated === undefined || estimated === 0) return null;
+    return ((actual - estimated) / Math.abs(estimated)) * 100;
   };
 
   const getDaysUntil = (dateStr: string | undefined): string => {
@@ -346,6 +385,37 @@ const CalendarPage: React.FC = () => {
     );
   }, [upcomingEvents, searchQuery]);
 
+  const filteredTableRows = useMemo(() => {
+    if (!earnings || earnings.length === 0) return [];
+    const filtered = !searchQuery
+      ? earnings
+      : earnings.filter(event =>
+          event.symbol?.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    return [...filtered].sort((a, b) => {
+      const dateCompare = (a.reportDate || a.date || '').localeCompare(b.reportDate || b.date || '');
+      if (dateCompare !== 0) return dateCompare;
+      return (a.symbol || '').localeCompare(b.symbol || '');
+    });
+  }, [earnings, searchQuery]);
+
+  const todayDividerRef = useRef<HTMLTableRowElement | null>(null);
+  const hasAutoScrolledToTodayRef = useRef<boolean>(false);
+  const todayDateKey = useMemo(() => formatDateStr(new Date()), []);
+
+  useEffect(() => {
+    if (viewMode !== 'table') {
+      hasAutoScrolledToTodayRef.current = false;
+      return;
+    }
+
+    if (hasAutoScrolledToTodayRef.current) return;
+    if (!todayDividerRef.current) return;
+
+    todayDividerRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    hasAutoScrolledToTodayRef.current = true;
+  }, [viewMode, filteredTableRows]);
+
   const stats = useMemo(() => {
     const reported = previousEvents.filter(e => e.eps !== null);
     const beats = reported.filter(e => e.epsBeatPercentage && e.epsBeatPercentage > 0);
@@ -366,22 +436,22 @@ const CalendarPage: React.FC = () => {
   ];
 
   const navigateBack = () => {
-    if (viewMode === 'monthly') {
-      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1));
-    } else {
+    if (viewMode === 'weekly') {
       const d = new Date(currentDate);
       d.setDate(d.getDate() - 7);
       setCurrentDate(d);
+    } else {
+      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1));
     }
   };
 
   const navigateForward = () => {
-    if (viewMode === 'monthly') {
-      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
-    } else {
+    if (viewMode === 'weekly') {
       const d = new Date(currentDate);
       d.setDate(d.getDate() + 7);
       setCurrentDate(d);
+    } else {
+      setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1));
     }
   };
 
@@ -765,6 +835,95 @@ const CalendarPage: React.FC = () => {
     );
   };
 
+  const renderTableView = (): React.ReactElement => {
+    const tableColumnCount = 13;
+
+    return (
+      <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm shadow-sm overflow-hidden">
+        <div className="max-h-[76vh] overflow-auto">
+          <Table className="min-w-[1180px]">
+            <TableHeader className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+              <TableRow className="border-b border-border/60">
+                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">ID</TableHead>
+                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Symbol</TableHead>
+                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Report Date</TableHead>
+                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Fiscal Date Ending</TableHead>
+                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground text-right">EPS Actual</TableHead>
+                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground text-right">EPS Estimated</TableHead>
+                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground text-right">EPS Beat %</TableHead>
+                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground text-right">Revenue Actual</TableHead>
+                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground text-right">Revenue Estimated</TableHead>
+                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground text-right">Revenue Beat %</TableHead>
+                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Report Time</TableHead>
+                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Updated At</TableHead>
+                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Created At</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredTableRows.length > 0 ? (
+                filteredTableRows.map((row, idx) => {
+                  const rowDate = row.reportDate || row.date || '';
+                  const previousRowDate = idx > 0 ? (filteredTableRows[idx - 1].reportDate || filteredTableRows[idx - 1].date || '') : '';
+                  const shouldShowDivider = idx === 0 || rowDate !== previousRowDate;
+                  const isTodayDivider = rowDate === todayDateKey;
+                  const epsBeatPct = getBeatPercentage(row.epsActual ?? row.eps ?? null, row.epsEstimated ?? null);
+                  const revenueBeatPct = getBeatPercentage(row.revenueActual ?? row.revenue ?? null, row.revenueEstimated ?? null);
+                  const epsBeatClass = epsBeatPct !== null ? (epsBeatPct > 0 ? 'text-emerald-500' : epsBeatPct < 0 ? 'text-red-500' : 'text-muted-foreground') : 'text-muted-foreground';
+                  const revenueBeatClass = revenueBeatPct !== null ? (revenueBeatPct > 0 ? 'text-emerald-500' : revenueBeatPct < 0 ? 'text-red-500' : 'text-muted-foreground') : 'text-muted-foreground';
+
+                  return (
+                    <React.Fragment key={`${row.symbol}-${row.reportDate || row.date}-${idx}`}>
+                      {shouldShowDivider && (
+                        <TableRow ref={isTodayDivider ? todayDividerRef : undefined}>
+                          <TableCell colSpan={tableColumnCount} className={`py-2.5 px-3 text-sm font-semibold border-y ${isTodayDivider ? 'bg-primary/10 text-primary border-primary/20' : 'bg-muted/30 text-foreground border-border/40'}`}>
+                            {formatDateDividerLabel(rowDate)}
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      <TableRow className="odd:bg-background/20 even:bg-muted/10 hover:!bg-accent/30">
+                        <TableCell>{row.id ?? '\u2014'}</TableCell>
+                        <TableCell className="font-semibold">
+                          <button
+                            type="button"
+                            onClick={() => handleGoToTicker(row.symbol)}
+                            className="rounded-md px-1.5 py-0.5 text-primary hover:text-primary/80 hover:bg-primary/10 transition-colors"
+                          >
+                            {row.symbol}
+                          </button>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{row.reportDate || row.date || '\u2014'}</TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{row.fiscalDateEnding || '\u2014'}</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.epsActual !== null && row.epsActual !== undefined ? row.epsActual.toFixed(4) : '\u2014'}</TableCell>
+                        <TableCell className="text-right tabular-nums">{row.epsEstimated !== null && row.epsEstimated !== undefined ? row.epsEstimated.toFixed(4) : '\u2014'}</TableCell>
+                        <TableCell className={`text-right tabular-nums font-semibold ${epsBeatClass}`}>{formatPercentage(epsBeatPct)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatCurrency(row.revenueActual ?? null)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{formatCurrency(row.revenueEstimated ?? null)}</TableCell>
+                        <TableCell className={`text-right tabular-nums font-semibold ${revenueBeatClass}`}>{formatPercentage(revenueBeatPct)}</TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center rounded-full border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide">
+                            {row.reportTime || row.time || '\u2014'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{formatDateTime(row.updatedAt)}</TableCell>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{formatDateTime(row.createdAt)}</TableCell>
+                      </TableRow>
+                    </React.Fragment>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={tableColumnCount} className="py-12 text-center text-muted-foreground">
+                    {searchQuery ? 'No matching earnings found' : 'No earnings data for this range'}
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+    );
+  };
+
   // ─── Render ────────────────────────────────────────────────────────────────
 
   const filterOptions: { value: FilterMode; label: string; authRequired?: boolean }[] = [
@@ -777,7 +936,80 @@ const CalendarPage: React.FC = () => {
 
   const headerTitle = viewMode === 'monthly'
     ? `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`
-    : formatWeekLabel(weekInfo.days);
+    : viewMode === 'weekly'
+      ? formatWeekLabel(weekInfo.days)
+      : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()} Table`;
+
+  const toggleFilter = (filter: FilterMode) => {
+    if (filter === 'all') {
+      setActiveFilters(new Set());
+      return;
+    }
+
+    setActiveFilters(prev => {
+      const next = new Set(prev);
+      if (next.has(filter)) {
+        next.delete(filter);
+      } else {
+        next.add(filter);
+      }
+      return next;
+    });
+  };
+
+  const renderFilterButtons = () => (
+    <div className="flex flex-wrap items-center gap-2">
+      {filterOptions.map(opt => {
+        if (opt.authRequired && !user) return null;
+        const isActive = opt.value === 'all'
+          ? activeFilters.size === 0
+          : activeFilters.has(opt.value as SelectableFilterMode);
+        return (
+          <Button
+            key={opt.value}
+            variant={isActive ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => toggleFilter(opt.value)}
+            className={isActive ? '' : 'text-muted-foreground'}
+          >
+            {opt.label}
+          </Button>
+        );
+      })}
+    </div>
+  );
+
+  const renderViewModeToggle = () => (
+    <div className="flex items-center gap-1 bg-muted/30 rounded-lg p-1 border border-border/50 w-fit">
+      <Button
+        variant={viewMode === 'monthly' ? 'default' : 'ghost'}
+        size="sm"
+        onClick={() => setViewMode('monthly')}
+        className="gap-1.5"
+      >
+        <Calendar className="w-3.5 h-3.5" />
+        Monthly
+      </Button>
+      <Button
+        variant={viewMode === 'weekly' ? 'default' : 'ghost'}
+        size="sm"
+        onClick={() => setViewMode('weekly')}
+        className="gap-1.5"
+      >
+        <List className="w-3.5 h-3.5" />
+        Weekly
+      </Button>
+      <Button
+        variant={viewMode === 'table' ? 'default' : 'ghost'}
+        size="sm"
+        onClick={() => setViewMode('table')}
+        className="gap-1.5"
+      >
+        <BarChart3 className="w-3.5 h-3.5" />
+        Table
+      </Button>
+    </div>
+  );
 
   return (
     <div className={`flex flex-col min-h-screen ${pageStyles.gradientBg}`}>
@@ -799,194 +1031,171 @@ const CalendarPage: React.FC = () => {
               </div>
 
               {/* View Mode Toggle */}
-              <div className="flex items-center gap-1 bg-muted/30 rounded-lg p-1 border border-border/50">
-                <Button
-                  variant={viewMode === 'monthly' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('monthly')}
-                  className="gap-1.5"
-                >
-                  <Calendar className="w-3.5 h-3.5" />
-                  Monthly
-                </Button>
-                <Button
-                  variant={viewMode === 'weekly' ? 'default' : 'ghost'}
-                  size="sm"
-                  onClick={() => setViewMode('weekly')}
-                  className="gap-1.5"
-                >
-                  <List className="w-3.5 h-3.5" />
-                  Weekly
-                </Button>
-              </div>
+              {renderViewModeToggle()}
             </div>
 
             {/* Filter Buttons */}
-            <div className="flex flex-wrap items-center gap-2">
-              {filterOptions.map(opt => {
-                if (opt.authRequired && !user) return null;
-                const isActive = activeFilter === opt.value;
-                return (
-                  <Button
-                    key={opt.value}
-                    variant={isActive ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setActiveFilter(opt.value)}
-                    className={isActive ? '' : 'text-muted-foreground'}
-                  >
-                    {opt.label}
-                  </Button>
-                );
-              })}
-            </div>
+            {renderFilterButtons()}
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card className={pageStyles.card}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-primary/10"><Clock className="w-5 h-5 text-primary" /></div>
-                  <div>
-                    <div className="text-2xl font-bold">{stats.totalUpcoming}</div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-wide">Upcoming</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className={pageStyles.card}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-emerald-500/10"><TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /></div>
-                  <div>
-                    <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.beatCount}</div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-wide">Beats</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className={pageStyles.card}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-rose-500/10"><TrendingDown className="w-5 h-5 text-rose-600 dark:text-rose-400" /></div>
-                  <div>
-                    <div className="text-2xl font-bold text-rose-600 dark:text-rose-400">{stats.missCount}</div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-wide">Misses</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className={pageStyles.card}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-amber-500/10"><Target className="w-5 h-5 text-amber-500" /></div>
-                  <div>
-                    <div className="text-2xl font-bold">{stats.beatRate}%</div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-wide">Beat Rate</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-            {/* Calendar / Week Section */}
-            <Card className={`xl:col-span-2 ${pageStyles.card}`}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <button onClick={navigateBack} className="p-2 hover:bg-muted/50 rounded-xl transition-colors">
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <div className="text-center">
-                    <CardTitle className="mb-1 flex items-center justify-center gap-2 text-xl">
-                      {headerTitle}
-                    </CardTitle>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Click any day to view detailed earnings reports
-                    </p>
-                    {renderCategoryLegend()}
-                  </div>
-                  <button onClick={navigateForward} className="p-2 hover:bg-muted/50 rounded-xl transition-colors">
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-                </div>
-              </CardHeader>
-              <CardContent className="px-2 pt-0">
-                {viewMode === 'monthly' ? (
-                  <div className="grid grid-cols-5 gap-px">
-                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => (
-                      <div key={day} className="h-8 p-2 font-semibold text-center text-sm text-muted-foreground border-b border-border/40">{day}</div>
-                    ))}
-                    {renderMonthlyCalendar()}
-                  </div>
-                ) : (
-                  renderWeeklyView()
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Earnings List Section */}
-            <Card className={`${pageStyles.card} flex flex-col max-h-[1000px] overflow-hidden`}>
-              <CardHeader className="pb-3 flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">Earnings Reports</CardTitle>
-                </div>
-                <div className="relative mt-3">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input placeholder="Search by symbol..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 bg-muted/30 border-border/50" />
-                </div>
-              </CardHeader>
-              <CardContent className="p-0 flex-1 flex flex-col min-h-0">
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1 min-h-0">
-                  <div className="px-4 flex-shrink-0">
-                    <TabsList className="w-full grid grid-cols-2 bg-muted/30">
-                      <TabsTrigger value="upcoming" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                        Upcoming ({filteredUpcomingEvents.length})
-                      </TabsTrigger>
-                      <TabsTrigger value="previous" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                        Previous ({filteredPreviousEvents.length})
-                      </TabsTrigger>
-                    </TabsList>
-                  </div>
-
-                  <TabsContent value="upcoming" className="mt-0 flex-1 min-h-0 data-[state=inactive]:hidden">
-                    <div className="h-full overflow-y-auto">
-                      <div className="p-4 space-y-2">
-                        {filteredUpcomingEvents.length > 0 ? (
-                          filteredUpcomingEvents.map((event, idx) => (
-                            <React.Fragment key={`${event.symbol}-${event.date}-${idx}`}>{renderEarningsListItem(event)}</React.Fragment>
-                          ))
-                        ) : (
-                          <div className="py-12 text-center">
-                            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted/50 mb-3"><Calendar className="w-6 h-6 text-muted-foreground" /></div>
-                            <div className="text-muted-foreground text-sm">{searchQuery ? 'No matching earnings found' : 'No upcoming earnings'}</div>
-                          </div>
-                        )}
+          {viewMode === 'table' ? (
+            renderTableView()
+          ) : (
+            <>
+              {/* Stats Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card className={pageStyles.card}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-primary/10"><Clock className="w-5 h-5 text-primary" /></div>
+                      <div>
+                        <div className="text-2xl font-bold">{stats.totalUpcoming}</div>
+                        <div className="text-xs text-muted-foreground uppercase tracking-wide">Upcoming</div>
                       </div>
                     </div>
-                  </TabsContent>
-
-                  <TabsContent value="previous" className="mt-0 flex-1 min-h-0 data-[state=inactive]:hidden">
-                    <div className="h-full overflow-y-auto">
-                      <div className="p-4 space-y-2">
-                        {filteredPreviousEvents.length > 0 ? (
-                          filteredPreviousEvents.map((event, idx) => (
-                            <React.Fragment key={`${event.symbol}-${event.date}-${idx}`}>{renderEarningsListItem(event)}</React.Fragment>
-                          ))
-                        ) : (
-                          <div className="py-12 text-center">
-                            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted/50 mb-3"><Calendar className="w-6 h-6 text-muted-foreground" /></div>
-                            <div className="text-muted-foreground text-sm">{searchQuery ? 'No matching earnings found' : 'No previous earnings'}</div>
-                          </div>
-                        )}
+                  </CardContent>
+                </Card>
+                <Card className={pageStyles.card}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-emerald-500/10"><TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /></div>
+                      <div>
+                        <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.beatCount}</div>
+                        <div className="text-xs text-muted-foreground uppercase tracking-wide">Beats</div>
                       </div>
                     </div>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-          </div>
+                  </CardContent>
+                </Card>
+                <Card className={pageStyles.card}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-rose-500/10"><TrendingDown className="w-5 h-5 text-rose-600 dark:text-rose-400" /></div>
+                      <div>
+                        <div className="text-2xl font-bold text-rose-600 dark:text-rose-400">{stats.missCount}</div>
+                        <div className="text-xs text-muted-foreground uppercase tracking-wide">Misses</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className={pageStyles.card}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-xl bg-amber-500/10"><Target className="w-5 h-5 text-amber-500" /></div>
+                      <div>
+                        <div className="text-2xl font-bold">{stats.beatRate}%</div>
+                        <div className="text-xs text-muted-foreground uppercase tracking-wide">Beat Rate</div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Main Content Grid */}
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                {/* Calendar / Week Section */}
+                <Card className={`xl:col-span-2 ${pageStyles.card}`}>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <button onClick={navigateBack} className="p-2 hover:bg-muted/50 rounded-xl transition-colors">
+                        <ChevronLeft className="w-5 h-5" />
+                      </button>
+                      <div className="text-center">
+                        <CardTitle className="mb-1 flex items-center justify-center gap-2 text-xl">
+                          {headerTitle}
+                        </CardTitle>
+                        {viewMode !== 'table' && (
+                          <>
+                            <p className="text-sm text-muted-foreground mb-3">
+                              Click any day to view detailed earnings reports
+                            </p>
+                            {renderCategoryLegend()}
+                          </>
+                        )}
+                      </div>
+                      <button onClick={navigateForward} className="p-2 hover:bg-muted/50 rounded-xl transition-colors">
+                        <ChevronRight className="w-5 h-5" />
+                      </button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="px-2 pt-0">
+                    {viewMode === 'monthly' ? (
+                      <div className="grid grid-cols-5 gap-px">
+                        {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => (
+                          <div key={day} className="h-8 p-2 font-semibold text-center text-sm text-muted-foreground border-b border-border/40">{day}</div>
+                        ))}
+                        {renderMonthlyCalendar()}
+                      </div>
+                    ) : viewMode === 'weekly' ? (
+                      renderWeeklyView()
+                    ) : (
+                      renderTableView()
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Earnings List Section */}
+                <Card className={`${pageStyles.card} flex flex-col max-h-[1000px] overflow-hidden`}>
+                  <CardHeader className="pb-3 flex-shrink-0">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">Earnings Reports</CardTitle>
+                    </div>
+                    <div className="relative mt-3">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input placeholder="Search by symbol..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 bg-muted/30 border-border/50" />
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-0 flex-1 flex flex-col min-h-0">
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1 min-h-0">
+                      <div className="px-4 flex-shrink-0">
+                        <TabsList className="w-full grid grid-cols-2 bg-muted/30">
+                          <TabsTrigger value="upcoming" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                            Upcoming ({filteredUpcomingEvents.length})
+                          </TabsTrigger>
+                          <TabsTrigger value="previous" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                            Previous ({filteredPreviousEvents.length})
+                          </TabsTrigger>
+                        </TabsList>
+                      </div>
+
+                      <TabsContent value="upcoming" className="mt-0 flex-1 min-h-0 data-[state=inactive]:hidden">
+                        <div className="h-full overflow-y-auto">
+                          <div className="p-4 space-y-2">
+                            {filteredUpcomingEvents.length > 0 ? (
+                              filteredUpcomingEvents.map((event, idx) => (
+                                <React.Fragment key={`${event.symbol}-${event.date}-${idx}`}>{renderEarningsListItem(event)}</React.Fragment>
+                              ))
+                            ) : (
+                              <div className="py-12 text-center">
+                                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted/50 mb-3"><Calendar className="w-6 h-6 text-muted-foreground" /></div>
+                                <div className="text-muted-foreground text-sm">{searchQuery ? 'No matching earnings found' : 'No upcoming earnings'}</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="previous" className="mt-0 flex-1 min-h-0 data-[state=inactive]:hidden">
+                        <div className="h-full overflow-y-auto">
+                          <div className="p-4 space-y-2">
+                            {filteredPreviousEvents.length > 0 ? (
+                              filteredPreviousEvents.map((event, idx) => (
+                                <React.Fragment key={`${event.symbol}-${event.date}-${idx}`}>{renderEarningsListItem(event)}</React.Fragment>
+                              ))
+                            ) : (
+                              <div className="py-12 text-center">
+                                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted/50 mb-3"><Calendar className="w-6 h-6 text-muted-foreground" /></div>
+                                <div className="text-muted-foreground text-sm">{searchQuery ? 'No matching earnings found' : 'No previous earnings'}</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
         </div>
       </main>
     </div>

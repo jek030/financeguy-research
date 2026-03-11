@@ -1,18 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
+function toNumberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
 // Helper to map database rows to the shape the frontend expects
 function mapRows(data: Record<string, unknown>[]) {
   return data.map((row) => ({
-    date: row.report_date,
+    id: row.id,
     symbol: row.symbol,
-    eps: row.eps_actual,
-    epsEstimated: row.eps_estimated,
-    time: (row.report_time as string) || '',
-    revenue: row.revenue_actual ? Number(row.revenue_actual) : null,
-    revenueEstimated: row.revenue_estimated ? Number(row.revenue_estimated) : null,
-    updatedFromDate: row.updated_at ? (row.updated_at as string).split('T')[0] : '',
+    reportDate: (row.report_date as string) || '',
+    date: (row.report_date as string) || '',
     fiscalDateEnding: (row.fiscal_date_ending as string) || '',
+    epsActual: toNumberOrNull(row.eps_actual),
+    eps: toNumberOrNull(row.eps_actual),
+    epsEstimated: toNumberOrNull(row.eps_estimated),
+    revenueActual: toNumberOrNull(row.revenue_actual),
+    revenue: toNumberOrNull(row.revenue_actual),
+    revenueEstimated: toNumberOrNull(row.revenue_estimated),
+    reportTime: (row.report_time as string) || '',
+    time: (row.report_time as string) || '',
+    updatedAt: (row.updated_at as string) || '',
+    updatedFromDate: row.updated_at ? (row.updated_at as string).split('T')[0] : '',
+    createdAt: (row.created_at as string) || '',
   }));
 }
 

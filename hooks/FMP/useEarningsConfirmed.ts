@@ -1,14 +1,21 @@
 import { useQuery } from '@tanstack/react-query';
 
 interface EarningsConfirmed {
+  id?: number;
+  reportDate?: string;
   date: string;
   symbol: string;
+  epsActual?: number | null;
   eps: number | null;
   epsEstimated: number | null;
+  reportTime?: string;
   time: string;
+  revenueActual?: number | null;
   revenue: number | null;
   revenueEstimated: number | null;
+  updatedAt?: string;
   updatedFromDate: string;
+  createdAt?: string;
   fiscalDateEnding: string;
   exchange?: string;
   when?: string;
