@@ -273,6 +273,14 @@ const CalendarPage: React.FC = () => {
     return ((actual - estimated) / Math.abs(estimated)) * 100;
   };
 
+  const getReportTimeSortRank = (time: string | undefined): number => {
+    const normalized = (time || '').toLowerCase();
+    if (normalized === 'bmo') return 0;
+    if (normalized === 'amc') return 1;
+    if (normalized) return 2;
+    return 3;
+  };
+
   const getDaysUntil = (dateStr: string | undefined): string => {
     if (!dateStr) return '';
     const eventDate = parseLocalDate(dateStr);
@@ -395,6 +403,10 @@ const CalendarPage: React.FC = () => {
     return [...filtered].sort((a, b) => {
       const dateCompare = (a.reportDate || a.date || '').localeCompare(b.reportDate || b.date || '');
       if (dateCompare !== 0) return dateCompare;
+      const reportTimeCompare = getReportTimeSortRank(a.reportTime || a.time) - getReportTimeSortRank(b.reportTime || b.time);
+      if (reportTimeCompare !== 0) return reportTimeCompare;
+      const timeLabelCompare = (a.reportTime || a.time || '').localeCompare(b.reportTime || b.time || '');
+      if (timeLabelCompare !== 0) return timeLabelCompare;
       return (a.symbol || '').localeCompare(b.symbol || '');
     });
   }, [earnings, searchQuery]);
@@ -836,7 +848,7 @@ const CalendarPage: React.FC = () => {
   };
 
   const renderTableView = (): React.ReactElement => {
-    const tableColumnCount = 13;
+    const tableColumnCount = 12;
 
     return (
       <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm shadow-sm overflow-hidden">
@@ -844,8 +856,8 @@ const CalendarPage: React.FC = () => {
           <Table className="min-w-[1180px]">
             <TableHeader className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
               <TableRow className="border-b border-border/60">
-                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">ID</TableHead>
                 <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Symbol</TableHead>
+                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Report Time</TableHead>
                 <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Report Date</TableHead>
                 <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Fiscal Date Ending</TableHead>
                 <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground text-right">EPS Actual</TableHead>
@@ -854,7 +866,6 @@ const CalendarPage: React.FC = () => {
                 <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground text-right">Revenue Actual</TableHead>
                 <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground text-right">Revenue Estimated</TableHead>
                 <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground text-right">Revenue Beat %</TableHead>
-                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Report Time</TableHead>
                 <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Updated At</TableHead>
                 <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Created At</TableHead>
               </TableRow>
@@ -866,6 +877,7 @@ const CalendarPage: React.FC = () => {
                   const previousRowDate = idx > 0 ? (filteredTableRows[idx - 1].reportDate || filteredTableRows[idx - 1].date || '') : '';
                   const shouldShowDivider = idx === 0 || rowDate !== previousRowDate;
                   const isTodayDivider = rowDate === todayDateKey;
+                  const reportTimeValue = row.reportTime || row.time || '';
                   const epsBeatPct = getBeatPercentage(row.epsActual ?? row.eps ?? null, row.epsEstimated ?? null);
                   const revenueBeatPct = getBeatPercentage(row.revenueActual ?? row.revenue ?? null, row.revenueEstimated ?? null);
                   const epsBeatClass = epsBeatPct !== null ? (epsBeatPct > 0 ? 'text-emerald-500' : epsBeatPct < 0 ? 'text-red-500' : 'text-muted-foreground') : 'text-muted-foreground';
@@ -881,7 +893,6 @@ const CalendarPage: React.FC = () => {
                         </TableRow>
                       )}
                       <TableRow className="odd:bg-background/20 even:bg-muted/10 hover:!bg-accent/30">
-                        <TableCell>{row.id ?? '\u2014'}</TableCell>
                         <TableCell className="font-semibold">
                           <button
                             type="button"
@@ -891,6 +902,12 @@ const CalendarPage: React.FC = () => {
                             {row.symbol}
                           </button>
                         </TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide">
+                            {getTimeIcon(reportTimeValue)}
+                            {reportTimeValue || '\u2014'}
+                          </span>
+                        </TableCell>
                         <TableCell className="whitespace-nowrap text-muted-foreground">{row.reportDate || row.date || '\u2014'}</TableCell>
                         <TableCell className="whitespace-nowrap text-muted-foreground">{row.fiscalDateEnding || '\u2014'}</TableCell>
                         <TableCell className="text-right tabular-nums">{row.epsActual !== null && row.epsActual !== undefined ? row.epsActual.toFixed(4) : '\u2014'}</TableCell>
@@ -899,11 +916,6 @@ const CalendarPage: React.FC = () => {
                         <TableCell className="text-right tabular-nums">{formatCurrency(row.revenueActual ?? null)}</TableCell>
                         <TableCell className="text-right tabular-nums">{formatCurrency(row.revenueEstimated ?? null)}</TableCell>
                         <TableCell className={`text-right tabular-nums font-semibold ${revenueBeatClass}`}>{formatPercentage(revenueBeatPct)}</TableCell>
-                        <TableCell>
-                          <span className="inline-flex items-center rounded-full border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide">
-                            {row.reportTime || row.time || '\u2014'}
-                          </span>
-                        </TableCell>
                         <TableCell className="whitespace-nowrap text-muted-foreground">{formatDateTime(row.updatedAt)}</TableCell>
                         <TableCell className="whitespace-nowrap text-muted-foreground">{formatDateTime(row.createdAt)}</TableCell>
                       </TableRow>
