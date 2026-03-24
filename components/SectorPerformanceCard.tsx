@@ -37,16 +37,16 @@ function formatDate(dateString?: string | null): string {
 
 export function SectorPerformanceCard({ title, startDate, endDate, data }: SectorPerformanceCardProps) {
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg font-medium text-foreground/90">{title}</CardTitle>
+    <Card className="w-full border-slate-300/80 bg-white/95 shadow-sm dark:border-slate-700 dark:bg-slate-950/70">
+      <CardHeader className="space-y-1.5 border-b border-slate-200 px-3 pb-2 pt-2.5 dark:border-slate-800">
+        <CardTitle className="text-sm font-semibold text-slate-800 dark:text-slate-100">{title}</CardTitle>
         {startDate && endDate && (
-          <p className="text-sm text-muted-foreground">
+          <p className="font-mono text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
             {formatDate(startDate)} to {formatDate(endDate)}
           </p>
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-2.5 pb-2.5 pt-2">
         <SectorReturnChart title="" data={data} />
       </CardContent>
     </Card>

@@ -49,6 +49,12 @@ interface PreparedPerformance {
   endDate: string | null;
 }
 
+interface PreparedSymbolData {
+  sortedRecords: Sector[];
+  latestRecord: Sector;
+  latestDate: Date;
+}
+
 function adjustUtcDate(date: Date, { days = 0, months = 0 }: { days?: number; months?: number }): Date {
   const utcDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
   if (months !== 0) {
@@ -123,13 +129,8 @@ function calculatePerformance(current?: number | null, baseline?: number | null)
   return ((current - baseline) / baseline) * 100;
 }
 
-function preparePerformanceData(
-  sectorsBySymbol: Record<string, Sector[]>,
-  config: PerformanceConfig,
-  globalEndDate: string | null
-): PreparedPerformance {
-  const rows: Array<{ name: string; symbol: string; performance: number }> = [];
-  let startDate: string | null = null;
+function prepareSymbolDataMap(sectorsBySymbol: Record<string, Sector[]>): Record<string, PreparedSymbolData> {
+  const preparedMap: Record<string, PreparedSymbolData> = {};
 
   orderedSymbols.forEach((symbol) => {
     const records = sectorsBySymbol[symbol];
@@ -145,12 +146,36 @@ function preparePerformanceData(
       return;
     }
 
-    const targetDate = config.computeTargetDate(latestDate);
+    preparedMap[symbol] = {
+      sortedRecords,
+      latestRecord,
+      latestDate
+    };
+  });
+
+  return preparedMap;
+}
+
+function preparePerformanceData(
+  preparedBySymbol: Record<string, PreparedSymbolData>,
+  config: PerformanceConfig,
+  globalEndDate: string | null
+): PreparedPerformance {
+  const rows: Array<{ name: string; symbol: string; performance: number }> = [];
+  let startDate: string | null = null;
+
+  orderedSymbols.forEach((symbol) => {
+    const preparedSymbol = preparedBySymbol[symbol];
+    if (!preparedSymbol) {
+      return;
+    }
+
+    const targetDate = config.computeTargetDate(preparedSymbol.latestDate);
     const targetDateIso = toIsoDate(targetDate);
-    const comparisonRecord = findClosestDataPoint(sortedRecords, targetDateIso);
+    const comparisonRecord = findClosestDataPoint(preparedSymbol.sortedRecords, targetDateIso);
 
     const performance = calculatePerformance(
-      Number(latestRecord.close),
+      Number(preparedSymbol.latestRecord.close),
       comparisonRecord ? Number(comparisonRecord.close) : null
     );
 
@@ -181,8 +206,36 @@ interface SectorReturnsProps {
   error: Error | null;
 }
 
+function StateCard({
+  title,
+  heading,
+  message,
+  showIcon = true
+}: {
+  title: string;
+  heading: string;
+  message: string;
+  showIcon?: boolean;
+}) {
+  return (
+    <Card className="w-full">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-xl font-medium text-foreground/90">{title}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex flex-col items-center justify-center py-8 text-center">
+          {showIcon && <AlertTriangle className="mb-4 h-12 w-12 text-amber-500" />}
+          <h3 className="mb-1 text-lg font-medium">{heading}</h3>
+          <p className="text-muted-foreground">{message}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SectorReturns({ sectorsBySymbol, latestDate, isLoading, error }: SectorReturnsProps) {
   const hasAnyData = Object.values(sectorsBySymbol).some((records) => records.length > 0);
+  const preparedBySymbol = useMemo(() => prepareSymbolDataMap(sectorsBySymbol), [sectorsBySymbol]);
 
   const performanceCards = useMemo(() => {
     if (!hasAnyData) {
@@ -190,7 +243,7 @@ export default function SectorReturns({ sectorsBySymbol, latestDate, isLoading, 
     }
 
     return performanceConfigs.map((config) => {
-      const result = preparePerformanceData(sectorsBySymbol, config, latestDate ?? null);
+      const result = preparePerformanceData(preparedBySymbol, config, latestDate ?? null);
       return {
         key: config.key,
         title: config.title,
@@ -199,11 +252,11 @@ export default function SectorReturns({ sectorsBySymbol, latestDate, isLoading, 
         rows: result.rows
       };
     });
-  }, [hasAnyData, latestDate, sectorsBySymbol]);
+  }, [hasAnyData, latestDate, preparedBySymbol]);
 
   if (isLoading) {
     return (
-      <div className="w-full grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="w-full grid grid-cols-1 gap-1.5 md:grid-cols-2 xl:grid-cols-4">
         {performanceConfigs.map((config) => (
           <Card key={config.key} className="w-full">
             <CardHeader className="pb-2">
@@ -220,40 +273,26 @@ export default function SectorReturns({ sectorsBySymbol, latestDate, isLoading, 
 
   if (error) {
     return (
-      <Card className="w-full">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xl font-medium text-foreground/90">Sector Performance</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <AlertTriangle className="h-12 w-12 text-amber-500 mb-4" />
-            <h3 className="text-lg font-medium mb-1">Error Loading Data</h3>
-            <p className="text-muted-foreground">{error.message || "Failed to load sector performance data"}</p>
-          </div>
-        </CardContent>
-      </Card>
+      <StateCard
+        title="Sector Performance"
+        heading="Error Loading Data"
+        message={error.message || "Failed to load sector performance data"}
+      />
     );
   }
 
   if (!hasAnyData) {
     return (
-      <Card className="w-full">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xl font-medium text-foreground/90">Sector Performance</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <AlertTriangle className="h-12 w-12 text-amber-500 mb-4" />
-            <h3 className="text-lg font-medium mb-1">No Data Available</h3>
-            <p className="text-muted-foreground">Could not retrieve sector data from the database.</p>
-          </div>
-        </CardContent>
-      </Card>
+      <StateCard
+        title="Sector Performance"
+        heading="No Data Available"
+        message="Could not retrieve sector data from the database."
+      />
     );
   }
 
   return (
-    <div className="w-full grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div className="w-full grid grid-cols-1 gap-1.5 md:grid-cols-2 xl:grid-cols-4">
       {performanceCards.map((card) => (
         <SectorPerformanceCard
           key={card.key}
