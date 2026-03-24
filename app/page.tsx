@@ -1,8 +1,7 @@
 'use client';
 
 import { useQuote } from "@/hooks/FMP/useQuote";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card";
-import { ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMovingAverageData } from '@/hooks/FMP/useMovingAverage';
 import type { Ticker } from "@/lib/types";
@@ -47,6 +46,11 @@ export default function Home() {
     return ((current - target) / target) * 100;
   };
 
+  const formatDollarChange = (value: number) => {
+    const sign = value >= 0 ? "+" : "-";
+    return `${sign}$${formatNumber(Math.abs(value))}`;
+  };
+
   const useMovingAverages = (symbol: string, currentPrice: number) => {
     const twentyOneEmaData = useMovingAverageData(symbol, 'ema', '21', '1day');
     const fiftyEmaData = useMovingAverageData(symbol, 'ema', '50', '1day');
@@ -81,214 +85,187 @@ export default function Home() {
     };
   };
 
-  const MarketCard = ({ 
-    title, 
-    symbol, 
-    data, 
-    isLoading 
-  }: { 
-    title: string; 
-    symbol: string; 
-    data: Ticker | undefined; 
-    isLoading: boolean 
+  const TerminalTicker = ({
+    label,
+    symbol,
+    data,
+    isLoading
+  }: {
+    label: string;
+    symbol: string;
+    data: Ticker | undefined;
+    isLoading: boolean;
   }) => {
     const movingAverages = useMovingAverages(symbol, data?.price || 0);
+    const currentPrice = data?.price || 0;
+
+    const rows = data ? [
+      {
+        name: movingAverages.ema21.isLoading
+          ? "21EMA ..."
+          : `21EMA $${formatNumber(movingAverages.ema21.data.value)}`,
+        percentChange: movingAverages.ema21.isLoading ? null : movingAverages.ema21.data.percentDiff,
+        dollarChange: movingAverages.ema21.isLoading ? null : currentPrice - movingAverages.ema21.data.value
+      },
+      {
+        name: movingAverages.ema50.isLoading
+          ? "50EMA ..."
+          : `50EMA $${formatNumber(movingAverages.ema50.data.value)}`,
+        percentChange: movingAverages.ema50.isLoading ? null : movingAverages.ema50.data.percentDiff,
+        dollarChange: movingAverages.ema50.isLoading ? null : currentPrice - movingAverages.ema50.data.value
+      },
+      {
+        name: movingAverages.sma200.isLoading
+          ? "200SMA ..."
+          : `200SMA $${formatNumber(movingAverages.sma200.data.value)}`,
+        percentChange: movingAverages.sma200.isLoading ? null : movingAverages.sma200.data.percentDiff,
+        dollarChange: movingAverages.sma200.isLoading ? null : currentPrice - movingAverages.sma200.data.value
+      },
+      {
+        name: `52W LOW $${formatNumber(data.yearLow)}`,
+        percentChange: calculatePercentDiff(currentPrice, data.yearLow),
+        dollarChange: currentPrice - data.yearLow
+      },
+      {
+        name: `52W HIGH $${formatNumber(data.yearHigh)}`,
+        percentChange: calculatePercentDiff(currentPrice, data.yearHigh),
+        dollarChange: currentPrice - data.yearHigh
+      }
+    ] : [];
 
     return (
-      <Card className={pageStyles.card}>
-        <CardHeader className="pb-0 pt-2 px-2">
-          <CardTitle className="text-base font-medium text-foreground/90">{title} ({symbol})</CardTitle>
-        </CardHeader>
-        <CardContent className="px-2 pb-2">
+      <div className="min-w-[285px] shrink-0 rounded border border-slate-300/80 bg-white/95 px-2 py-1.5 shadow-sm dark:border-slate-700 dark:bg-slate-950/70">
+        <div className="mb-1.5 border-b border-slate-200 pb-1.5 dark:border-slate-800">
+          <div className="mb-1 flex items-center justify-between gap-2">
+            <span className="truncate rounded bg-slate-200 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-slate-700 dark:bg-slate-800 dark:text-slate-200">{symbol}</span>
+            <span className="truncate font-mono text-[10px] text-slate-500 dark:text-slate-400">{label}</span>
+          </div>
           {isLoading ? (
-            <div className="flex items-center space-x-4 h-12">
-              <div className="h-5 w-20 bg-muted animate-pulse rounded"></div>
-              <div className="h-5 w-14 bg-muted animate-pulse rounded"></div>
-            </div>
+            <div className="h-4 w-36 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
           ) : data ? (
-            <div className="flex flex-col space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-2xl font-bold">${formatNumber(data.price)}</span>
-                <div className={cn(
-                  "inline-flex items-center space-x-1 text-sm font-medium rounded-full px-1.5 py-0.5 whitespace-nowrap",
-                  data.change >= 0 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-mono text-[15px] font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                ${formatNumber(data.price)}
+              </span>
+              <div className="flex items-center gap-2 font-mono text-[10px]">
+                <span className={cn(
+                  "inline-flex items-center gap-0.5 tabular-nums",
+                  data.changesPercentage >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                 )}>
-                  {data.change >= 0 ? (
-                    <ArrowUp className="h-3 w-3 flex-shrink-0" />
-                  ) : (
-                    <ArrowDown className="h-3 w-3 flex-shrink-0" />
-                  )}
-                  <span>${formatNumber(Math.abs(data.change))}</span>
-                  <span>({formatPercentage(data.changesPercentage)})</span>
-                </div>
+                  {data.changesPercentage >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                  {formatPercentage(data.changesPercentage)}
+                </span>
+                <span className={cn(
+                  "inline-flex items-center gap-0.5 tabular-nums",
+                  data.change >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+                )}>
+                  {data.change >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                  {formatDollarChange(data.change)}
+                </span>
               </div>
-              
-              <div className="grid grid-cols-2 text-xs">
-                <div className="bg-background/50 p-1.5 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <p className="text-muted-foreground font-medium">52Wk High</p>
-                    <span className={cn(
-                      "text-[10px] font-medium px-1 py-0.5 rounded-full whitespace-nowrap",
-                      data.price >= data.yearHigh ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                    )}>
-                      {formatPercentage(calculatePercentDiff(data.price, data.yearHigh))}
-                    </span>
-                  </div>
-                  <p className="font-medium mt-0.5">${formatNumber(data.yearHigh)}</p>
-                </div>
-                <div className="bg-background/50 p-1.5 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <p className="text-muted-foreground font-medium">52Wk Low</p>
-                    <span className={cn(
-                      "text-[10px] font-medium px-1 py-0.5 rounded-full whitespace-nowrap",
-                      data.price >= data.yearLow ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                    )}>
-                      {formatPercentage(calculatePercentDiff(data.price, data.yearLow))}
-                    </span>
-                  </div>
-                  <p className="font-medium mt-0.5">${formatNumber(data.yearLow)}</p>
-                </div>
-              </div>
-              
-              {/* Moving Averages */}
-                <div className="grid grid-cols-3 gap-1">
-                  {/* 21 EMA */}
-                  {movingAverages.ema21.isLoading ? (
-                    <div className="bg-muted/30 rounded-lg p-1.5 animate-pulse h-12"></div>
-                  ) : (
-                    <div className={cn(
-                      "rounded-lg p-1.5",
-                      movingAverages.ema21.data.isAbove 
-                        ? "bg-emerald-500/5 border border-emerald-500/10" 
-                        : "bg-rose-500/5 border border-rose-500/10"
-                    )}>
-                      <div className="text-[10px] text-muted-foreground font-medium">21 EMA</div>
-                      <div className="text-xs font-medium">${formatNumber(movingAverages.ema21.data.value)}</div>
-                      <div className={cn(
-                        "flex items-center gap-0.5 text-[10px] mt-0.5 whitespace-nowrap",
-                        movingAverages.ema21.data.isAbove ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
-                      )}>
-                        {movingAverages.ema21.data.isAbove ? (
-                          <ArrowUp className="h-2.5 w-2.5 flex-shrink-0" />
-                        ) : (
-                          <ArrowDown className="h-2.5 w-2.5 flex-shrink-0" />
-                        )}
-                        {formatPercentage(Math.abs(movingAverages.ema21.data.percentDiff))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* 50 EMA */}
-                  {movingAverages.ema50.isLoading ? (
-                    <div className="bg-muted/30 rounded-lg p-1.5 animate-pulse h-12"></div>
-                  ) : (
-                    <div className={cn(
-                      "rounded-lg p-1.5",
-                      movingAverages.ema50.data.isAbove 
-                        ? "bg-emerald-500/5 border border-emerald-500/10" 
-                        : "bg-rose-500/5 border border-rose-500/10"
-                    )}>
-                      <div className="text-[10px] text-muted-foreground font-medium">50 EMA</div>
-                      <div className="text-xs font-medium">${formatNumber(movingAverages.ema50.data.value)}</div>
-                      <div className={cn(
-                        "flex items-center gap-0.5 text-[10px] mt-0.5 whitespace-nowrap",
-                        movingAverages.ema50.data.isAbove ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
-                      )}>
-                        {movingAverages.ema50.data.isAbove ? (
-                          <ArrowUp className="h-2.5 w-2.5 flex-shrink-0" />
-                        ) : (
-                          <ArrowDown className="h-2.5 w-2.5 flex-shrink-0" />
-                        )}
-                        {formatPercentage(Math.abs(movingAverages.ema50.data.percentDiff))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* 200 SMA */}
-                  {movingAverages.sma200.isLoading ? (
-                    <div className="bg-muted/30 rounded-lg p-1.5 animate-pulse h-12"></div>
-                  ) : (
-                    <div className={cn(
-                      "rounded-lg p-1.5",
-                      movingAverages.sma200.data.isAbove 
-                        ? "bg-emerald-500/5 border border-emerald-500/10" 
-                        : "bg-rose-500/5 border border-rose-500/10"
-                    )}>
-                      <div className="text-[10px] text-muted-foreground font-medium">200 SMA</div>
-                      <div className="text-xs font-medium">${formatNumber(movingAverages.sma200.data.value)}</div>
-                      <div className={cn(
-                        "flex items-center gap-0.5 text-[10px] mt-0.5 whitespace-nowrap",
-                        movingAverages.sma200.data.isAbove ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
-                      )}>
-                        {movingAverages.sma200.data.isAbove ? (
-                          <ArrowUp className="h-2.5 w-2.5 flex-shrink-0" />
-                        ) : (
-                          <ArrowDown className="h-2.5 w-2.5 flex-shrink-0" />
-                        )}
-                        {formatPercentage(Math.abs(movingAverages.sma200.data.percentDiff))}
-                      </div>
-                    </div>
-                  )}
-                </div>
             </div>
           ) : (
-            <div className="text-sm text-muted-foreground">Unable to load {symbol} data</div>
+            <div className="font-mono text-[11px] text-rose-600 dark:text-rose-400">Unable to load {symbol}</div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+        {isLoading ? (
+          <div className="space-y-1.5 pb-0.5">
+            <div className="grid grid-cols-[1fr,72px,72px] gap-2 border-b border-slate-200 pb-1 font-mono text-[10px] uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400">
+              <span>Name</span>
+              <span className="text-right">% Chg</span>
+              <span className="text-right">$ Chg</span>
+            </div>
+            {Array.from({ length: 5 }).map((_, idx) => (
+              <div key={idx} className="grid grid-cols-[1fr,72px,72px] items-center gap-2">
+                <div className="h-3 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+                <div className="h-3 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+                <div className="h-3 animate-pulse rounded bg-slate-200 dark:bg-slate-800" />
+              </div>
+            ))}
+          </div>
+        ) : data ? (
+          <div className="space-y-1 pb-0.5">
+            <div className="grid grid-cols-[1fr,72px,72px] gap-2 border-b border-slate-200 pb-1 font-mono text-[10px] uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:text-slate-400">
+              <span>Name</span>
+              <span className="text-right">% Chg</span>
+              <span className="text-right">$ Chg</span>
+            </div>
+            {rows.map((row, index) => (
+              <div
+                key={row.name}
+                className={cn(
+                  "grid grid-cols-[1fr,72px,72px] items-center gap-2 rounded px-1 py-0.5 font-mono text-[11px]",
+                  index % 2 === 0 ? "bg-slate-100/70 dark:bg-slate-900/55" : "bg-transparent"
+                )}
+              >
+                <span className="truncate text-slate-800 dark:text-slate-200">{row.name}</span>
+                <span className={cn(
+                  "inline-flex items-center justify-end gap-0.5 text-right tabular-nums",
+                  row.percentChange === null
+                    ? "text-slate-400"
+                    : row.percentChange >= 0
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-rose-600 dark:text-rose-400"
+                )}>
+                  {row.percentChange !== null && (
+                    row.percentChange >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                  )}
+                  {row.percentChange === null ? "--" : formatPercentage(row.percentChange)}
+                </span>
+                <span className={cn(
+                  "inline-flex items-center justify-end gap-0.5 text-right tabular-nums",
+                  row.dollarChange === null
+                    ? "text-slate-400"
+                    : row.dollarChange >= 0
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-rose-600 dark:text-rose-400"
+                )}>
+                  {row.dollarChange !== null && (
+                    row.dollarChange >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                  )}
+                  {row.dollarChange === null ? "--" : formatDollarChange(row.dollarChange)}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="pb-0.5 font-mono text-[11px] text-rose-600 dark:text-rose-400">Unable to load {symbol}</div>
+        )}
+      </div>
     );
   };
 
   return (
-    <div className={`flex flex-col min-h-screen ${pageStyles.gradientBg}`}>
-      <main className="flex-1">
-        <div className="flex h-full">
-          <div className="flex-1 min-w-0 p-2 md:p-4">
-            {/* Market Data Cards */}
-            <div className="max-w-8xl">
-              <div className="flex overflow-x-auto pb-2 gap-3 md:gap-2 -mx-2 md:-mx-3 px-2 md:px-3">
-                <div className="flex-shrink-0 w-[280px] md:w-[300px]">
-                  <MarketCard title="S&P 500 ETF" symbol="SPY" data={spyData} isLoading={isSpyLoading} />
-                </div>
-                <div className="flex-shrink-0 w-[280px] md:w-[300px]">
-                  <MarketCard title="Nasdaq 100 ETF" symbol="QQQ" data={qqqData} isLoading={isQqqLoading} />
-                </div>
-                <div className="flex-shrink-0 w-[280px] md:w-[300px]">
-                  <MarketCard title="Dow Jones ETF" symbol="DIA" data={diaData} isLoading={isDiaLoading} />
-                </div>
-                <div className="flex-shrink-0 w-[280px] md:w-[300px]">
-                  <MarketCard title="Equal Weight S&P" symbol="RSP" data={rspData} isLoading={isRspLoading} />
-                </div>
-                <div className="flex-shrink-0 w-[280px] md:w-[300px]">
-                  <MarketCard title="Silver ETF" symbol="SLV" data={slvData} isLoading={isSlvLoading} />
-                </div>
-                <div className="flex-shrink-0 w-[280px] md:w-[300px]">
-                  <MarketCard title="Gold ETF" symbol="GLD" data={gldData} isLoading={isGldLoading} />
-                </div>
-                <div className="flex-shrink-0 w-[280px] md:w-[300px]">
-                  <MarketCard title="VIX" symbol="^VIX" data={vixData} isLoading={isVixLoading} />
-                </div>
-              </div>
-            </div>
-              
-            {/* Sector Performance */}
-            <div className="mt-8">
-              <SectorReturns
-                sectorsBySymbol={sectorsBySymbol}
-                latestDate={latestDate}
-                isLoading={sectorsLoading}
-                error={sectorsError}
-              />
-            </div>
-            <div className="mt-8">
-              <SectorOverviewChart
-                sectorsBySymbol={sectorsBySymbol}
-                isLoading={sectorsLoading}
-                error={sectorsError}
-              />
-            </div>
+    <div className={`min-h-screen ${pageStyles.gradientBg}`}>
+      <main className="w-full px-1 pb-3 pt-2 sm:px-2 sm:pb-4 sm:pt-3 lg:px-2">
+        <section className="rounded-lg border border-slate-300/80 bg-slate-50/90 p-2 shadow-[0_0_0_1px_rgba(100,116,139,0.1)] backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/80 dark:shadow-[0_0_0_1px_rgba(100,116,139,0.18)]">
+          <div className="-mx-2 mb-2 grid grid-flow-col auto-cols-[minmax(285px,1fr)] gap-1.5 overflow-x-auto px-2 pb-1 md:mx-0 md:grid-flow-row md:auto-cols-auto md:grid-cols-2 md:overflow-visible md:px-0 xl:grid-cols-3 2xl:grid-cols-4">
+            <TerminalTicker label="S&P 500 ETF" symbol="SPY" data={spyData} isLoading={isSpyLoading} />
+            <TerminalTicker label="Nasdaq 100 ETF" symbol="QQQ" data={qqqData} isLoading={isQqqLoading} />
+            <TerminalTicker label="Dow Jones ETF" symbol="DIA" data={diaData} isLoading={isDiaLoading} />
+            <TerminalTicker label="Equal Weight S&P" symbol="RSP" data={rspData} isLoading={isRspLoading} />
+            <TerminalTicker label="Silver ETF" symbol="SLV" data={slvData} isLoading={isSlvLoading} />
+            <TerminalTicker label="Gold ETF" symbol="GLD" data={gldData} isLoading={isGldLoading} />
+            <TerminalTicker label="VIX" symbol="^VIX" data={vixData} isLoading={isVixLoading} />
           </div>
-        </div>
+        </section>
+
+        <section className="mt-3 rounded-lg border border-slate-300/80 bg-slate-50/85 p-2 shadow-[0_0_0_1px_rgba(100,116,139,0.08)] backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/75 dark:shadow-[0_0_0_1px_rgba(100,116,139,0.16)] sm:p-3">
+          <SectorReturns
+            sectorsBySymbol={sectorsBySymbol}
+            latestDate={latestDate}
+            isLoading={sectorsLoading}
+            error={sectorsError}
+          />
+        </section>
+
+        <section className="mt-3 rounded-lg border border-slate-300/80 bg-slate-50/85 p-2 shadow-[0_0_0_1px_rgba(100,116,139,0.08)] backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/75 dark:shadow-[0_0_0_1px_rgba(100,116,139,0.16)] sm:p-3">
+          <SectorOverviewChart
+            sectorsBySymbol={sectorsBySymbol}
+            isLoading={sectorsLoading}
+            error={sectorsError}
+          />
+        </section>
       </main>
     </div>
   );
