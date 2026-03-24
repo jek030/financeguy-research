@@ -21,6 +21,7 @@ interface TerminalTickerProps {
 
 interface MetricRow {
   name: string;
+  referenceValue: string;
   percentChange: number | null;
   dollarChange: number | null;
 }
@@ -50,32 +51,43 @@ export function TerminalTicker({ label, symbol, data, isLoading }: TerminalTicke
     ? [
         {
           name: movingAverages.ema21.isLoading
-            ? "21EMA ..."
-            : `21EMA $${formatNumber(movingAverages.ema21.snapshot.value)}`,
+            ? "21EMA"
+            : "21EMA",
+          referenceValue: movingAverages.ema21.isLoading
+            ? "--"
+            : `$${formatNumber(movingAverages.ema21.snapshot.value)}`,
           percentChange: movingAverages.ema21.isLoading ? null : movingAverages.ema21.snapshot.percentDiff,
           dollarChange: movingAverages.ema21.isLoading ? null : movingAverages.ema21.snapshot.dollarDiff
         },
         {
           name: movingAverages.ema50.isLoading
-            ? "50EMA ..."
-            : `50EMA $${formatNumber(movingAverages.ema50.snapshot.value)}`,
+            ? "50EMA"
+            : "50EMA",
+          referenceValue: movingAverages.ema50.isLoading
+            ? "--"
+            : `$${formatNumber(movingAverages.ema50.snapshot.value)}`,
           percentChange: movingAverages.ema50.isLoading ? null : movingAverages.ema50.snapshot.percentDiff,
           dollarChange: movingAverages.ema50.isLoading ? null : movingAverages.ema50.snapshot.dollarDiff
         },
         {
           name: movingAverages.sma200.isLoading
-            ? "200SMA ..."
-            : `200SMA $${formatNumber(movingAverages.sma200.snapshot.value)}`,
+            ? "200SMA"
+            : "200SMA",
+          referenceValue: movingAverages.sma200.isLoading
+            ? "--"
+            : `$${formatNumber(movingAverages.sma200.snapshot.value)}`,
           percentChange: movingAverages.sma200.isLoading ? null : movingAverages.sma200.snapshot.percentDiff,
           dollarChange: movingAverages.sma200.isLoading ? null : movingAverages.sma200.snapshot.dollarDiff
         },
         {
-          name: `52W LOW $${formatNumber(data.yearLow)}`,
+          name: "52W LOW",
+          referenceValue: `$${formatNumber(data.yearLow)}`,
           percentChange: calculatePercentDiff(currentPrice, data.yearLow),
           dollarChange: currentPrice - data.yearLow
         },
         {
-          name: `52W HIGH $${formatNumber(data.yearHigh)}`,
+          name: "52W HIGH",
+          referenceValue: `$${formatNumber(data.yearHigh)}`,
           percentChange: calculatePercentDiff(currentPrice, data.yearHigh),
           dollarChange: currentPrice - data.yearHigh
         }
@@ -135,11 +147,16 @@ export function TerminalTicker({ label, symbol, data, isLoading }: TerminalTicke
             <div
               key={row.name}
               className={cn(
-                "grid grid-cols-[1fr,72px,72px] items-center gap-2 rounded px-1 py-0.5 font-mono text-[11px]",
+                "grid grid-cols-[1fr,72px,72px] items-center gap-2 rounded px-1 py-1 font-mono text-[11px]",
                 index % 2 === 0 ? "bg-neutral-100/70 dark:bg-neutral-900/55" : "bg-transparent"
               )}
             >
-              <span className="truncate text-neutral-800 dark:text-neutral-200">{row.name}</span>
+              <span className="flex min-w-0 items-center justify-between gap-2">
+                <span className="truncate text-neutral-800 dark:text-neutral-200">{row.name}</span>
+                <span className="flex-shrink-0 tabular-nums text-[10px] text-neutral-500 dark:text-neutral-400">
+                  {row.referenceValue}
+                </span>
+              </span>
               <DeltaCell value={row.percentChange} isDollar={false} />
               <DeltaCell value={row.dollarChange} isDollar={true} />
             </div>
