@@ -30,8 +30,8 @@ export function SectorReturnChart({ title, subtitle, data }: SectorReturnChartPr
     <div className="w-full space-y-1.5">
       {(title || subtitle) && (
         <div className="text-center">
-          {title && <h3 className="text-sm font-medium text-slate-800 dark:text-slate-100">{title}</h3>}
-          {subtitle && <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>}
+          {title && <h3 className="text-sm font-medium text-neutral-800 dark:text-neutral-100">{title}</h3>}
+          {subtitle && <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">{subtitle}</p>}
         </div>
       )}
       <div className="space-y-1">
@@ -40,7 +40,7 @@ export function SectorReturnChart({ title, subtitle, data }: SectorReturnChartPr
             key={item.name}
             className="grid grid-cols-[110px,1fr] items-center gap-2 rounded px-1 py-1 text-xs md:grid-cols-[140px,1fr]"
           >
-            <div className="truncate pr-1 text-right text-slate-600 dark:text-slate-300">
+            <div className="truncate pr-1 text-right text-neutral-600 dark:text-neutral-300">
               <span className="hidden md:inline">{item.name}</span>
               <span className="md:hidden">{item.symbol}</span>
               <span className="hidden md:inline"> ({item.symbol})</span>
