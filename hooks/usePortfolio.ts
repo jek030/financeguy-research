@@ -45,7 +45,13 @@ export function usePortfolio() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
-  const { defaultPortfolioKey, setDefaultPortfolio, isLoading: prefsLoading } = useUserPreferences();
+  const {
+    defaultPortfolioKey,
+    defaultPortfolioTab,
+    setDefaultPortfolio,
+    setDefaultPortfolioTab,
+    isLoading: prefsLoading,
+  } = useUserPreferences();
 
   // Helper function to parse date string as local date (not UTC)
   const parseLocalDate = (dateString: string): Date => {
@@ -685,6 +691,7 @@ export function usePortfolio() {
     isLoading,
     error,
     defaultPortfolioKey,
+    defaultPortfolioTab,
     selectPortfolio,
     addPosition,
     updatePosition,
@@ -693,6 +700,7 @@ export function usePortfolio() {
     updatePortfolio,
     createPortfolio,
     setPortfolioAsDefault,
+    setDefaultPortfolioTab,
     refetch: fetchPortfolio,
   };
 }

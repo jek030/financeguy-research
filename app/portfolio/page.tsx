@@ -10,8 +10,10 @@ import { Calendar } from '@/components/ui/Calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
-import { CalendarIcon, InfoIcon, X, Loader2, Pencil, ChevronUp, ChevronDown, PlusCircle, Star } from 'lucide-react';
+import { CalendarIcon, InfoIcon, X, Loader2, Pencil, PlusCircle, Star } from 'lucide-react';
 import { SortableHeader } from '@/components/ui/SortableHeader';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { Badge } from '@/components/ui/Badge';
 import { useSortableTable } from '@/hooks/useSortableTable';
 import { ColumnSettingsPopover } from '@/components/ui/ColumnSettingsPopover';
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
@@ -57,6 +59,13 @@ const calculateOpenRiskAmount = (cost: number, stopLoss: number, quantity: numbe
     return 0;
   }
 
+  return Math.abs(cost - stopLoss) * quantity;
+};
+
+const calculateInitialRiskAmount = (cost: number, stopLoss: number, quantity: number) => {
+  if (quantity <= 0) {
+    return 0;
+  }
   return Math.abs(cost - stopLoss) * quantity;
 };
 
@@ -135,6 +144,7 @@ const PORTFOLIO_COLUMNS: TableColumnDef[] = [
   { id: 'equity', label: 'Equity' },
   { id: 'gainLoss', label: 'Gain/Loss $' },
   { id: 'realizedGain', label: 'Realized $' },
+  { id: 'rMultiple', label: 'R', tooltip: 'Realized R using initial stop and staged exits' },
   { id: 'portfolioPercent', label: '% Portfolio' },
   { id: 'initialStopLoss', label: 'Init. SL' },
   { id: 'stopLoss', label: 'Stop Loss' },
@@ -270,6 +280,34 @@ const calculateRealizedGainForPosition = (position: StockPosition): number => {
   }
 
   return positionGain;
+};
+
+const calculateInitialRiskForPosition = (position: StockPosition): number => {
+  return Math.abs(position.cost - position.initialStopLoss) * position.quantity;
+};
+
+const calculateProjectedGainForPosition = (position: StockPosition, currentPrice?: number): number => {
+  const realizedGain = calculateRealizedGainForPosition(position);
+  if (isPositionFullyClosed(position) || position.remainingShares <= 0) {
+    return realizedGain;
+  }
+
+  const markPrice = typeof currentPrice === 'number' ? currentPrice : position.cost;
+  const unrealizedGain = calculateGainLoss(markPrice, position.cost, position.remainingShares, position.type);
+  return realizedGain + unrealizedGain;
+};
+
+const calculateDisplayedRMultipleForPosition = (position: StockPosition, currentPrice?: number): number => {
+  const initialRisk = calculateInitialRiskForPosition(position);
+  if (initialRisk <= 0) {
+    return 0;
+  }
+
+  const gain = isPositionFullyClosed(position)
+    ? calculateRealizedGainForPosition(position)
+    : calculateProjectedGainForPosition(position, currentPrice);
+
+  return gain / initialRisk;
 };
 
 const isPositionFullyClosed = (position: StockPosition) => {
@@ -490,7 +528,150 @@ function calculateTotalOpenRisk(positions: StockPosition[]): number {
     }, 0);
 }
 
-// Portfolio Hero Section Component
+type PortfolioTab = 'positions' | 'stats';
+
+interface PortfolioToolbarProps {
+  portfolios: Array<{ portfolio_key: number | string; portfolio_name: string }>;
+  selectedPortfolioKey: number | null;
+  handlePortfolioSelection: (value: string) => void;
+  isPortfolioLoading: boolean;
+  defaultPortfolioKey: number | null;
+  setPortfolioAsDefault: (key: number | null) => void;
+  handleOpenCreatePortfolio: () => void;
+  handleEditPortfolio: () => void;
+  isEditingPortfolio: boolean;
+  defaultPortfolioTab: PortfolioTab;
+  setDefaultPortfolioTab: (tab: PortfolioTab) => Promise<unknown> | void;
+}
+
+function PortfolioToolbar({
+  portfolios,
+  selectedPortfolioKey,
+  handlePortfolioSelection,
+  isPortfolioLoading,
+  defaultPortfolioKey,
+  setPortfolioAsDefault,
+  handleOpenCreatePortfolio,
+  handleEditPortfolio,
+  isEditingPortfolio,
+  defaultPortfolioTab,
+  setDefaultPortfolioTab,
+}: PortfolioToolbarProps) {
+  const handleDefaultTabSelection = (value: string) => {
+    if (value === 'positions' || value === 'stats') {
+      void setDefaultPortfolioTab(value);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
+      <div className="flex flex-col gap-2 px-3 py-2.5 border-b border-border/50 bg-muted/30 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap">
+          <Select
+            value={selectedPortfolioKey !== null ? String(selectedPortfolioKey) : undefined}
+            onValueChange={handlePortfolioSelection}
+            disabled={isPortfolioLoading || portfolios.length === 0}
+          >
+            <SelectTrigger className="h-8 w-full min-w-[180px] text-sm bg-background/50 sm:w-[220px]" aria-label="Select portfolio">
+              <SelectValue placeholder="Select portfolio" />
+            </SelectTrigger>
+            <SelectContent>
+              {portfolios.map((record) => (
+                <SelectItem key={record.portfolio_key} value={String(record.portfolio_key)}>
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="truncate">
+                      {record.portfolio_name || `Portfolio ${record.portfolio_key}`}
+                    </span>
+                    {defaultPortfolioKey === Number(record.portfolio_key) && (
+                      <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
+                    )}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    if (selectedPortfolioKey === defaultPortfolioKey) {
+                      setPortfolioAsDefault(null);
+                    } else if (selectedPortfolioKey !== null) {
+                      setPortfolioAsDefault(selectedPortfolioKey);
+                    }
+                  }}
+                  disabled={isPortfolioLoading || selectedPortfolioKey === null}
+                  className="h-8 w-8 p-0"
+                >
+                  <Star className={cn(
+                    "h-4 w-4",
+                    selectedPortfolioKey === defaultPortfolioKey
+                      ? "fill-amber-400 text-amber-400"
+                      : "text-muted-foreground"
+                  )} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{selectedPortfolioKey === defaultPortfolioKey ? "Remove default" : "Set as default"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleOpenCreatePortfolio}
+                  disabled={isPortfolioLoading}
+                  className="h-8 w-8 p-0"
+                >
+                  <PlusCircle className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Create New Portfolio</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          {!isEditingPortfolio && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="sm" variant="ghost" onClick={handleEditPortfolio} className="h-8 w-8 p-0">
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Edit Portfolio</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+        </div>
+        <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <span className="text-xs text-muted-foreground">Default Tab</span>
+            <Select value={defaultPortfolioTab} onValueChange={handleDefaultTabSelection}>
+              <SelectTrigger className="h-7 w-full text-xs bg-background/50 sm:w-[130px]" aria-label="Select default portfolio tab">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="positions">Positions</SelectItem>
+                <SelectItem value="stats">Stats</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Portfolio stats card component
 interface PortfolioHeroProps {
   portfolioName: string;
   portfolioValue: number;
@@ -502,26 +683,6 @@ interface PortfolioHeroProps {
   setTempPortfolioValue: (value: string) => void;
   handleSavePortfolio: () => void;
   handleCancelPortfolioEdit: () => void;
-  symbolFilters: string[];
-  symbolFilterInput: string;
-  setSymbolFilterInput: (value: string) => void;
-  handleSymbolFilterKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-  removeSymbolFilter: (symbol: string) => void;
-  clearAllSymbolFilters: () => void;
-  portfolios: Array<{ portfolio_key: number | string; portfolio_name: string }>;
-  selectedPortfolioKey: number | null;
-  handlePortfolioSelection: (value: string) => void;
-  isPortfolioLoading: boolean;
-  defaultPortfolioKey: number | null;
-  setPortfolioAsDefault: (key: number | null) => void;
-  handleOpenCreatePortfolio: () => void;
-  handleEditPortfolio: () => void;
-  showClosedPositions: boolean;
-  setShowClosedPositions: (value: boolean) => void;
-  summarizeOpenPositions: boolean;
-  setSummarizeOpenPositions: (value: boolean) => void;
-  canSummarizeOpenPositions: boolean;
-  closedPositionsCount: number;
   tradeStatistics: {
     totalClosed: number;
     winnerCount: number;
@@ -556,35 +717,97 @@ function PortfolioHero({
   setTempPortfolioValue,
   handleSavePortfolio,
   handleCancelPortfolioEdit,
-  symbolFilters,
-  symbolFilterInput,
-  setSymbolFilterInput,
-  handleSymbolFilterKeyDown,
-  removeSymbolFilter,
-  clearAllSymbolFilters,
-  portfolios,
-  selectedPortfolioKey,
-  handlePortfolioSelection,
-  isPortfolioLoading,
-  defaultPortfolioKey,
-  setPortfolioAsDefault,
-  handleOpenCreatePortfolio,
-  handleEditPortfolio,
-  showClosedPositions,
-  setShowClosedPositions,
-  summarizeOpenPositions,
-  setSummarizeOpenPositions,
-  canSummarizeOpenPositions,
-  closedPositionsCount,
   tradeStatistics,
 }: PortfolioHeroProps) {
+  const [riskCapPercent, setRiskCapPercent] = useState<string>('5');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      const stored = window.localStorage.getItem('financeguy-portfolio-risk-cap-percent');
+      if (!stored) {
+        return;
+      }
+      const parsed = parseFloat(stored);
+      if (!Number.isNaN(parsed) && parsed > 0) {
+        setRiskCapPercent(parsed.toString());
+      }
+    } catch {
+      // Ignore storage read errors
+    }
+  }, []);
+
   // Calculate metrics
   const totalOpenRisk = useMemo(() => calculateTotalOpenRisk(positions), [positions]);
   const riskPercent = portfolioValue > 0 ? (totalOpenRisk / portfolioValue) * 100 : 0;
+  const riskCapValue = useMemo(() => {
+    const parsed = parseFloat(riskCapPercent);
+    return Number.isNaN(parsed) || parsed <= 0 ? 5 : parsed;
+  }, [riskCapPercent]);
+  const riskBudgetUtilization = riskCapValue > 0 ? (riskPercent / riskCapValue) * 100 : 0;
+  const worstCaseStopLossDollar = totalOpenRisk;
+  const worstCaseStopLossPercent = riskPercent;
   const openPositionsForPnl = useMemo(
     () => positions.filter((position) => !isPositionFullyClosed(position) && position.remainingShares > 0),
     [positions],
   );
+  const singlePositionRiskCapPercent = useMemo(() => Math.max(1, riskCapValue / 2), [riskCapValue]);
+  const maxSinglePositionRiskPercent = useMemo(() => {
+    if (portfolioValue <= 0) {
+      return 0;
+    }
+
+    return openPositionsForPnl.reduce((maxRisk, position) => {
+      const riskDollar = Math.abs(position.cost - position.stopLoss) * position.remainingShares;
+      const riskPct = (riskDollar / portfolioValue) * 100;
+      return Math.max(maxRisk, riskPct);
+    }, 0);
+  }, [openPositionsForPnl, portfolioValue]);
+
+  const symbolRiskConcentration = useMemo(() => {
+    if (totalOpenRisk <= 0) {
+      return { symbol: null as string | null, concentrationPct: 0 };
+    }
+
+    const bySymbol = new Map<string, number>();
+    openPositionsForPnl.forEach((position) => {
+      const riskDollar = Math.abs(position.cost - position.stopLoss) * position.remainingShares;
+      bySymbol.set(position.symbol, (bySymbol.get(position.symbol) ?? 0) + riskDollar);
+    });
+
+    let topSymbol: string | null = null;
+    let topRisk = 0;
+    bySymbol.forEach((riskDollar, symbol) => {
+      if (riskDollar > topRisk) {
+        topRisk = riskDollar;
+        topSymbol = symbol;
+      }
+    });
+
+    return {
+      symbol: topSymbol,
+      concentrationPct: (topRisk / totalOpenRisk) * 100,
+    };
+  }, [openPositionsForPnl, totalOpenRisk]);
+
+  const concentrationCapPercent = 40;
+  const isPortfolioRiskViolation = riskPercent > riskCapValue;
+  const isSinglePositionRiskViolation = maxSinglePositionRiskPercent > singlePositionRiskCapPercent;
+  const isConcentrationViolation =
+    symbolRiskConcentration.symbol !== null && symbolRiskConcentration.concentrationPct > concentrationCapPercent;
+
+  const riskStatus = useMemo(() => {
+    if (riskPercent >= riskCapValue * 1.2) {
+      return { label: 'Critical', variant: 'destructive' as const };
+    }
+    if (riskPercent > riskCapValue) {
+      return { label: 'Warning', variant: 'secondary' as const };
+    }
+    return { label: 'Compliant', variant: 'positive' as const };
+  }, [riskPercent, riskCapValue]);
   const pnlQuoteQueries = useQueries({
     queries: openPositionsForPnl.map((position) => quoteQueryOptions(position.symbol)),
   });
@@ -642,11 +865,7 @@ function PortfolioHero({
   }, [openEquity, currentBalance, openPositionsForPnl.length]);
   
   // Exposure color logic
-  const exposureColorClass = exposure > 100 
-    ? "text-red-400" 
-    : exposure > 80 
-      ? "text-yellow-400" 
-      : "text-emerald-400";
+  const exposureColorClass = "text-foreground";
   
   const exposureBarColor = exposure > 100 
     ? "bg-red-500" 
@@ -655,11 +874,7 @@ function PortfolioHero({
       : "bg-emerald-500";
   
   // Risk color logic  
-  const riskColorClass = riskPercent > 10 
-    ? "text-red-400" 
-    : riskPercent > 5 
-      ? "text-orange-400" 
-      : "text-emerald-400";
+  const riskColorClass = "text-foreground";
       
   const riskBarColor = riskPercent > 10 
     ? "bg-red-500" 
@@ -667,156 +882,86 @@ function PortfolioHero({
       ? "bg-orange-500" 
       : "bg-emerald-500";
 
+  const edgeDiagnostics = useMemo(() => {
+    const closedTrades = positions
+      .filter((position) => Boolean(position.closedDate))
+      .map((position) => {
+        const realizedDollar = calculateRealizedGainForPosition(position);
+        const initialRiskDollar = calculateInitialRiskAmount(position.cost, position.initialStopLoss, position.quantity);
+        const rMultiple = initialRiskDollar > 0 ? realizedDollar / initialRiskDollar : 0;
+        const days = calculateDaysInTrade(position.openDate, position.closedDate);
+        return {
+          rMultiple,
+          days,
+          isWin: realizedDollar > 0,
+          closeTime: position.closedDate ? position.closedDate.getTime() : 0,
+        };
+      })
+      .sort((a, b) => b.closeTime - a.closeTime);
+
+    const openRiskBaseDollar = openPositionsForPnl.reduce((sum, position) => {
+      return sum + calculateInitialRiskAmount(position.cost, position.stopLoss, position.remainingShares);
+    }, 0);
+
+    const unrealizedR = openRiskBaseDollar > 0 ? unrealizedGain / openRiskBaseDollar : 0;
+    const realizedR = closedTrades.reduce((sum, trade) => sum + trade.rMultiple, 0);
+    const avgRPerTrade = closedTrades.length > 0 ? realizedR / closedTrades.length : 0;
+
+    const computeExpectancy = (trades: typeof closedTrades) => {
+      if (trades.length === 0) {
+        return { winRate: 0, avgWinR: 0, avgLossR: 0, expectancyR: 0, sample: 0 };
+      }
+      const wins = trades.filter((trade) => trade.rMultiple > 0);
+      const losses = trades.filter((trade) => trade.rMultiple < 0);
+      const winRate = wins.length / trades.length;
+      const avgWinR = wins.length > 0
+        ? wins.reduce((sum, trade) => sum + trade.rMultiple, 0) / wins.length
+        : 0;
+      const avgLossR = losses.length > 0
+        ? losses.reduce((sum, trade) => sum + Math.abs(trade.rMultiple), 0) / losses.length
+        : 0;
+      const expectancyR = (winRate * avgWinR) - ((1 - winRate) * avgLossR);
+      return { winRate, avgWinR, avgLossR, expectancyR, sample: trades.length };
+    };
+
+    const rolling20 = computeExpectancy(closedTrades.slice(0, 20));
+    const rolling50 = computeExpectancy(closedTrades.slice(0, 50));
+
+    let trendLabel: 'Improving' | 'Degrading' | 'Stable' = 'Stable';
+    if (rolling20.expectancyR > rolling50.expectancyR + 0.05) {
+      trendLabel = 'Improving';
+    } else if (rolling20.expectancyR < rolling50.expectancyR - 0.05) {
+      trendLabel = 'Degrading';
+    }
+
+    const durationBuckets = [
+      { key: '0-3d', min: 0, max: 3 },
+      { key: '4-10d', min: 4, max: 10 },
+      { key: '11+d', min: 11, max: Number.POSITIVE_INFINITY },
+    ].map((bucket) => {
+      const bucketTrades = closedTrades.filter((trade) => trade.days >= bucket.min && trade.days <= bucket.max);
+      const stats = computeExpectancy(bucketTrades);
+      return {
+        label: bucket.key,
+        expectancyR: stats.expectancyR,
+        sample: stats.sample,
+      };
+    });
+
+    return {
+      realizedR,
+      unrealizedR,
+      avgRPerTrade,
+      rolling20,
+      rolling50,
+      trendLabel,
+      durationBuckets,
+      closedTradesCount: closedTrades.length,
+    };
+  }, [positions, openPositionsForPnl, unrealizedGain]);
+
   return (
     <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
-      {/* Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-border/50 bg-muted/30">
-        <div className="flex flex-wrap items-center gap-2">
-          <Select
-            value={selectedPortfolioKey !== null ? String(selectedPortfolioKey) : undefined}
-            onValueChange={handlePortfolioSelection}
-            disabled={isPortfolioLoading || portfolios.length === 0}
-          >
-            <SelectTrigger className="w-[200px] h-8 text-sm bg-background/50" aria-label="Select portfolio">
-              <SelectValue placeholder="Select portfolio" />
-            </SelectTrigger>
-            <SelectContent>
-              {portfolios.map((record) => (
-                <SelectItem key={record.portfolio_key} value={String(record.portfolio_key)}>
-                  <span className="flex items-center gap-2 min-w-0">
-                    <span className="truncate">
-                      {record.portfolio_name || `Portfolio ${record.portfolio_key}`}
-                    </span>
-                    {defaultPortfolioKey === Number(record.portfolio_key) && (
-                      <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
-                    )}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  onClick={() => {
-                    if (selectedPortfolioKey === defaultPortfolioKey) {
-                      setPortfolioAsDefault(null);
-                    } else if (selectedPortfolioKey !== null) {
-                      setPortfolioAsDefault(selectedPortfolioKey);
-                    }
-                  }}
-                  disabled={isPortfolioLoading || selectedPortfolioKey === null}
-                  className="h-8 w-8 p-0"
-                >
-                  <Star className={cn(
-                    "h-4 w-4",
-                    selectedPortfolioKey === defaultPortfolioKey 
-                      ? "fill-amber-400 text-amber-400" 
-                      : "text-muted-foreground"
-                  )} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{selectedPortfolioKey === defaultPortfolioKey ? "Remove default" : "Set as default"}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  size="sm" 
-                  variant="ghost" 
-                  onClick={handleOpenCreatePortfolio}
-                  disabled={isPortfolioLoading}
-                  className="h-8 w-8 p-0"
-                >
-                  <PlusCircle className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Create New Portfolio</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          {!isEditingPortfolio && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="sm" variant="ghost" onClick={handleEditPortfolio} className="h-8 w-8 p-0">
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Edit Portfolio</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-        </div>
-        
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            {symbolFilters.map((symbol) => (
-              <span
-                key={symbol}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20"
-              >
-                {symbol}
-                <button
-                  type="button"
-                  onClick={() => removeSymbolFilter(symbol)}
-                  className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full hover:bg-primary/20 transition-colors"
-                  aria-label={`Remove ${symbol} filter`}
-                >
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              </span>
-            ))}
-            <Input
-              value={symbolFilterInput}
-              onChange={(e) => setSymbolFilterInput(e.target.value.toUpperCase())}
-              onKeyDown={handleSymbolFilterKeyDown}
-              placeholder={symbolFilters.length > 0 ? "Add..." : "Filter"}
-              aria-label="Filter positions by symbol"
-              className="w-20 h-7 text-xs bg-background/50"
-            />
-            {symbolFilters.length > 0 && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={clearAllSymbolFilters}
-                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-              >
-                Clear
-              </Button>
-            )}
-          </div>
-          <Button 
-            size="sm" 
-            variant={showClosedPositions ? "secondary" : "ghost"}
-            onClick={() => setShowClosedPositions(!showClosedPositions)}
-            disabled={closedPositionsCount === 0}
-            className="h-7 text-xs"
-          >
-            {showClosedPositions ? "Hide" : "Show"} Closed ({closedPositionsCount})
-          </Button>
-          <Button
-            size="sm"
-            variant={summarizeOpenPositions ? "secondary" : "ghost"}
-            onClick={() => setSummarizeOpenPositions(!summarizeOpenPositions)}
-            disabled={!canSummarizeOpenPositions}
-            className="h-7 text-xs"
-          >
-            {summarizeOpenPositions ? "Show Individual" : "Summarize Symbols"}
-          </Button>
-        </div>
-      </div>
-
       {/* Main Hero Content */}
       {isEditingPortfolio ? (
         <div className="p-6">
@@ -865,16 +1010,142 @@ function PortfolioHero({
           </div>
         </div>
       ) : (
-        <div className="p-5 md:p-6">
+        <div className="p-4 md:p-5">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
             {portfolioName}
           </p>
-          <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_1fr_1fr] gap-4 mb-6">
+          <div className="rounded-xl border border-border/60 bg-background/30 p-3 mb-3">
+            <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+              <div className="space-y-1">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Risk Budget</p>
+                <p className="text-base font-bold font-mono">
+                  {riskPercent.toFixed(2)}% / {riskCapValue.toFixed(2)}%
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Utilization: {riskBudgetUtilization.toFixed(0)}%
+                </p>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                  Risk Cap %
+                </label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={riskCapPercent}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9.]/g, '');
+                    const parts = value.split('.');
+                    const formattedValue = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : value;
+                    setRiskCapPercent(formattedValue);
+                  }}
+                  onBlur={() => {
+                    const parsed = parseFloat(riskCapPercent);
+                    if (Number.isNaN(parsed) || parsed <= 0) {
+                      setRiskCapPercent('5');
+                      if (typeof window !== 'undefined') {
+                        window.localStorage.setItem('financeguy-portfolio-risk-cap-percent', '5');
+                      }
+                      return;
+                    }
+                    const normalized = parsed.toFixed(2);
+                    setRiskCapPercent(normalized);
+                    if (typeof window !== 'undefined') {
+                      window.localStorage.setItem('financeguy-portfolio-risk-cap-percent', normalized);
+                    }
+                  }}
+                  className="h-8 w-[90px] text-xs font-mono bg-background/50"
+                />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Worst-Case Stop Outcome</p>
+                <p className="text-base font-bold font-mono">
+                  -{formatCurrencyTwoDecimals(worstCaseStopLossDollar)} / -{worstCaseStopLossPercent.toFixed(2)}%
+                </p>
+              </div>
+              <Badge variant={riskStatus.variant}>{riskStatus.label}</Badge>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {isPortfolioRiskViolation && (
+                <Badge variant="destructive">
+                  Portfolio risk &gt; cap ({riskCapValue.toFixed(2)}%)
+                </Badge>
+              )}
+              {isSinglePositionRiskViolation && (
+                <Badge variant="secondary">
+                  Single position risk &gt; cap ({singlePositionRiskCapPercent.toFixed(2)}%)
+                </Badge>
+              )}
+              {isConcentrationViolation && (
+                <Badge variant="secondary">
+                  Concentration &gt; cap ({symbolRiskConcentration.symbol}: {symbolRiskConcentration.concentrationPct.toFixed(1)}%)
+                </Badge>
+              )}
+              {!isPortfolioRiskViolation && !isSinglePositionRiskViolation && !isConcentrationViolation && (
+                <Badge variant="outline">No risk rule violations</Badge>
+              )}
+            </div>
+          </div>
+          <div className="rounded-xl border border-border/60 bg-background/30 p-3 mb-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Edge Diagnostics (R-based)</p>
+              <Badge variant="outline">{edgeDiagnostics.trendLabel}</Badge>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+              <div className="rounded-md border border-border/50 bg-background/50 p-2">
+                <p className="text-[10px] text-muted-foreground uppercase">Realized R</p>
+                <p className="text-sm font-bold font-mono">{edgeDiagnostics.realizedR.toFixed(2)}R</p>
+              </div>
+              <div className="rounded-md border border-border/50 bg-background/50 p-2">
+                <p className="text-[10px] text-muted-foreground uppercase">Unrealized R</p>
+                <p className="text-sm font-bold font-mono">{edgeDiagnostics.unrealizedR.toFixed(2)}R</p>
+              </div>
+              <div className="rounded-md border border-border/50 bg-background/50 p-2">
+                <p className="text-[10px] text-muted-foreground uppercase">Avg R / Trade</p>
+                <p className="text-sm font-bold font-mono">{edgeDiagnostics.avgRPerTrade.toFixed(2)}R</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
+              <div className="rounded-md border border-border/50 bg-background/50 p-2">
+                <p className="text-[10px] text-muted-foreground uppercase mb-1">Expectancy (rolling 20)</p>
+                <p className="text-sm font-bold font-mono">{edgeDiagnostics.rolling20.expectancyR.toFixed(2)}R</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Win {((edgeDiagnostics.rolling20.winRate || 0) * 100).toFixed(0)}% · AvgWin {edgeDiagnostics.rolling20.avgWinR.toFixed(2)}R · AvgLoss {edgeDiagnostics.rolling20.avgLossR.toFixed(2)}R · n={edgeDiagnostics.rolling20.sample}
+                </p>
+              </div>
+              <div className="rounded-md border border-border/50 bg-background/50 p-2">
+                <p className="text-[10px] text-muted-foreground uppercase mb-1">Expectancy (rolling 50)</p>
+                <p className="text-sm font-bold font-mono">{edgeDiagnostics.rolling50.expectancyR.toFixed(2)}R</p>
+                <p className="text-[10px] text-muted-foreground">
+                  Win {((edgeDiagnostics.rolling50.winRate || 0) * 100).toFixed(0)}% · AvgWin {edgeDiagnostics.rolling50.avgWinR.toFixed(2)}R · AvgLoss {edgeDiagnostics.rolling50.avgLossR.toFixed(2)}R · n={edgeDiagnostics.rolling50.sample}
+                </p>
+              </div>
+            </div>
+            <div className="rounded-md border border-border/50 bg-background/50 p-2 mb-2">
+              <p className="text-[10px] text-muted-foreground uppercase mb-1">Time-In-Trade Efficiency (Expectancy)</p>
+              <div className="grid grid-cols-3 gap-2">
+                {edgeDiagnostics.durationBuckets.map((bucket) => (
+                  <div key={bucket.label}>
+                    <p className="text-[10px] text-muted-foreground">{bucket.label}</p>
+                    <p className="text-xs font-bold font-mono">{bucket.expectancyR.toFixed(2)}R</p>
+                    <p className="text-[10px] text-muted-foreground">n={bucket.sample}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-md border border-border/50 bg-background/50 p-2">
+              <p className="text-[10px] text-muted-foreground uppercase">MAE / MFE Diagnostics</p>
+              <p className="text-xs text-muted-foreground">
+                Historical MAE/MFE is not available for existing closed trades ({edgeDiagnostics.closedTradesCount}). Start tracking MAE/MFE fields from now forward to measure stop and exit efficiency.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_1fr_1fr] gap-3 mb-4">
             <div className="rounded-xl border border-border/60 bg-background/40 p-4 md:p-5">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
                 Starting Balance
               </p>
-              <p className="text-3xl md:text-4xl font-bold font-mono tracking-tight">
+              <p className="text-2xl md:text-3xl font-bold font-mono tracking-tight">
                 {formatCurrency(portfolioValue)}
               </p>
             </div>
@@ -886,10 +1157,7 @@ function PortfolioHero({
               {isUnrealizedLoading ? (
                 <div className="h-10 w-40 bg-muted animate-pulse rounded" />
               ) : (
-                <p className={cn(
-                  "text-3xl font-bold font-mono tracking-tight",
-                  currentBalance >= portfolioValue ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                )}>
+                <p className="text-2xl md:text-3xl font-bold font-mono tracking-tight">
                   {formatCurrency(currentBalance)}
                 </p>
               )}
@@ -910,10 +1178,7 @@ function PortfolioHero({
               {isUnrealizedLoading ? (
                 <div className="h-10 w-40 bg-muted animate-pulse rounded" />
               ) : (
-                <p className={cn(
-                  "text-3xl font-bold font-mono tracking-tight",
-                  unrealizedBalance >= portfolioValue ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                )}>
+                <p className="text-2xl md:text-3xl font-bold font-mono tracking-tight">
                   {formatCurrency(unrealizedBalance)}
                 </p>
               )}
@@ -929,7 +1194,7 @@ function PortfolioHero({
           </div>
 
           {/* Metrics Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 md:gap-3">
             <div className="rounded-lg border border-border/60 bg-background/30 p-3.5">
               <MetricCard
                 label="Exposure"
@@ -963,9 +1228,7 @@ function PortfolioHero({
                 {isUnrealizedLoading ? (
                   <div className="h-8 w-24 bg-muted animate-pulse rounded"></div>
                 ) : (
-                  <span className={cn(
-                    unrealizedGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                  )}>
+                  <span>
                     {formatCurrency(unrealizedGain)}
                   </span>
                 )}
@@ -995,17 +1258,14 @@ function PortfolioHero({
 
           {/* Trade Statistics (closed trades only) */}
           {tradeStatistics && (
-            <div className="mt-6 pt-6 border-t border-border/50">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-4">Trade Statistics</p>
+            <div className="mt-4 pt-4 border-t border-border/50">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Trade Statistics</p>
               
               {/* Top row: Batting Average, Risk/Reward, Avg Duration */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
                 <div className="space-y-1">
                   <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Batting Average</p>
-                  <p className={cn(
-                    "text-lg font-bold font-mono",
-                    tradeStatistics.battingAverage >= 50 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                  )}>
+                  <p className="text-lg font-bold font-mono">
                     {tradeStatistics.battingAverage.toFixed(1)}%
                   </p>
                   <p className="text-[10px] text-muted-foreground">
@@ -1014,10 +1274,7 @@ function PortfolioHero({
                 </div>
                 <div className="space-y-1">
                   <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Risk / Reward</p>
-                  <p className={cn(
-                    "text-lg font-bold font-mono",
-                    tradeStatistics.riskRewardRatio >= 1 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                  )}>
+                  <p className="text-lg font-bold font-mono">
                     {tradeStatistics.riskRewardRatio > 0 ? tradeStatistics.riskRewardRatio.toFixed(2) : 'N/A'}
                   </p>
                   <p className="text-[10px] text-muted-foreground">Avg gain / Avg loss</p>
@@ -1035,22 +1292,22 @@ function PortfolioHero({
               </div>
 
               {/* Gain/Loss detail grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {/* Average Gain */}
                 <div className="rounded-lg border border-border/50 bg-background/30 p-3">
                   <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Average Gain</p>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <p className="text-[9px] text-muted-foreground">Dollar</p>
-                      <p className="text-xs font-bold font-mono text-green-600 dark:text-green-400">{formatCurrency(tradeStatistics.avgGainDollar)}</p>
+                      <p className="text-xs font-bold font-mono">{formatCurrency(tradeStatistics.avgGainDollar)}</p>
                     </div>
                     <div>
                       <p className="text-[9px] text-muted-foreground">Percent</p>
-                      <p className="text-xs font-bold font-mono text-green-600 dark:text-green-400">{tradeStatistics.avgGainPercent.toFixed(2)}%</p>
+                      <p className="text-xs font-bold font-mono">{tradeStatistics.avgGainPercent.toFixed(2)}%</p>
                     </div>
                     <div>
                       <p className="text-[9px] text-muted-foreground">Equity Contribution</p>
-                      <p className="text-xs font-bold font-mono text-green-600 dark:text-green-400">{tradeStatistics.avgGainEquity.toFixed(2)}%</p>
+                      <p className="text-xs font-bold font-mono">{tradeStatistics.avgGainEquity.toFixed(2)}%</p>
                     </div>
                   </div>
                 </div>
@@ -1061,15 +1318,15 @@ function PortfolioHero({
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <p className="text-[9px] text-muted-foreground">Dollar</p>
-                      <p className="text-xs font-bold font-mono text-red-600 dark:text-red-400">-{formatCurrency(tradeStatistics.avgLossDollar)}</p>
+                      <p className="text-xs font-bold font-mono">-{formatCurrency(tradeStatistics.avgLossDollar)}</p>
                     </div>
                     <div>
                       <p className="text-[9px] text-muted-foreground">Percent</p>
-                      <p className="text-xs font-bold font-mono text-red-600 dark:text-red-400">-{tradeStatistics.avgLossPercent.toFixed(2)}%</p>
+                      <p className="text-xs font-bold font-mono">-{tradeStatistics.avgLossPercent.toFixed(2)}%</p>
                     </div>
                     <div>
                       <p className="text-[9px] text-muted-foreground">Equity Contribution</p>
-                      <p className="text-xs font-bold font-mono text-red-600 dark:text-red-400">-{tradeStatistics.avgLossEquity.toFixed(2)}%</p>
+                      <p className="text-xs font-bold font-mono">-{tradeStatistics.avgLossEquity.toFixed(2)}%</p>
                     </div>
                   </div>
                 </div>
@@ -1080,15 +1337,15 @@ function PortfolioHero({
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <p className="text-[9px] text-muted-foreground">Dollar</p>
-                      <p className="text-xs font-bold font-mono text-green-600 dark:text-green-400">{formatCurrency(tradeStatistics.maxGainDollar)}</p>
+                      <p className="text-xs font-bold font-mono">{formatCurrency(tradeStatistics.maxGainDollar)}</p>
                     </div>
                     <div>
                       <p className="text-[9px] text-muted-foreground">Percent</p>
-                      <p className="text-xs font-bold font-mono text-green-600 dark:text-green-400">{tradeStatistics.maxGainPercent.toFixed(2)}%</p>
+                      <p className="text-xs font-bold font-mono">{tradeStatistics.maxGainPercent.toFixed(2)}%</p>
                     </div>
                     <div>
                       <p className="text-[9px] text-muted-foreground">Equity Contribution</p>
-                      <p className="text-xs font-bold font-mono text-green-600 dark:text-green-400">{tradeStatistics.maxGainEquity.toFixed(2)}%</p>
+                      <p className="text-xs font-bold font-mono">{tradeStatistics.maxGainEquity.toFixed(2)}%</p>
                     </div>
                   </div>
                 </div>
@@ -1099,15 +1356,15 @@ function PortfolioHero({
                   <div className="grid grid-cols-3 gap-2">
                     <div>
                       <p className="text-[9px] text-muted-foreground">Dollar</p>
-                      <p className="text-xs font-bold font-mono text-red-600 dark:text-red-400">-{formatCurrency(tradeStatistics.maxLossDollar)}</p>
+                      <p className="text-xs font-bold font-mono">-{formatCurrency(tradeStatistics.maxLossDollar)}</p>
                     </div>
                     <div>
                       <p className="text-[9px] text-muted-foreground">Percent</p>
-                      <p className="text-xs font-bold font-mono text-red-600 dark:text-red-400">-{tradeStatistics.maxLossPercent.toFixed(2)}%</p>
+                      <p className="text-xs font-bold font-mono">-{tradeStatistics.maxLossPercent.toFixed(2)}%</p>
                     </div>
                     <div>
                       <p className="text-[9px] text-muted-foreground">Equity Contribution</p>
-                      <p className="text-xs font-bold font-mono text-red-600 dark:text-red-400">-{tradeStatistics.maxLossEquity.toFixed(2)}%</p>
+                      <p className="text-xs font-bold font-mono">-{tradeStatistics.maxLossEquity.toFixed(2)}%</p>
                     </div>
                   </div>
                 </div>
@@ -1121,12 +1378,6 @@ function PortfolioHero({
 }
 
 // Collapsible Panel Component
-interface CollapsiblePanelProps {
-  title: string;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
-}
-
 type PortfolioTableRow =
   | { kind: 'position'; position: StockPosition }
   | {
@@ -1140,32 +1391,6 @@ type PortfolioTableRow =
       realizedGain: number;
       positions: StockPosition[];
     };
-
-function CollapsiblePanel({ title, defaultOpen = false, children }: CollapsiblePanelProps) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-  
-  return (
-    <div className="rounded-lg border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold hover:bg-muted/30 transition-colors"
-      >
-        <span>{title}</span>
-        {isOpen ? (
-          <ChevronUp className="h-4 w-4 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        )}
-      </button>
-      {isOpen && (
-        <div className="px-4 pb-4 border-t border-border/50">
-          {children}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // Component to display equity (quantity × price)
 function EquityCell({ 
@@ -1238,9 +1463,14 @@ function SummaryTotalsRow({
   const totals = useMemo(() => {
     let equity = 0;
     let gainLoss = 0;
+    let totalInitialRisk = 0;
+    let totalDisplayedGain = 0;
 
     for (const position of closedPositions) {
-      gainLoss += calculateRealizedGainForPosition(position);
+      const realizedGain = calculateRealizedGainForPosition(position);
+      gainLoss += realizedGain;
+      totalDisplayedGain += realizedGain;
+      totalInitialRisk += calculateInitialRiskForPosition(position);
     }
 
     for (let index = 0; index < openPositions.length; index += 1) {
@@ -1252,9 +1482,12 @@ function SummaryTotalsRow({
 
       equity += currentPrice * position.remainingShares;
       gainLoss += calculateGainLoss(currentPrice, position.cost, position.remainingShares, position.type);
+      totalDisplayedGain += calculateProjectedGainForPosition(position, currentPrice);
+      totalInitialRisk += calculateInitialRiskForPosition(position);
     }
 
-    return { equity, gainLoss };
+    const rMultiple = totalInitialRisk > 0 ? totalDisplayedGain / totalInitialRisk : 0;
+    return { equity, gainLoss, rMultiple };
   }, [closedPositions, openPositions, quoteQueries]);
 
   const totalPortfolioPercent = portfolioValue > 0
@@ -1315,6 +1548,13 @@ function SummaryTotalsRow({
             </TableCell>
           );
         }
+        if (col.id === 'rMultiple') {
+          return (
+            <TableCell key={col.id} className={cn(baseClass, "font-medium")}>
+              {`${totals.rMultiple.toFixed(2)}R`}
+            </TableCell>
+          );
+        }
         if (col.id === 'portfolioPercent') {
           return (
             <TableCell key={col.id} className={cn(baseClass, "font-medium")}>
@@ -1369,6 +1609,41 @@ function PortfolioPercentCell({
       percentage > 10 ? "text-yellow-600 dark:text-yellow-400" : ""
     )}>
       {percentage.toFixed(2)}%
+    </span>
+  );
+}
+
+function RMultipleCell({
+  symbol,
+  positions,
+}: {
+  symbol: string;
+  positions: StockPosition[];
+}) {
+  const { data: quote, isLoading } = useQuote(symbol);
+  const isOpen = positions.some((position) => !isPositionFullyClosed(position) && position.remainingShares > 0);
+
+  const rValue = useMemo(() => {
+    const totalInitialRisk = positions.reduce((sum, position) => sum + calculateInitialRiskForPosition(position), 0);
+    if (totalInitialRisk <= 0) {
+      return 0;
+    }
+
+    const totalGain = positions.reduce((sum, position) => {
+      const currentPrice = isOpen ? quote?.price : undefined;
+      return sum + calculateProjectedGainForPosition(position, currentPrice);
+    }, 0);
+
+    return totalGain / totalInitialRisk;
+  }, [isOpen, positions, quote?.price]);
+
+  if (isOpen && isLoading) {
+    return <div className="h-4 w-12 bg-muted animate-pulse rounded" />;
+  }
+
+  return (
+    <span className={cn("font-medium", isOpen ? "text-orange-600 dark:text-orange-400" : "")}>
+      {`${rValue.toFixed(2)}R`}
     </span>
   );
 }
@@ -1919,6 +2194,7 @@ export default function Portfolio() {
     isLoading: isPortfolioLoading,
     error: portfolioError,
     defaultPortfolioKey,
+    defaultPortfolioTab,
     selectPortfolio,
     addPosition,
     updatePosition,
@@ -1926,6 +2202,7 @@ export default function Portfolio() {
     updatePortfolio,
     createPortfolio,
     setPortfolioAsDefault,
+    setDefaultPortfolioTab,
   } = usePortfolio();
 
   const [portfolioValue, setPortfolioValue] = useState<string>('');
@@ -1998,6 +2275,7 @@ export default function Portfolio() {
   const [newPortfolioName, setNewPortfolioName] = useState<string>('');
   const [newPortfolioValue, setNewPortfolioValue] = useState<string>('');
   const [isCreatingPortfolio, setIsCreatingPortfolio] = useState(false);
+  const [activeTab, setActiveTab] = useState<PortfolioTab>(defaultPortfolioTab);
 
   // Initialize portfolio value and name from database
   useEffect(() => {
@@ -2006,6 +2284,10 @@ export default function Portfolio() {
       setPortfolioName(portfolio.portfolio_name || 'My Portfolio');
     }
   }, [portfolio]);
+
+  useEffect(() => {
+    setActiveTab(defaultPortfolioTab);
+  }, [defaultPortfolioTab]);
 
   // Save symbol filters to localStorage when they change
   useEffect(() => {
@@ -2282,6 +2564,10 @@ export default function Portfolio() {
         case 'realizedGain':
           aValue = a.realizedGain || 0;
           bValue = b.realizedGain || 0;
+          break;
+        case 'rMultiple':
+          aValue = calculateDisplayedRMultipleForPosition(a, a.currentPrice);
+          bValue = calculateDisplayedRMultipleForPosition(b, b.currentPrice);
           break;
         case 'portfolioPercent':
           const aEquity = (a.currentPrice || a.cost) * a.remainingShares;
@@ -2641,48 +2927,145 @@ export default function Portfolio() {
     void selectPortfolio(parsed);
   };
 
-  return (
-    <div className="w-full p-4 min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
-      <div className="flex flex-col xl:flex-row gap-4">
-        {/* Main Content Area */}
-        <div className="flex-1 min-w-0 space-y-4">
-          {/* Portfolio Hero */}
-          <PortfolioHero
-            portfolioName={portfolioName}
-            portfolioValue={portfolio?.portfolio_value ?? (portfolioValue ? parseFloat(portfolioValue) : 0)}
-            positions={positions}
-            isEditingPortfolio={isEditingPortfolio}
-            tempPortfolioName={tempPortfolioName}
-            tempPortfolioValue={tempPortfolioValue}
-            setTempPortfolioName={setTempPortfolioName}
-            setTempPortfolioValue={setTempPortfolioValue}
-            handleSavePortfolio={handleSavePortfolio}
-            handleCancelPortfolioEdit={handleCancelPortfolioEdit}
-            symbolFilters={symbolFilters}
-            symbolFilterInput={symbolFilterInput}
-            setSymbolFilterInput={setSymbolFilterInput}
-            handleSymbolFilterKeyDown={handleSymbolFilterKeyDown}
-            removeSymbolFilter={removeSymbolFilter}
-            clearAllSymbolFilters={clearAllSymbolFilters}
-            portfolios={portfolios}
-            selectedPortfolioKey={selectedPortfolioKey}
-            handlePortfolioSelection={handlePortfolioSelection}
-            isPortfolioLoading={isPortfolioLoading}
-            defaultPortfolioKey={defaultPortfolioKey}
-            setPortfolioAsDefault={setPortfolioAsDefault}
-            handleOpenCreatePortfolio={handleOpenCreatePortfolio}
-            handleEditPortfolio={handleEditPortfolio}
-            showClosedPositions={showClosedPositions}
-            setShowClosedPositions={setShowClosedPositions}
-            summarizeOpenPositions={summarizeOpenPositions}
-            setSummarizeOpenPositions={setSummarizeOpenPositions}
-            canSummarizeOpenPositions={canSummarizeOpenPositions}
-            closedPositionsCount={closedPositions.length}
-            tradeStatistics={tradeStatistics}
-          />
+  const handleTabChange = (value: string) => {
+    if (value === 'positions' || value === 'stats') {
+      setActiveTab(value);
+    }
+  };
 
-          {/* Positions Table Card */}
-          <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden p-4">
+  return (
+    <div className="w-full p-3 sm:p-4 bg-gradient-to-br from-background via-background to-muted/20">
+      <div className="space-y-3">
+        <PortfolioToolbar
+          portfolios={portfolios}
+          selectedPortfolioKey={selectedPortfolioKey}
+          handlePortfolioSelection={handlePortfolioSelection}
+          isPortfolioLoading={isPortfolioLoading}
+          defaultPortfolioKey={defaultPortfolioKey}
+          setPortfolioAsDefault={setPortfolioAsDefault}
+          handleOpenCreatePortfolio={handleOpenCreatePortfolio}
+          handleEditPortfolio={handleEditPortfolio}
+          isEditingPortfolio={isEditingPortfolio}
+          defaultPortfolioTab={defaultPortfolioTab}
+          setDefaultPortfolioTab={setDefaultPortfolioTab}
+        />
+
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
+          <TabsList>
+            <TabsTrigger value="positions">Positions</TabsTrigger>
+            <TabsTrigger value="stats">Stats</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="positions">
+            <div className="flex flex-col xl:flex-row gap-3">
+              <div className="flex-1 min-w-0 space-y-3">
+                <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
+                  <div className="flex flex-col gap-2 p-2.5 sm:p-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant={showClosedPositions ? "secondary" : "ghost"}
+                        onClick={() => setShowClosedPositions(!showClosedPositions)}
+                        disabled={closedPositions.length === 0}
+                        className="h-8 text-xs"
+                      >
+                        {showClosedPositions ? "Hide" : "Show"} Closed ({closedPositions.length})
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={summarizeOpenPositions ? "secondary" : "ghost"}
+                        onClick={() => setSummarizeOpenPositions(!summarizeOpenPositions)}
+                        disabled={!canSummarizeOpenPositions}
+                        className="h-8 text-xs"
+                      >
+                        {summarizeOpenPositions ? "Show Individual" : "Summarize Symbols"}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                {/* Positions Table Card */}
+          <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden p-2.5 sm:p-3">
+            <div className="mb-2 space-y-2">
+              <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-2 items-start">
+                <div className="flex flex-wrap items-center gap-2">
+                  {symbolFilters.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={clearAllSymbolFilters}
+                      className="h-8 px-3 text-xs"
+                    >
+                      Clear
+                    </Button>
+                  )}
+                  <Input
+                    value={symbolFilterInput}
+                    onChange={(e) => setSymbolFilterInput(e.target.value.toUpperCase())}
+                    onKeyDown={handleSymbolFilterKeyDown}
+                    placeholder="Keyword Search"
+                    aria-label="Filter positions by symbol"
+                    className="h-8 w-full text-xs bg-background/50 sm:w-[220px]"
+                  />
+                </div>
+                <div className="rounded-md border border-border/60 bg-background/40 p-2 w-full lg:w-auto">
+                  <div className="grid grid-cols-1 sm:grid-cols-[auto_auto_auto] gap-2 items-center">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">ADR %</label>
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="2.50"
+                        value={adrPercent}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9.]/g, '');
+                          const parts = value.split('.');
+                          const formattedValue = parts.length > 2
+                            ? parts[0] + '.' + parts.slice(1).join('')
+                            : value;
+                          if (parts.length === 2 && parts[1].length > 2) return;
+                          setAdrPercent(formattedValue);
+                        }}
+                        className="h-8 w-full sm:w-[92px] text-xs font-mono bg-background/50"
+                      />
+                    </div>
+                    <div className="space-y-1 min-w-[120px]">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Max Position %</p>
+                      <p className="text-sm font-bold font-mono">
+                        {adrPercent && parseFloat(adrPercent) > 0 ? `${((1 / parseFloat(adrPercent)) * 100).toFixed(1)}%` : '—'}
+                      </p>
+                    </div>
+                    <div className="space-y-1 min-w-[140px]">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Max Amount</p>
+                      <p className="text-sm font-bold font-mono">
+                        {adrPercent && parseFloat(adrPercent) > 0
+                          ? formatCurrencyTwoDecimals((parseFloat(portfolioValue) || 0) * (1 / parseFloat(adrPercent)))
+                          : '—'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {symbolFilters.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {symbolFilters.map((symbol) => (
+                    <span
+                      key={symbol}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20"
+                    >
+                      {symbol}
+                      <button
+                        type="button"
+                        onClick={() => removeSymbolFilter(symbol)}
+                        className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full hover:bg-primary/20 transition-colors"
+                        aria-label={`Remove ${symbol} filter`}
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="overflow-x-auto [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
               {hasPositions && hasDisplayedPositions ? (
                 <Table>
@@ -2812,6 +3195,15 @@ export default function Portfolio() {
                                   <span className={cn("font-medium", realizedGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-400")}>
                                     {formatCurrency(realizedGain)}
                                   </span>
+                                </TableCell>
+                              );
+                            case 'rMultiple':
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  <RMultipleCell
+                                    symbol={position.symbol}
+                                    positions={row.kind === 'summary' ? row.positions : [position]}
+                                  />
                                 </TableCell>
                               );
                             case 'portfolioPercent':
@@ -2964,10 +3356,13 @@ export default function Portfolio() {
         </div>
 
         {/* Right Sidebar */}
-        <aside className="w-full xl:w-80 shrink-0 space-y-4">
+        <aside className="w-full xl:w-80 shrink-0 space-y-2.5">
           {/* Add Position Panel */}
-          <CollapsiblePanel title="+ Add Position" defaultOpen={true}>
-            <div className="pt-4 space-y-3">
+          <div className="rounded-lg border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
+            <div className="px-3 py-2.5 text-sm font-semibold border-b border-border/50">
+              + Add Position
+            </div>
+            <div className="px-3 pb-3 pt-3 space-y-2.5">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-muted-foreground">Symbol</label>
@@ -3075,57 +3470,19 @@ export default function Portfolio() {
                 Add Position
               </Button>
             </div>
-          </CollapsiblePanel>
-
-          {/* Calculator Panel */}
-          <CollapsiblePanel title="Position Calculator" defaultOpen={false}>
-            <div className="pt-4 space-y-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">ADR %</label>
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="e.g., 2.50"
-                  value={adrPercent}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9.]/g, '');
-                    const parts = value.split('.');
-                    const formattedValue = parts.length > 2 
-                      ? parts[0] + '.' + parts.slice(1).join('')
-                      : value;
-                    if (parts.length === 2 && parts[1].length > 2) return;
-                    setAdrPercent(formattedValue);
-                  }}
-                  className="h-8 text-sm font-mono bg-background/50"
-                />
-              </div>
-              {adrPercent && parseFloat(adrPercent) > 0 && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Max Position %</p>
-                    <p className="text-lg font-bold font-mono">
-                      {((1 / parseFloat(adrPercent)) * 100).toFixed(1)}%
-                    </p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-xs text-muted-foreground">Max Amount</p>
-                    <p className="text-lg font-bold font-mono">
-                      {formatCurrency((parseFloat(portfolioValue) || 0) * (1 / parseFloat(adrPercent)))}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </CollapsiblePanel>
+          </div>
 
           {/* Allocation Panel */}
-          <CollapsiblePanel title="Allocation" defaultOpen={false}>
-            <div className="pt-4">
+          <div className="rounded-lg border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
+            <div className="px-3 py-2.5 text-sm font-semibold border-b border-border/50">
+              Allocation
+            </div>
+            <div className="px-3 pb-3 pt-3">
               {allocationSummary.total === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">No allocation data</p>
               ) : (
-                <div className="space-y-4">
-                  <div className="h-48">
+                <div className="space-y-3">
+                  <div className="h-40">
                     <ResponsiveContainer width="100%" height="100%">
                       <RechartsPieChart>
                         <Pie
@@ -3134,8 +3491,8 @@ export default function Portfolio() {
                           nameKey="name"
                           cx="50%"
                           cy="50%"
-                          innerRadius={40}
-                          outerRadius={70}
+                          innerRadius={34}
+                          outerRadius={62}
                           paddingAngle={3}
                           stroke="transparent"
                         >
@@ -3160,9 +3517,28 @@ export default function Portfolio() {
                 </div>
               )}
             </div>
-          </CollapsiblePanel>
+          </div>
 
         </aside>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="stats">
+            <PortfolioHero
+              portfolioName={portfolioName}
+              portfolioValue={portfolio?.portfolio_value ?? (portfolioValue ? parseFloat(portfolioValue) : 0)}
+              positions={positions}
+              isEditingPortfolio={isEditingPortfolio}
+              tempPortfolioName={tempPortfolioName}
+              tempPortfolioValue={tempPortfolioValue}
+              setTempPortfolioName={setTempPortfolioName}
+              setTempPortfolioValue={setTempPortfolioValue}
+              handleSavePortfolio={handleSavePortfolio}
+              handleCancelPortfolioEdit={handleCancelPortfolioEdit}
+              tradeStatistics={tradeStatistics}
+            />
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Edit Position Modal */}
