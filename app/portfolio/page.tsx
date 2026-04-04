@@ -12,11 +12,21 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { CalendarIcon, InfoIcon, X, Loader2, Pencil, PlusCircle, Star } from 'lucide-react';
 import { SortableHeader } from '@/components/ui/SortableHeader';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { Badge } from '@/components/ui/Badge';
+import { Tabs, TabsContent } from '@/components/ui/Tabs';
 import { useSortableTable } from '@/hooks/useSortableTable';
 import { ColumnSettingsPopover } from '@/components/ui/ColumnSettingsPopover';
-import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
+import {
+  PieChart as RechartsPieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  BarChart,
+  Bar,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { format, differenceInCalendarDays } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { PercentageChange } from '@/components/ui/PriceIndicator';
@@ -143,6 +153,7 @@ const PORTFOLIO_COLUMNS: TableColumnDef[] = [
   { id: 'netCost', label: 'Net Cost' },
   { id: 'equity', label: 'Equity' },
   { id: 'gainLoss', label: 'Gain/Loss $' },
+  { id: 'portfolioGain', label: 'Portfolio Gain', tooltip: 'Realized + unrealized gain as % of current portfolio value' },
   { id: 'realizedGain', label: 'Realized $' },
   { id: 'rMultiple', label: 'R', tooltip: 'Realized R using initial stop and staged exits' },
   { id: 'portfolioPercent', label: '% Portfolio' },
@@ -540,6 +551,8 @@ interface PortfolioToolbarProps {
   handleOpenCreatePortfolio: () => void;
   handleEditPortfolio: () => void;
   isEditingPortfolio: boolean;
+  activeTab: PortfolioTab;
+  handleTabChange: (value: string) => void;
   defaultPortfolioTab: PortfolioTab;
   setDefaultPortfolioTab: (tab: PortfolioTab) => Promise<unknown> | void;
 }
@@ -554,6 +567,8 @@ function PortfolioToolbar({
   handleOpenCreatePortfolio,
   handleEditPortfolio,
   isEditingPortfolio,
+  activeTab,
+  handleTabChange,
   defaultPortfolioTab,
   setDefaultPortfolioTab,
 }: PortfolioToolbarProps) {
@@ -653,6 +668,24 @@ function PortfolioToolbar({
           )}
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
+          <div className="inline-flex items-center rounded-md border border-border/60 bg-background/50 p-0.5">
+            <Button
+              size="sm"
+              variant={activeTab === 'positions' ? 'secondary' : 'ghost'}
+              className="h-7 px-2.5 text-xs"
+              onClick={() => handleTabChange('positions')}
+            >
+              Positions
+            </Button>
+            <Button
+              size="sm"
+              variant={activeTab === 'stats' ? 'secondary' : 'ghost'}
+              className="h-7 px-2.5 text-xs"
+              onClick={() => handleTabChange('stats')}
+            >
+              Stats
+            </Button>
+          </div>
           <div className="flex w-full items-center gap-2 sm:w-auto">
             <span className="text-xs text-muted-foreground">Default Tab</span>
             <Select value={defaultPortfolioTab} onValueChange={handleDefaultTabSelection}>
@@ -719,95 +752,13 @@ function PortfolioHero({
   handleCancelPortfolioEdit,
   tradeStatistics,
 }: PortfolioHeroProps) {
-  const [riskCapPercent, setRiskCapPercent] = useState<string>('5');
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    try {
-      const stored = window.localStorage.getItem('financeguy-portfolio-risk-cap-percent');
-      if (!stored) {
-        return;
-      }
-      const parsed = parseFloat(stored);
-      if (!Number.isNaN(parsed) && parsed > 0) {
-        setRiskCapPercent(parsed.toString());
-      }
-    } catch {
-      // Ignore storage read errors
-    }
-  }, []);
-
   // Calculate metrics
   const totalOpenRisk = useMemo(() => calculateTotalOpenRisk(positions), [positions]);
   const riskPercent = portfolioValue > 0 ? (totalOpenRisk / portfolioValue) * 100 : 0;
-  const riskCapValue = useMemo(() => {
-    const parsed = parseFloat(riskCapPercent);
-    return Number.isNaN(parsed) || parsed <= 0 ? 5 : parsed;
-  }, [riskCapPercent]);
-  const riskBudgetUtilization = riskCapValue > 0 ? (riskPercent / riskCapValue) * 100 : 0;
-  const worstCaseStopLossDollar = totalOpenRisk;
-  const worstCaseStopLossPercent = riskPercent;
   const openPositionsForPnl = useMemo(
     () => positions.filter((position) => !isPositionFullyClosed(position) && position.remainingShares > 0),
     [positions],
   );
-  const singlePositionRiskCapPercent = useMemo(() => Math.max(1, riskCapValue / 2), [riskCapValue]);
-  const maxSinglePositionRiskPercent = useMemo(() => {
-    if (portfolioValue <= 0) {
-      return 0;
-    }
-
-    return openPositionsForPnl.reduce((maxRisk, position) => {
-      const riskDollar = Math.abs(position.cost - position.stopLoss) * position.remainingShares;
-      const riskPct = (riskDollar / portfolioValue) * 100;
-      return Math.max(maxRisk, riskPct);
-    }, 0);
-  }, [openPositionsForPnl, portfolioValue]);
-
-  const symbolRiskConcentration = useMemo(() => {
-    if (totalOpenRisk <= 0) {
-      return { symbol: null as string | null, concentrationPct: 0 };
-    }
-
-    const bySymbol = new Map<string, number>();
-    openPositionsForPnl.forEach((position) => {
-      const riskDollar = Math.abs(position.cost - position.stopLoss) * position.remainingShares;
-      bySymbol.set(position.symbol, (bySymbol.get(position.symbol) ?? 0) + riskDollar);
-    });
-
-    let topSymbol: string | null = null;
-    let topRisk = 0;
-    bySymbol.forEach((riskDollar, symbol) => {
-      if (riskDollar > topRisk) {
-        topRisk = riskDollar;
-        topSymbol = symbol;
-      }
-    });
-
-    return {
-      symbol: topSymbol,
-      concentrationPct: (topRisk / totalOpenRisk) * 100,
-    };
-  }, [openPositionsForPnl, totalOpenRisk]);
-
-  const concentrationCapPercent = 40;
-  const isPortfolioRiskViolation = riskPercent > riskCapValue;
-  const isSinglePositionRiskViolation = maxSinglePositionRiskPercent > singlePositionRiskCapPercent;
-  const isConcentrationViolation =
-    symbolRiskConcentration.symbol !== null && symbolRiskConcentration.concentrationPct > concentrationCapPercent;
-
-  const riskStatus = useMemo(() => {
-    if (riskPercent >= riskCapValue * 1.2) {
-      return { label: 'Critical', variant: 'destructive' as const };
-    }
-    if (riskPercent > riskCapValue) {
-      return { label: 'Warning', variant: 'secondary' as const };
-    }
-    return { label: 'Compliant', variant: 'positive' as const };
-  }, [riskPercent, riskCapValue]);
   const pnlQuoteQueries = useQueries({
     queries: openPositionsForPnl.map((position) => quoteQueryOptions(position.symbol)),
   });
@@ -927,13 +878,6 @@ function PortfolioHero({
     const rolling20 = computeExpectancy(closedTrades.slice(0, 20));
     const rolling50 = computeExpectancy(closedTrades.slice(0, 50));
 
-    let trendLabel: 'Improving' | 'Degrading' | 'Stable' = 'Stable';
-    if (rolling20.expectancyR > rolling50.expectancyR + 0.05) {
-      trendLabel = 'Improving';
-    } else if (rolling20.expectancyR < rolling50.expectancyR - 0.05) {
-      trendLabel = 'Degrading';
-    }
-
     const durationBuckets = [
       { key: '0-3d', min: 0, max: 3 },
       { key: '4-10d', min: 4, max: 10 },
@@ -948,17 +892,101 @@ function PortfolioHero({
       };
     });
 
+    const avgHoldWinnerDays = closedTrades.filter((trade) => trade.rMultiple > 0).length > 0
+      ? closedTrades
+          .filter((trade) => trade.rMultiple > 0)
+          .reduce((sum, trade) => sum + trade.days, 0) /
+        closedTrades.filter((trade) => trade.rMultiple > 0).length
+      : 0;
+
+    const avgHoldLoserDays = closedTrades.filter((trade) => trade.rMultiple < 0).length > 0
+      ? closedTrades
+          .filter((trade) => trade.rMultiple < 0)
+          .reduce((sum, trade) => sum + trade.days, 0) /
+        closedTrades.filter((trade) => trade.rMultiple < 0).length
+      : 0;
+
     return {
       realizedR,
       unrealizedR,
       avgRPerTrade,
       rolling20,
       rolling50,
-      trendLabel,
       durationBuckets,
-      closedTradesCount: closedTrades.length,
+      avgHoldWinnerDays,
+      avgHoldLoserDays,
     };
   }, [positions, openPositionsForPnl, unrealizedGain]);
+
+  const holdingPeriodByPositionData = useMemo(() => {
+    const openPriceBySymbol = new Map<string, number>();
+    openPositionsForPnl.forEach((position, index) => {
+      const price = pnlQuoteQueries[index]?.data?.price;
+      if (typeof price === 'number') {
+        openPriceBySymbol.set(position.symbol, price);
+      }
+    });
+
+    return positions
+      .map((position, index) => {
+        const totalGainLoss = calculateProjectedGainForPosition(position, openPriceBySymbol.get(position.symbol));
+        const portfolioGainPercent = portfolioValue > 0 ? (totalGainLoss / portfolioValue) * 100 : 0;
+        return {
+          positionLabel: `${position.symbol}-${index + 1}`,
+          status: isPositionFullyClosed(position) ? 'Closed' : 'Open',
+          totalGainLoss,
+          portfolioGainPercent,
+          closedAt: position.closedDate ? position.closedDate.getTime() : null,
+          openedAt: position.openDate.getTime(),
+        };
+      })
+      .sort((a, b) => {
+        if (a.closedAt !== null && b.closedAt !== null) {
+          return a.closedAt - b.closedAt;
+        }
+        if (a.closedAt !== null && b.closedAt === null) {
+          return -1;
+        }
+        if (a.closedAt === null && b.closedAt !== null) {
+          return 1;
+        }
+        return a.openedAt - b.openedAt;
+      });
+  }, [positions, openPositionsForPnl, pnlQuoteQueries, portfolioValue]);
+
+  const histogramAxisDomain = useMemo(() => {
+    if (holdingPeriodByPositionData.length === 0) {
+      return {
+        minDollar: -1,
+        maxDollar: 1,
+        minPercent: -1,
+        maxPercent: 1,
+      };
+    }
+
+    const values = holdingPeriodByPositionData.map((entry) => entry.totalGainLoss);
+    let minDollar = Math.min(...values, 0);
+    let maxDollar = Math.max(...values, 0);
+
+    if (minDollar === maxDollar) {
+      const pad = Math.abs(minDollar) > 0 ? Math.abs(minDollar) * 0.2 : 1;
+      minDollar -= pad;
+      maxDollar += pad;
+    } else {
+      const pad = (maxDollar - minDollar) * 0.08;
+      minDollar -= pad;
+      maxDollar += pad;
+    }
+
+    const toPercent = (value: number) => (portfolioValue > 0 ? (value / portfolioValue) * 100 : 0);
+
+    return {
+      minDollar,
+      maxDollar,
+      minPercent: toPercent(minDollar),
+      maxPercent: toPercent(maxDollar),
+    };
+  }, [holdingPeriodByPositionData, portfolioValue]);
 
   return (
     <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
@@ -1015,81 +1043,8 @@ function PortfolioHero({
             {portfolioName}
           </p>
           <div className="rounded-xl border border-border/60 bg-background/30 p-3 mb-3">
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-              <div className="space-y-1">
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Risk Budget</p>
-                <p className="text-base font-bold font-mono">
-                  {riskPercent.toFixed(2)}% / {riskCapValue.toFixed(2)}%
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Utilization: {riskBudgetUtilization.toFixed(0)}%
-                </p>
-              </div>
-              <div className="space-y-1">
-                <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                  Risk Cap %
-                </label>
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  value={riskCapPercent}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9.]/g, '');
-                    const parts = value.split('.');
-                    const formattedValue = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : value;
-                    setRiskCapPercent(formattedValue);
-                  }}
-                  onBlur={() => {
-                    const parsed = parseFloat(riskCapPercent);
-                    if (Number.isNaN(parsed) || parsed <= 0) {
-                      setRiskCapPercent('5');
-                      if (typeof window !== 'undefined') {
-                        window.localStorage.setItem('financeguy-portfolio-risk-cap-percent', '5');
-                      }
-                      return;
-                    }
-                    const normalized = parsed.toFixed(2);
-                    setRiskCapPercent(normalized);
-                    if (typeof window !== 'undefined') {
-                      window.localStorage.setItem('financeguy-portfolio-risk-cap-percent', normalized);
-                    }
-                  }}
-                  className="h-8 w-[90px] text-xs font-mono bg-background/50"
-                />
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Worst-Case Stop Outcome</p>
-                <p className="text-base font-bold font-mono">
-                  -{formatCurrencyTwoDecimals(worstCaseStopLossDollar)} / -{worstCaseStopLossPercent.toFixed(2)}%
-                </p>
-              </div>
-              <Badge variant={riskStatus.variant}>{riskStatus.label}</Badge>
-            </div>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {isPortfolioRiskViolation && (
-                <Badge variant="destructive">
-                  Portfolio risk &gt; cap ({riskCapValue.toFixed(2)}%)
-                </Badge>
-              )}
-              {isSinglePositionRiskViolation && (
-                <Badge variant="secondary">
-                  Single position risk &gt; cap ({singlePositionRiskCapPercent.toFixed(2)}%)
-                </Badge>
-              )}
-              {isConcentrationViolation && (
-                <Badge variant="secondary">
-                  Concentration &gt; cap ({symbolRiskConcentration.symbol}: {symbolRiskConcentration.concentrationPct.toFixed(1)}%)
-                </Badge>
-              )}
-              {!isPortfolioRiskViolation && !isSinglePositionRiskViolation && !isConcentrationViolation && (
-                <Badge variant="outline">No risk rule violations</Badge>
-              )}
-            </div>
-          </div>
-          <div className="rounded-xl border border-border/60 bg-background/30 p-3 mb-3">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Edge Diagnostics (R-based)</p>
-              <Badge variant="outline">{edgeDiagnostics.trendLabel}</Badge>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
               <div className="rounded-md border border-border/50 bg-background/50 p-2">
@@ -1133,11 +1088,61 @@ function PortfolioHero({
                 ))}
               </div>
             </div>
-            <div className="rounded-md border border-border/50 bg-background/50 p-2">
-              <p className="text-[10px] text-muted-foreground uppercase">MAE / MFE Diagnostics</p>
-              <p className="text-xs text-muted-foreground">
-                Historical MAE/MFE is not available for existing closed trades ({edgeDiagnostics.closedTradesCount}). Start tracking MAE/MFE fields from now forward to measure stop and exit efficiency.
-              </p>
+            <div className="rounded-md border border-border/50 bg-background/50 p-2 mb-2">
+              <p className="text-[10px] text-muted-foreground uppercase mb-1">Average Holding Period</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Winning Trades</p>
+                  <p className="text-xs font-bold font-mono">{edgeDiagnostics.avgHoldWinnerDays.toFixed(1)}d</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Losing Trades</p>
+                  <p className="text-xs font-bold font-mono">{edgeDiagnostics.avgHoldLoserDays.toFixed(1)}d</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-md border border-border/50 bg-background/50 p-2 mb-2">
+              <p className="text-[10px] text-muted-foreground uppercase mb-1">Holding Period by Position</p>
+              <div className="h-44">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={holdingPeriodByPositionData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="positionLabel" tick={{ fontSize: 10 }} />
+                    <YAxis
+                      yAxisId="pnlDollar"
+                      domain={[histogramAxisDomain.minDollar, histogramAxisDomain.maxDollar]}
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(value) => `${Number(value) >= 0 ? '+' : ''}$${Math.round(Number(value))}`}
+                    />
+                    <YAxis
+                      yAxisId="pnlPercent"
+                      orientation="right"
+                      domain={[histogramAxisDomain.minPercent, histogramAxisDomain.maxPercent]}
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(value) => `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(1)}%`}
+                    />
+                    <RechartsTooltip
+                      formatter={(value) => {
+                        const dollarValue = Number(value);
+                        const pct = portfolioValue > 0 ? (dollarValue / portfolioValue) * 100 : 0;
+                        return [`${formatCurrencyTwoDecimals(dollarValue)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`, 'Portfolio Gain'];
+                      }}
+                      labelFormatter={(label, payload) => {
+                        const row = payload?.[0]?.payload as { status?: string } | undefined;
+                        return `${label}${row?.status ? ` (${row.status})` : ''}`;
+                      }}
+                    />
+                    <Bar yAxisId="pnlDollar" dataKey="totalGainLoss" name="Portfolio Gain" radius={[4, 4, 0, 0]}>
+                      {holdingPeriodByPositionData.map((entry) => (
+                        <Cell
+                          key={`${entry.positionLabel}-pnl`}
+                          fill={entry.totalGainLoss >= 0 ? 'hsl(142, 76%, 36%)' : 'hsl(0, 84%, 60%)'}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
           <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_1fr_1fr] gap-3 mb-4">
@@ -1463,12 +1468,14 @@ function SummaryTotalsRow({
   const totals = useMemo(() => {
     let equity = 0;
     let gainLoss = 0;
+    let portfolioGainDollar = 0;
     let totalInitialRisk = 0;
     let totalDisplayedGain = 0;
 
     for (const position of closedPositions) {
       const realizedGain = calculateRealizedGainForPosition(position);
       gainLoss += realizedGain;
+      portfolioGainDollar += realizedGain;
       totalDisplayedGain += realizedGain;
       totalInitialRisk += calculateInitialRiskForPosition(position);
     }
@@ -1476,18 +1483,18 @@ function SummaryTotalsRow({
     for (let index = 0; index < openPositions.length; index += 1) {
       const position = openPositions[index];
       const currentPrice = quoteQueries[index]?.data?.price;
-      if (typeof currentPrice !== 'number') {
-        continue;
-      }
+      const markPrice = typeof currentPrice === 'number' ? currentPrice : position.cost;
 
-      equity += currentPrice * position.remainingShares;
-      gainLoss += calculateGainLoss(currentPrice, position.cost, position.remainingShares, position.type);
-      totalDisplayedGain += calculateProjectedGainForPosition(position, currentPrice);
+      equity += markPrice * position.remainingShares;
+      gainLoss += calculateGainLoss(markPrice, position.cost, position.remainingShares, position.type);
+      const projectedGain = calculateProjectedGainForPosition(position, markPrice);
+      portfolioGainDollar += projectedGain;
+      totalDisplayedGain += projectedGain;
       totalInitialRisk += calculateInitialRiskForPosition(position);
     }
 
     const rMultiple = totalInitialRisk > 0 ? totalDisplayedGain / totalInitialRisk : 0;
-    return { equity, gainLoss, rMultiple };
+    return { equity, gainLoss, portfolioGainDollar, rMultiple };
   }, [closedPositions, openPositions, quoteQueries]);
 
   const totalPortfolioPercent = portfolioValue > 0
@@ -1532,6 +1539,20 @@ function SummaryTotalsRow({
                   totals.gainLoss >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                 )}>
                   {formatCurrency(totals.gainLoss)}
+                </span>
+              )}
+            </TableCell>
+          );
+        }
+        if (col.id === 'portfolioGain') {
+          const totalPortfolioGainPercent = portfolioValue > 0 ? (totals.portfolioGainDollar / portfolioValue) * 100 : 0;
+          return (
+            <TableCell key={col.id} className={cn(baseClass, "font-medium")}>
+              {isLoading ? (
+                <div className="h-4 w-16 bg-muted animate-pulse rounded"></div>
+              ) : (
+                <span className={cn(totalPortfolioGainPercent >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
+                  {`${totalPortfolioGainPercent >= 0 ? '+' : ''}${totalPortfolioGainPercent.toFixed(2)}%`}
                 </span>
               )}
             </TableCell>
@@ -1609,6 +1630,41 @@ function PortfolioPercentCell({
       percentage > 10 ? "text-yellow-600 dark:text-yellow-400" : ""
     )}>
       {percentage.toFixed(2)}%
+    </span>
+  );
+}
+
+function PortfolioGainCell({
+  symbol,
+  positions,
+  portfolioValue,
+}: {
+  symbol: string;
+  positions: StockPosition[];
+  portfolioValue: number;
+}) {
+  const { data: quote, isLoading } = useQuote(symbol);
+  const isOpen = positions.some((position) => !isPositionFullyClosed(position) && position.remainingShares > 0);
+
+  const totalGain = useMemo(() => {
+    return positions.reduce((sum, position) => {
+      const currentPrice = isOpen ? quote?.price : undefined;
+      return sum + calculateProjectedGainForPosition(position, currentPrice);
+    }, 0);
+  }, [isOpen, positions, quote?.price]);
+
+  if (portfolioValue <= 0) {
+    return <span className="text-muted-foreground text-sm">N/A</span>;
+  }
+
+  if (isOpen && isLoading) {
+    return <div className="h-4 w-16 bg-muted animate-pulse rounded"></div>;
+  }
+
+  const gainPercent = (totalGain / portfolioValue) * 100;
+  return (
+    <span className={cn("font-medium", gainPercent >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
+      {`${gainPercent >= 0 ? '+' : ''}${gainPercent.toFixed(2)}%`}
     </span>
   );
 }
@@ -2515,6 +2571,10 @@ export default function Portfolio() {
   // Sort positions
   const sortedPositions = useMemo(() => {
     const basePositions = [...filteredPositions];
+    const parsedPortfolioValue = parseFloat(portfolioValue);
+    const currentPortfolioValue = !Number.isNaN(parsedPortfolioValue)
+      ? parsedPortfolioValue
+      : (portfolio?.portfolio_value || 0);
 
     if (!sortColumn) {
       return basePositions;
@@ -2560,6 +2620,14 @@ export default function Portfolio() {
         case 'gainLoss':
           aValue = calculateGainLoss(a.currentPrice || a.cost, a.cost, a.remainingShares, a.type);
           bValue = calculateGainLoss(b.currentPrice || b.cost, b.cost, b.remainingShares, b.type);
+          break;
+        case 'portfolioGain':
+          aValue = currentPortfolioValue > 0
+            ? (calculateProjectedGainForPosition(a, a.currentPrice) / currentPortfolioValue) * 100
+            : 0;
+          bValue = currentPortfolioValue > 0
+            ? (calculateProjectedGainForPosition(b, b.currentPrice) / currentPortfolioValue) * 100
+            : 0;
           break;
         case 'realizedGain':
           aValue = a.realizedGain || 0;
@@ -2644,7 +2712,7 @@ export default function Portfolio() {
     });
 
     return basePositions;
-  }, [filteredPositions, sortColumn, sortDirection, portfolio?.portfolio_value]);
+  }, [filteredPositions, sortColumn, sortDirection, portfolio?.portfolio_value, portfolioValue]);
 
   // Filter positions based on closed status (memoized to prevent unnecessary recalculations)
   const openPositions = useMemo(() => positions.filter(pos => !pos.closedDate), [positions]);
@@ -2745,6 +2813,9 @@ export default function Portfolio() {
     }
     return portfolio?.portfolio_value ?? 0;
   }, [portfolioValue, portfolio]);
+
+  const worstCaseStopLossDollar = useMemo(() => calculateTotalOpenRisk(positions), [positions]);
+  const worstCaseStopLossPercent = portfolioValueNumber > 0 ? (worstCaseStopLossDollar / portfolioValueNumber) * 100 : 0;
 
   // Compute trade statistics from closed positions only
   const tradeStatistics = useMemo(() => {
@@ -2935,26 +3006,23 @@ export default function Portfolio() {
 
   return (
     <div className="w-full p-3 sm:p-4 bg-gradient-to-br from-background via-background to-muted/20">
-      <div className="space-y-3">
-        <PortfolioToolbar
-          portfolios={portfolios}
-          selectedPortfolioKey={selectedPortfolioKey}
-          handlePortfolioSelection={handlePortfolioSelection}
-          isPortfolioLoading={isPortfolioLoading}
-          defaultPortfolioKey={defaultPortfolioKey}
-          setPortfolioAsDefault={setPortfolioAsDefault}
-          handleOpenCreatePortfolio={handleOpenCreatePortfolio}
-          handleEditPortfolio={handleEditPortfolio}
-          isEditingPortfolio={isEditingPortfolio}
-          defaultPortfolioTab={defaultPortfolioTab}
-          setDefaultPortfolioTab={setDefaultPortfolioTab}
-        />
-
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList>
-            <TabsTrigger value="positions">Positions</TabsTrigger>
-            <TabsTrigger value="stats">Stats</TabsTrigger>
-          </TabsList>
+      <Tabs value={activeTab} onValueChange={handleTabChange}>
+        <div className="space-y-3">
+          <PortfolioToolbar
+            portfolios={portfolios}
+            selectedPortfolioKey={selectedPortfolioKey}
+            handlePortfolioSelection={handlePortfolioSelection}
+            isPortfolioLoading={isPortfolioLoading}
+            defaultPortfolioKey={defaultPortfolioKey}
+            setPortfolioAsDefault={setPortfolioAsDefault}
+            handleOpenCreatePortfolio={handleOpenCreatePortfolio}
+            handleEditPortfolio={handleEditPortfolio}
+            isEditingPortfolio={isEditingPortfolio}
+            activeTab={activeTab}
+            handleTabChange={handleTabChange}
+            defaultPortfolioTab={defaultPortfolioTab}
+            setDefaultPortfolioTab={setDefaultPortfolioTab}
+          />
 
           <TabsContent value="positions">
             <div className="flex flex-col xl:flex-row gap-3">
@@ -3008,7 +3076,13 @@ export default function Portfolio() {
                   />
                 </div>
                 <div className="rounded-md border border-border/60 bg-background/40 p-2 w-full lg:w-auto">
-                  <div className="grid grid-cols-1 sm:grid-cols-[auto_auto_auto] gap-2 items-center">
+                  <div className="grid grid-cols-1 sm:grid-cols-[auto_auto_auto_auto] gap-2 items-center">
+                    <div className="space-y-1 min-w-[180px]">
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Worst-Case Stop Outcome</p>
+                      <p className="text-sm font-bold font-mono">
+                        -{formatCurrencyTwoDecimals(worstCaseStopLossDollar)} / -{worstCaseStopLossPercent.toFixed(2)}%
+                      </p>
+                    </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">ADR %</label>
                       <Input
@@ -3187,6 +3261,16 @@ export default function Portfolio() {
                                       type={position.type}
                                     />
                                   )}
+                                </TableCell>
+                              );
+                            case 'portfolioGain':
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  <PortfolioGainCell
+                                    symbol={position.symbol}
+                                    positions={row.kind === 'summary' ? row.positions : [position]}
+                                    portfolioValue={portfolioValueNumber}
+                                  />
                                 </TableCell>
                               );
                             case 'realizedGain':
@@ -3538,8 +3622,8 @@ export default function Portfolio() {
               tradeStatistics={tradeStatistics}
             />
           </TabsContent>
-        </Tabs>
-      </div>
+        </div>
+      </Tabs>
 
       {/* Edit Position Modal */}
       <EditPositionModal
