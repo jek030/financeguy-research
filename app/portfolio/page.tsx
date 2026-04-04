@@ -21,6 +21,8 @@ import {
   Cell,
   ResponsiveContainer,
   Tooltip as RechartsTooltip,
+  LineChart,
+  Line,
   BarChart,
   Bar,
   CartesianGrid,
@@ -737,6 +739,7 @@ interface PortfolioHeroProps {
     avgLoserR: number;
     totalR: number;
     avgEquityPerTrade: number;
+    avgNetCost: number;
     avgWinnerDays: number;
     avgLoserDays: number;
     riskRewardRatio: number;
@@ -837,6 +840,64 @@ function PortfolioHero({
       ? "bg-orange-500" 
       : "bg-emerald-500";
 
+  const balanceOverTimeData = useMemo(() => {
+    const eventsByDate = new Map<number, number>();
+
+    positions.forEach((position) => {
+      if (!position.closedDate) {
+        return;
+      }
+      const dayTimestamp = new Date(
+        position.closedDate.getFullYear(),
+        position.closedDate.getMonth(),
+        position.closedDate.getDate(),
+      ).getTime();
+      const realizedGain = calculateRealizedGainForPosition(position);
+      eventsByDate.set(dayTimestamp, (eventsByDate.get(dayTimestamp) ?? 0) + realizedGain);
+    });
+
+    const sortedDates = Array.from(eventsByDate.keys()).sort((a, b) => a - b);
+    let runningBalance = portfolioValue;
+    const series: Array<{ pointLabel: string; balance: number; dayRealizedGain: number }> = [
+      { pointLabel: 'Start', balance: portfolioValue, dayRealizedGain: 0 },
+    ];
+
+    sortedDates.forEach((timestamp) => {
+      const dayGain = eventsByDate.get(timestamp) ?? 0;
+      runningBalance += dayGain;
+      series.push({
+        pointLabel: format(new Date(timestamp), 'MMM d, yyyy'),
+        balance: runningBalance,
+        dayRealizedGain: dayGain,
+      });
+    });
+
+    return series;
+  }, [positions, portfolioValue]);
+
+  const balanceChartDomain = useMemo(() => {
+    if (balanceOverTimeData.length === 0) {
+      const start = portfolioValue || 0;
+      return [start - 1, start + 1] as const;
+    }
+
+    const balances = balanceOverTimeData.map((point) => point.balance);
+    let minBalance = Math.min(...balances);
+    let maxBalance = Math.max(...balances);
+
+    if (minBalance === maxBalance) {
+      const pad = Math.max(Math.abs(minBalance) * 0.01, 1);
+      minBalance -= pad;
+      maxBalance += pad;
+    } else {
+      const pad = (maxBalance - minBalance) * 0.08;
+      minBalance -= pad;
+      maxBalance += pad;
+    }
+
+    return [minBalance, maxBalance] as const;
+  }, [balanceOverTimeData, portfolioValue]);
+
   const holdingPeriodByPositionData = useMemo(() => {
     const openPriceBySymbol = new Map<string, number>();
     openPositionsForPnl.forEach((position, index) => {
@@ -906,6 +967,116 @@ function PortfolioHero({
       maxPercent: toPercent(maxDollar),
     };
   }, [holdingPeriodByPositionData, portfolioValue]);
+
+  const gainLossDistributionData = useMemo(() => {
+    const bins = [
+      { key: 'neg-32-plus', label: '<-32%', type: 'negative' as const },
+      { key: 'neg-16-32', label: '-32% to -16%', type: 'negative' as const },
+      { key: 'neg-8-16', label: '-16% to -8%', type: 'negative' as const },
+      { key: 'neg-4-8', label: '-8% to -4%', type: 'negative' as const },
+      { key: 'neg-2-4', label: '-4% to -2%', type: 'negative' as const },
+      { key: 'neg-0-2', label: '-2% to 0%', type: 'negative' as const },
+      { key: 'zero', label: '0%', type: 'neutral' as const },
+      { key: 'pos-0-2', label: '0% to 2%', type: 'positive' as const },
+      { key: 'pos-2-4', label: '2% to 4%', type: 'positive' as const },
+      { key: 'pos-4-8', label: '4% to 8%', type: 'positive' as const },
+      { key: 'pos-8-16', label: '8% to 16%', type: 'positive' as const },
+      { key: 'pos-16-32', label: '16% to 32%', type: 'positive' as const },
+      { key: 'pos-32-plus', label: '32%+', type: 'positive' as const },
+    ];
+
+    const counts = Object.fromEntries(bins.map((bin) => [bin.key, 0])) as Record<string, number>;
+
+    positions.forEach((position) => {
+      if (!position.closedDate || position.netCost === 0) {
+        return;
+      }
+
+      const realizedGain = calculateRealizedGainForPosition(position);
+      const percentGain = (realizedGain / position.netCost) * 100;
+
+      if (percentGain === 0) {
+        counts.zero += 1;
+      } else if (percentGain > 0) {
+        if (percentGain < 2) counts['pos-0-2'] += 1;
+        else if (percentGain < 4) counts['pos-2-4'] += 1;
+        else if (percentGain < 8) counts['pos-4-8'] += 1;
+        else if (percentGain < 16) counts['pos-8-16'] += 1;
+        else if (percentGain < 32) counts['pos-16-32'] += 1;
+        else counts['pos-32-plus'] += 1;
+      } else {
+        if (percentGain > -2) counts['neg-0-2'] += 1;
+        else if (percentGain > -4) counts['neg-2-4'] += 1;
+        else if (percentGain > -8) counts['neg-4-8'] += 1;
+        else if (percentGain > -16) counts['neg-8-16'] += 1;
+        else if (percentGain > -32) counts['neg-16-32'] += 1;
+        else counts['neg-32-plus'] += 1;
+      }
+    });
+
+    return bins.map((bin) => ({
+      rangeLabel: bin.label,
+      trades: counts[bin.key] ?? 0,
+      bucketType: bin.type,
+    }));
+  }, [positions]);
+
+  const realizedEquityDistributionData = useMemo(() => {
+    const bins = [
+      { key: 'neg-32-plus', label: '<-32%', type: 'negative' as const },
+      { key: 'neg-16-32', label: '-32% to -16%', type: 'negative' as const },
+      { key: 'neg-8-16', label: '-16% to -8%', type: 'negative' as const },
+      { key: 'neg-4-8', label: '-8% to -4%', type: 'negative' as const },
+      { key: 'neg-2-4', label: '-4% to -2%', type: 'negative' as const },
+      { key: 'neg-0-2', label: '-2% to 0%', type: 'negative' as const },
+      { key: 'zero', label: '0%', type: 'neutral' as const },
+      { key: 'pos-0-2', label: '0% to 2%', type: 'positive' as const },
+      { key: 'pos-2-4', label: '2% to 4%', type: 'positive' as const },
+      { key: 'pos-4-8', label: '4% to 8%', type: 'positive' as const },
+      { key: 'pos-8-16', label: '8% to 16%', type: 'positive' as const },
+      { key: 'pos-16-32', label: '16% to 32%', type: 'positive' as const },
+      { key: 'pos-32-plus', label: '32%+', type: 'positive' as const },
+    ];
+
+    const counts = Object.fromEntries(bins.map((bin) => [bin.key, 0])) as Record<string, number>;
+    const equityBase = currentBalance > 0 ? currentBalance : portfolioValue;
+
+    positions.forEach((position) => {
+      if (equityBase <= 0) {
+        return;
+      }
+      const realizedGain = calculateRealizedGainForPosition(position);
+      if (realizedGain === 0) {
+        return;
+      }
+
+      const realizedEquityPct = (realizedGain / equityBase) * 100;
+
+      if (realizedEquityPct === 0) {
+        counts.zero += 1;
+      } else if (realizedEquityPct > 0) {
+        if (realizedEquityPct < 2) counts['pos-0-2'] += 1;
+        else if (realizedEquityPct < 4) counts['pos-2-4'] += 1;
+        else if (realizedEquityPct < 8) counts['pos-4-8'] += 1;
+        else if (realizedEquityPct < 16) counts['pos-8-16'] += 1;
+        else if (realizedEquityPct < 32) counts['pos-16-32'] += 1;
+        else counts['pos-32-plus'] += 1;
+      } else {
+        if (realizedEquityPct > -2) counts['neg-0-2'] += 1;
+        else if (realizedEquityPct > -4) counts['neg-2-4'] += 1;
+        else if (realizedEquityPct > -8) counts['neg-4-8'] += 1;
+        else if (realizedEquityPct > -16) counts['neg-8-16'] += 1;
+        else if (realizedEquityPct > -32) counts['neg-16-32'] += 1;
+        else counts['neg-32-plus'] += 1;
+      }
+    });
+
+    return bins.map((bin) => ({
+      rangeLabel: bin.label,
+      trades: counts[bin.key] ?? 0,
+      bucketType: bin.type,
+    }));
+  }, [positions, currentBalance, portfolioValue]);
 
   return (
     <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
@@ -1083,7 +1254,7 @@ function PortfolioHero({
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Trade Statistics</p>
               
               {/* Top row: Batting Average, Risk/Reward, Avg Duration */}
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-3 mb-3">
                 <div className="space-y-1 rounded-md bg-muted/20 p-2.5">
                   <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Batting Average</p>
                   <p className="text-lg font-bold font-mono">
@@ -1109,6 +1280,10 @@ function PortfolioHero({
                   <p className="text-lg font-bold font-mono">
                     {tradeStatistics.avgEquityPerTrade >= 0 ? '+' : ''}{tradeStatistics.avgEquityPerTrade.toFixed(2)}%
                   </p>
+                </div>
+                <div className="space-y-1 rounded-md bg-muted/20 p-2.5">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Average Net Cost</p>
+                  <p className="text-lg font-bold font-mono">{formatCurrency(tradeStatistics.avgNetCost)}</p>
                 </div>
               </div>
 
@@ -1209,6 +1384,42 @@ function PortfolioHero({
           )}
 
           <div className="mt-3 rounded-xl border border-border/60 bg-background/30 dark:bg-muted/20 p-3 md:p-4">
+            <p className="text-[10px] text-muted-foreground uppercase mb-1">Balance Over Time (Realized)</p>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={balanceOverTimeData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="pointLabel" tick={{ fontSize: 10 }} />
+                  <YAxis
+                    domain={[balanceChartDomain[0], balanceChartDomain[1]]}
+                    tick={{ fontSize: 10 }}
+                    tickFormatter={(value) => `${Number(value) >= 0 ? '+' : ''}$${Math.round(Number(value))}`}
+                  />
+                  <RechartsTooltip
+                    formatter={(value, name, item) => {
+                      const point = item?.payload as { dayRealizedGain?: number } | undefined;
+                      const dayGain = point?.dayRealizedGain ?? 0;
+                      return [
+                        `${formatCurrencyTwoDecimals(Number(value))} (${dayGain >= 0 ? '+' : ''}${formatCurrencyTwoDecimals(dayGain)})`,
+                        'Account Balance',
+                      ];
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="balance"
+                    name="Account Balance"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    dot={{ r: 2 }}
+                    activeDot={{ r: 4 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-xl border border-border/60 bg-background/30 dark:bg-muted/20 p-3 md:p-4">
             <p className="text-[10px] text-muted-foreground uppercase mb-1">Holding Period by Position</p>
             <div className="h-44">
               <ResponsiveContainer width="100%" height="100%">
@@ -1244,6 +1455,68 @@ function PortfolioHero({
                       <Cell
                         key={`${entry.positionLabel}-pnl`}
                         fill={entry.totalGainLoss >= 0 ? 'hsl(142, 76%, 36%)' : 'hsl(0, 84%, 60%)'}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-xl border border-border/60 bg-background/30 dark:bg-muted/20 p-3 md:p-4">
+            <p className="text-[10px] text-muted-foreground uppercase mb-1">Realized Gain/Loss Distribution (%)</p>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={gainLossDistributionData} margin={{ top: 4, right: 8, left: 0, bottom: 16 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="rangeLabel" tick={{ fontSize: 10 }} interval={0} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                  <RechartsTooltip
+                    formatter={(value) => [`${Number(value)} trades`, '# of Trades']}
+                    labelFormatter={(label) => `Range: ${label}`}
+                  />
+                  <Bar dataKey="trades" name="# of Trades" radius={[4, 4, 0, 0]}>
+                    {gainLossDistributionData.map((entry) => (
+                      <Cell
+                        key={`${entry.rangeLabel}-count`}
+                        fill={
+                          entry.bucketType === 'negative'
+                            ? 'hsl(0, 84%, 60%)'
+                            : entry.bucketType === 'positive'
+                              ? 'hsl(142, 76%, 36%)'
+                              : 'hsl(var(--muted-foreground))'
+                        }
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-xl border border-border/60 bg-background/30 dark:bg-muted/20 p-3 md:p-4">
+            <p className="text-[10px] text-muted-foreground uppercase mb-1">Realized Equity Gain/Loss Distribution (%)</p>
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={realizedEquityDistributionData} margin={{ top: 4, right: 8, left: 0, bottom: 16 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="rangeLabel" tick={{ fontSize: 10 }} interval={0} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                  <RechartsTooltip
+                    formatter={(value) => [`${Number(value)} trades`, '# of Trades']}
+                    labelFormatter={(label) => `Range: ${label}`}
+                  />
+                  <Bar dataKey="trades" name="# of Trades" radius={[4, 4, 0, 0]}>
+                    {realizedEquityDistributionData.map((entry) => (
+                      <Cell
+                        key={`${entry.rangeLabel}-equity-count`}
+                        fill={
+                          entry.bucketType === 'negative'
+                            ? 'hsl(0, 84%, 60%)'
+                            : entry.bucketType === 'positive'
+                              ? 'hsl(142, 76%, 36%)'
+                              : 'hsl(var(--muted-foreground))'
+                        }
                       />
                     ))}
                   </Bar>
@@ -2704,7 +2977,7 @@ export default function Portfolio() {
       const days = calculateDaysInTrade(pos.openDate, pos.closedDate);
       const initialRisk = calculateInitialRiskAmount(pos.cost, pos.initialStopLoss, pos.quantity);
       const rMultiple = initialRisk > 0 ? realizedGain / initialRisk : 0;
-      return { realizedGain, percentGain, equityContribution, days, rMultiple };
+      return { realizedGain, percentGain, equityContribution, days, rMultiple, netCost: pos.netCost };
     });
 
     const winners = trades.filter(t => t.realizedGain > 0);
@@ -2739,6 +3012,7 @@ export default function Portfolio() {
     const avgLoserDays = r2(avg(losers.map(t => t.days)));
     const totalR = r2(trades.reduce((sum, trade) => sum + trade.rMultiple, 0));
     const avgEquityPerTrade = r2(avg(trades.map(t => t.equityContribution)));
+    const avgNetCost = r2(avg(trades.map(t => t.netCost)));
 
     const riskRewardRatio = avgLossDollar > 0 ? r2(avgGainDollar / avgLossDollar) : 0;
 
@@ -2763,6 +3037,7 @@ export default function Portfolio() {
       avgLoserR,
       totalR,
       avgEquityPerTrade,
+      avgNetCost,
       avgWinnerDays,
       avgLoserDays,
       riskRewardRatio,
