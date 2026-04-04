@@ -733,6 +733,10 @@ interface PortfolioHeroProps {
     maxLossDollar: number;
     maxLossPercent: number;
     maxLossEquity: number;
+    avgWinnerR: number;
+    avgLoserR: number;
+    totalR: number;
+    avgEquityPerTrade: number;
     avgWinnerDays: number;
     avgLoserDays: number;
     riskRewardRatio: number;
@@ -832,91 +836,6 @@ function PortfolioHero({
     : riskPercent > 5 
       ? "bg-orange-500" 
       : "bg-emerald-500";
-
-  const edgeDiagnostics = useMemo(() => {
-    const closedTrades = positions
-      .filter((position) => Boolean(position.closedDate))
-      .map((position) => {
-        const realizedDollar = calculateRealizedGainForPosition(position);
-        const initialRiskDollar = calculateInitialRiskAmount(position.cost, position.initialStopLoss, position.quantity);
-        const rMultiple = initialRiskDollar > 0 ? realizedDollar / initialRiskDollar : 0;
-        const days = calculateDaysInTrade(position.openDate, position.closedDate);
-        return {
-          rMultiple,
-          days,
-          isWin: realizedDollar > 0,
-          closeTime: position.closedDate ? position.closedDate.getTime() : 0,
-        };
-      })
-      .sort((a, b) => b.closeTime - a.closeTime);
-
-    const openRiskBaseDollar = openPositionsForPnl.reduce((sum, position) => {
-      return sum + calculateInitialRiskAmount(position.cost, position.stopLoss, position.remainingShares);
-    }, 0);
-
-    const unrealizedR = openRiskBaseDollar > 0 ? unrealizedGain / openRiskBaseDollar : 0;
-    const realizedR = closedTrades.reduce((sum, trade) => sum + trade.rMultiple, 0);
-    const avgRPerTrade = closedTrades.length > 0 ? realizedR / closedTrades.length : 0;
-
-    const computeExpectancy = (trades: typeof closedTrades) => {
-      if (trades.length === 0) {
-        return { winRate: 0, avgWinR: 0, avgLossR: 0, expectancyR: 0, sample: 0 };
-      }
-      const wins = trades.filter((trade) => trade.rMultiple > 0);
-      const losses = trades.filter((trade) => trade.rMultiple < 0);
-      const winRate = wins.length / trades.length;
-      const avgWinR = wins.length > 0
-        ? wins.reduce((sum, trade) => sum + trade.rMultiple, 0) / wins.length
-        : 0;
-      const avgLossR = losses.length > 0
-        ? losses.reduce((sum, trade) => sum + Math.abs(trade.rMultiple), 0) / losses.length
-        : 0;
-      const expectancyR = (winRate * avgWinR) - ((1 - winRate) * avgLossR);
-      return { winRate, avgWinR, avgLossR, expectancyR, sample: trades.length };
-    };
-
-    const rolling20 = computeExpectancy(closedTrades.slice(0, 20));
-    const rolling50 = computeExpectancy(closedTrades.slice(0, 50));
-
-    const durationBuckets = [
-      { key: '0-3d', min: 0, max: 3 },
-      { key: '4-10d', min: 4, max: 10 },
-      { key: '11+d', min: 11, max: Number.POSITIVE_INFINITY },
-    ].map((bucket) => {
-      const bucketTrades = closedTrades.filter((trade) => trade.days >= bucket.min && trade.days <= bucket.max);
-      const stats = computeExpectancy(bucketTrades);
-      return {
-        label: bucket.key,
-        expectancyR: stats.expectancyR,
-        sample: stats.sample,
-      };
-    });
-
-    const avgHoldWinnerDays = closedTrades.filter((trade) => trade.rMultiple > 0).length > 0
-      ? closedTrades
-          .filter((trade) => trade.rMultiple > 0)
-          .reduce((sum, trade) => sum + trade.days, 0) /
-        closedTrades.filter((trade) => trade.rMultiple > 0).length
-      : 0;
-
-    const avgHoldLoserDays = closedTrades.filter((trade) => trade.rMultiple < 0).length > 0
-      ? closedTrades
-          .filter((trade) => trade.rMultiple < 0)
-          .reduce((sum, trade) => sum + trade.days, 0) /
-        closedTrades.filter((trade) => trade.rMultiple < 0).length
-      : 0;
-
-    return {
-      realizedR,
-      unrealizedR,
-      avgRPerTrade,
-      rolling20,
-      rolling50,
-      durationBuckets,
-      avgHoldWinnerDays,
-      avgHoldLoserDays,
-    };
-  }, [positions, openPositionsForPnl, unrealizedGain]);
 
   const holdingPeriodByPositionData = useMemo(() => {
     const openPriceBySymbol = new Map<string, number>();
@@ -1042,111 +961,8 @@ function PortfolioHero({
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
             {portfolioName}
           </p>
-          <div className="rounded-xl border border-border/60 bg-background/30 p-3 mb-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Edge Diagnostics (R-based)</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
-              <div className="rounded-md border border-border/50 bg-background/50 p-2">
-                <p className="text-[10px] text-muted-foreground uppercase">Realized R</p>
-                <p className="text-sm font-bold font-mono">{edgeDiagnostics.realizedR.toFixed(2)}R</p>
-              </div>
-              <div className="rounded-md border border-border/50 bg-background/50 p-2">
-                <p className="text-[10px] text-muted-foreground uppercase">Unrealized R</p>
-                <p className="text-sm font-bold font-mono">{edgeDiagnostics.unrealizedR.toFixed(2)}R</p>
-              </div>
-              <div className="rounded-md border border-border/50 bg-background/50 p-2">
-                <p className="text-[10px] text-muted-foreground uppercase">Avg R / Trade</p>
-                <p className="text-sm font-bold font-mono">{edgeDiagnostics.avgRPerTrade.toFixed(2)}R</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-2">
-              <div className="rounded-md border border-border/50 bg-background/50 p-2">
-                <p className="text-[10px] text-muted-foreground uppercase mb-1">Expectancy (rolling 20)</p>
-                <p className="text-sm font-bold font-mono">{edgeDiagnostics.rolling20.expectancyR.toFixed(2)}R</p>
-                <p className="text-[10px] text-muted-foreground">
-                  Win {((edgeDiagnostics.rolling20.winRate || 0) * 100).toFixed(0)}% · AvgWin {edgeDiagnostics.rolling20.avgWinR.toFixed(2)}R · AvgLoss {edgeDiagnostics.rolling20.avgLossR.toFixed(2)}R · n={edgeDiagnostics.rolling20.sample}
-                </p>
-              </div>
-              <div className="rounded-md border border-border/50 bg-background/50 p-2">
-                <p className="text-[10px] text-muted-foreground uppercase mb-1">Expectancy (rolling 50)</p>
-                <p className="text-sm font-bold font-mono">{edgeDiagnostics.rolling50.expectancyR.toFixed(2)}R</p>
-                <p className="text-[10px] text-muted-foreground">
-                  Win {((edgeDiagnostics.rolling50.winRate || 0) * 100).toFixed(0)}% · AvgWin {edgeDiagnostics.rolling50.avgWinR.toFixed(2)}R · AvgLoss {edgeDiagnostics.rolling50.avgLossR.toFixed(2)}R · n={edgeDiagnostics.rolling50.sample}
-                </p>
-              </div>
-            </div>
-            <div className="rounded-md border border-border/50 bg-background/50 p-2 mb-2">
-              <p className="text-[10px] text-muted-foreground uppercase mb-1">Time-In-Trade Efficiency (Expectancy)</p>
-              <div className="grid grid-cols-3 gap-2">
-                {edgeDiagnostics.durationBuckets.map((bucket) => (
-                  <div key={bucket.label}>
-                    <p className="text-[10px] text-muted-foreground">{bucket.label}</p>
-                    <p className="text-xs font-bold font-mono">{bucket.expectancyR.toFixed(2)}R</p>
-                    <p className="text-[10px] text-muted-foreground">n={bucket.sample}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="rounded-md border border-border/50 bg-background/50 p-2 mb-2">
-              <p className="text-[10px] text-muted-foreground uppercase mb-1">Average Holding Period</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <p className="text-[10px] text-muted-foreground">Winning Trades</p>
-                  <p className="text-xs font-bold font-mono">{edgeDiagnostics.avgHoldWinnerDays.toFixed(1)}d</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground">Losing Trades</p>
-                  <p className="text-xs font-bold font-mono">{edgeDiagnostics.avgHoldLoserDays.toFixed(1)}d</p>
-                </div>
-              </div>
-            </div>
-            <div className="rounded-md border border-border/50 bg-background/50 p-2 mb-2">
-              <p className="text-[10px] text-muted-foreground uppercase mb-1">Holding Period by Position</p>
-              <div className="h-44">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={holdingPeriodByPositionData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="positionLabel" tick={{ fontSize: 10 }} />
-                    <YAxis
-                      yAxisId="pnlDollar"
-                      domain={[histogramAxisDomain.minDollar, histogramAxisDomain.maxDollar]}
-                      tick={{ fontSize: 10 }}
-                      tickFormatter={(value) => `${Number(value) >= 0 ? '+' : ''}$${Math.round(Number(value))}`}
-                    />
-                    <YAxis
-                      yAxisId="pnlPercent"
-                      orientation="right"
-                      domain={[histogramAxisDomain.minPercent, histogramAxisDomain.maxPercent]}
-                      tick={{ fontSize: 10 }}
-                      tickFormatter={(value) => `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(1)}%`}
-                    />
-                    <RechartsTooltip
-                      formatter={(value) => {
-                        const dollarValue = Number(value);
-                        const pct = portfolioValue > 0 ? (dollarValue / portfolioValue) * 100 : 0;
-                        return [`${formatCurrencyTwoDecimals(dollarValue)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`, 'Portfolio Gain'];
-                      }}
-                      labelFormatter={(label, payload) => {
-                        const row = payload?.[0]?.payload as { status?: string } | undefined;
-                        return `${label}${row?.status ? ` (${row.status})` : ''}`;
-                      }}
-                    />
-                    <Bar yAxisId="pnlDollar" dataKey="totalGainLoss" name="Portfolio Gain" radius={[4, 4, 0, 0]}>
-                      {holdingPeriodByPositionData.map((entry) => (
-                        <Cell
-                          key={`${entry.positionLabel}-pnl`}
-                          fill={entry.totalGainLoss >= 0 ? 'hsl(142, 76%, 36%)' : 'hsl(0, 84%, 60%)'}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_1fr_1fr] gap-3 mb-4">
-            <div className="rounded-xl border border-border/60 bg-background/40 p-4 md:p-5">
+          <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_1fr_1fr] gap-3 mb-3">
+            <div className="rounded-xl border border-border/40 bg-background/25 dark:bg-muted/20 p-4 md:p-5">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
                 Starting Balance
               </p>
@@ -1155,7 +971,7 @@ function PortfolioHero({
               </p>
             </div>
 
-            <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-4 md:p-5">
+            <div className="rounded-xl border border-border/40 bg-background/25 dark:bg-muted/20 p-4 md:p-5">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
                 Current Balance
               </p>
@@ -1176,7 +992,7 @@ function PortfolioHero({
               <p className="text-[10px] text-muted-foreground mt-1">Starting + Realized</p>
             </div>
 
-            <div className="rounded-xl border border-primary/20 bg-primary/[0.04] p-4 md:p-5">
+            <div className="rounded-xl border border-border/40 bg-background/25 dark:bg-muted/20 p-4 md:p-5">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
                 Unrealized Balance
               </p>
@@ -1199,8 +1015,8 @@ function PortfolioHero({
           </div>
 
           {/* Metrics Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 md:gap-3">
-            <div className="rounded-lg border border-border/60 bg-background/30 p-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 md:gap-3 mb-3">
+            <div className="rounded-lg bg-muted/25 dark:bg-muted/20 p-3.5">
               <MetricCard
                 label="Exposure"
                 value={`${exposure.toFixed(1)}%`}
@@ -1213,7 +1029,7 @@ function PortfolioHero({
                 isLoading={isUnrealizedLoading}
               />
             </div>
-            <div className="rounded-lg border border-border/60 bg-background/30 p-3.5">
+            <div className="rounded-lg bg-muted/25 dark:bg-muted/20 p-3.5">
               <MetricCard
                 label="Total Open Risk"
                 value={formatCurrency(totalOpenRisk)}
@@ -1225,7 +1041,7 @@ function PortfolioHero({
                 valueColorClass={riskColorClass}
               />
             </div>
-            <div className="rounded-lg border border-border/60 bg-background/30 p-3.5 space-y-2">
+            <div className="rounded-lg bg-muted/25 dark:bg-muted/20 p-3.5 space-y-2">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                 Unrealized P&L
               </p>
@@ -1244,7 +1060,7 @@ function PortfolioHero({
                   : `${unrealizedPercent >= 0 ? "+" : ""}${unrealizedPercent.toFixed(2)}% of starting balance`}
               </p>
             </div>
-            <div className="rounded-lg border border-border/60 bg-background/30 p-3.5 space-y-2">
+            <div className="rounded-lg bg-muted/25 dark:bg-muted/20 p-3.5 space-y-2">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                 Realized P&L
               </p>
@@ -1263,119 +1079,179 @@ function PortfolioHero({
 
           {/* Trade Statistics (closed trades only) */}
           {tradeStatistics && (
-            <div className="mt-4 pt-4 border-t border-border/50">
+            <div className="mt-3 rounded-xl border border-border/60 bg-background/25 dark:bg-muted/20 p-3 md:p-4">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Trade Statistics</p>
               
               {/* Top row: Batting Average, Risk/Reward, Avg Duration */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-                <div className="space-y-1">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-3 mb-3">
+                <div className="space-y-1 rounded-md bg-muted/20 p-2.5">
                   <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Batting Average</p>
                   <p className="text-lg font-bold font-mono">
                     {tradeStatistics.battingAverage.toFixed(1)}%
                   </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {tradeStatistics.winnerCount}W / {tradeStatistics.loserCount}L of {tradeStatistics.totalClosed}
-                  </p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Risk / Reward</p>
+                <div className="space-y-1 rounded-md bg-muted/20 p-2.5">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">W/L Ratio</p>
                   <p className="text-lg font-bold font-mono">
                     {tradeStatistics.riskRewardRatio > 0 ? tradeStatistics.riskRewardRatio.toFixed(2) : 'N/A'}
                   </p>
-                  <p className="text-[10px] text-muted-foreground">Avg gain / Avg loss</p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Avg Winner Duration</p>
-                  <p className="text-lg font-bold font-mono">{tradeStatistics.avgWinnerDays.toFixed(1)}d</p>
-                  <p className="text-[10px] text-muted-foreground">Days in trade</p>
+                <div className="space-y-1 rounded-md bg-muted/20 p-2.5">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Total Number of Trades</p>
+                  <p className="text-lg font-bold font-mono">{tradeStatistics.totalClosed}</p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Avg Loser Duration</p>
-                  <p className="text-lg font-bold font-mono">{tradeStatistics.avgLoserDays.toFixed(1)}d</p>
-                  <p className="text-[10px] text-muted-foreground">Days in trade</p>
+                <div className="space-y-1 rounded-md bg-muted/20 p-2.5">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Total R</p>
+                  <p className="text-lg font-bold font-mono">{tradeStatistics.totalR.toFixed(2)}R</p>
+                </div>
+                <div className="space-y-1 rounded-md bg-muted/20 p-2.5">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Return per Trade</p>
+                  <p className="text-lg font-bold font-mono">
+                    {tradeStatistics.avgEquityPerTrade >= 0 ? '+' : ''}{tradeStatistics.avgEquityPerTrade.toFixed(2)}%
+                  </p>
                 </div>
               </div>
 
               {/* Gain/Loss detail grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {/* Average Gain */}
-                <div className="rounded-lg border border-border/50 bg-background/30 p-3">
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Average Gain</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <p className="text-[9px] text-muted-foreground">Dollar</p>
-                      <p className="text-xs font-bold font-mono">{formatCurrency(tradeStatistics.avgGainDollar)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-muted-foreground">Percent</p>
-                      <p className="text-xs font-bold font-mono">{tradeStatistics.avgGainPercent.toFixed(2)}%</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-muted-foreground">Equity Contribution</p>
-                      <p className="text-xs font-bold font-mono">{tradeStatistics.avgGainEquity.toFixed(2)}%</p>
-                    </div>
+                <div className="rounded-lg bg-muted/20 p-3">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Average Performance</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-xs font-mono">
+                      <thead>
+                        <tr className="bg-background/30">
+                          <th className="border border-border/60 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                            Metric
+                          </th>
+                          <th className="border border-border/60 px-2 py-1 text-right text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                            Gain
+                          </th>
+                          <th className="border border-border/60 px-2 py-1 text-right text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                            Loss
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="border border-border/60 px-2 py-1 text-[10px] text-muted-foreground">Dollar Gain</td>
+                          <td className="border border-border/60 px-2 py-1 text-right font-bold">{formatCurrency(tradeStatistics.avgGainDollar)}</td>
+                          <td className="border border-border/60 px-2 py-1 text-right font-bold">-{formatCurrency(tradeStatistics.avgLossDollar)}</td>
+                        </tr>
+                        <tr>
+                          <td className="border border-border/60 px-2 py-1 text-[10px] text-muted-foreground">Percent Gain</td>
+                          <td className="border border-border/60 px-2 py-1 text-right font-bold">{tradeStatistics.avgGainPercent.toFixed(2)}%</td>
+                          <td className="border border-border/60 px-2 py-1 text-right font-bold">-{tradeStatistics.avgLossPercent.toFixed(2)}%</td>
+                        </tr>
+                        <tr>
+                          <td className="border border-border/60 px-2 py-1 text-[10px] text-muted-foreground">Equity Gain</td>
+                          <td className="border border-border/60 px-2 py-1 text-right font-bold">{tradeStatistics.avgGainEquity.toFixed(2)}%</td>
+                          <td className="border border-border/60 px-2 py-1 text-right font-bold">-{tradeStatistics.avgLossEquity.toFixed(2)}%</td>
+                        </tr>
+                        <tr>
+                          <td className="border border-border/60 px-2 py-1 text-[10px] text-muted-foreground">Average Duration</td>
+                          <td className="border border-border/60 px-2 py-1 text-right font-bold">{tradeStatistics.avgWinnerDays.toFixed(1)}d</td>
+                          <td className="border border-border/60 px-2 py-1 text-right font-bold">{tradeStatistics.avgLoserDays.toFixed(1)}d</td>
+                        </tr>
+                        <tr>
+                          <td className="border border-border/60 px-2 py-1 text-[10px] text-muted-foreground">Average R Multiple</td>
+                          <td className="border border-border/60 px-2 py-1 text-right font-bold">{tradeStatistics.avgWinnerR.toFixed(2)}R</td>
+                          <td className="border border-border/60 px-2 py-1 text-right font-bold">-{tradeStatistics.avgLoserR.toFixed(2)}R</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
 
-                {/* Average Loss */}
-                <div className="rounded-lg border border-border/50 bg-background/30 p-3">
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Average Loss</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <p className="text-[9px] text-muted-foreground">Dollar</p>
-                      <p className="text-xs font-bold font-mono">-{formatCurrency(tradeStatistics.avgLossDollar)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-muted-foreground">Percent</p>
-                      <p className="text-xs font-bold font-mono">-{tradeStatistics.avgLossPercent.toFixed(2)}%</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-muted-foreground">Equity Contribution</p>
-                      <p className="text-xs font-bold font-mono">-{tradeStatistics.avgLossEquity.toFixed(2)}%</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Max Gain */}
-                <div className="rounded-lg border border-border/50 bg-background/30 p-3">
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Max Gain</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <p className="text-[9px] text-muted-foreground">Dollar</p>
-                      <p className="text-xs font-bold font-mono">{formatCurrency(tradeStatistics.maxGainDollar)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-muted-foreground">Percent</p>
-                      <p className="text-xs font-bold font-mono">{tradeStatistics.maxGainPercent.toFixed(2)}%</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-muted-foreground">Equity Contribution</p>
-                      <p className="text-xs font-bold font-mono">{tradeStatistics.maxGainEquity.toFixed(2)}%</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Max Loss */}
-                <div className="rounded-lg border border-border/50 bg-background/30 p-3">
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Max Loss</p>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div>
-                      <p className="text-[9px] text-muted-foreground">Dollar</p>
-                      <p className="text-xs font-bold font-mono">-{formatCurrency(tradeStatistics.maxLossDollar)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-muted-foreground">Percent</p>
-                      <p className="text-xs font-bold font-mono">-{tradeStatistics.maxLossPercent.toFixed(2)}%</p>
-                    </div>
-                    <div>
-                      <p className="text-[9px] text-muted-foreground">Equity Contribution</p>
-                      <p className="text-xs font-bold font-mono">-{tradeStatistics.maxLossEquity.toFixed(2)}%</p>
-                    </div>
+                <div className="rounded-lg bg-muted/20 p-3">
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">Max Performance</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full border-collapse text-xs font-mono">
+                      <thead>
+                        <tr className="bg-background/30">
+                          <th className="border border-border/60 px-2 py-1 text-left text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                            Metric
+                          </th>
+                          <th className="border border-border/60 px-2 py-1 text-right text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                            Gain
+                          </th>
+                          <th className="border border-border/60 px-2 py-1 text-right text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                            Loss
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="border border-border/60 px-2 py-1 text-[10px] text-muted-foreground">Dollar Gain</td>
+                          <td className="border border-border/60 px-2 py-1 text-right font-bold">{formatCurrency(tradeStatistics.maxGainDollar)}</td>
+                          <td className="border border-border/60 px-2 py-1 text-right font-bold">-{formatCurrency(tradeStatistics.maxLossDollar)}</td>
+                        </tr>
+                        <tr>
+                          <td className="border border-border/60 px-2 py-1 text-[10px] text-muted-foreground">Percent Gain</td>
+                          <td className="border border-border/60 px-2 py-1 text-right font-bold">{tradeStatistics.maxGainPercent.toFixed(2)}%</td>
+                          <td className="border border-border/60 px-2 py-1 text-right font-bold">-{tradeStatistics.maxLossPercent.toFixed(2)}%</td>
+                        </tr>
+                        <tr>
+                          <td className="border border-border/60 px-2 py-1 text-[10px] text-muted-foreground">Equity Gain</td>
+                          <td className="border border-border/60 px-2 py-1 text-right font-bold">{tradeStatistics.maxGainEquity.toFixed(2)}%</td>
+                          <td className="border border-border/60 px-2 py-1 text-right font-bold">-{tradeStatistics.maxLossEquity.toFixed(2)}%</td>
+                        </tr>
+                        <tr>
+                          <td className="border border-border/60 px-2 py-1 text-[10px] text-muted-foreground">Number of Wins/Loss</td>
+                          <td className="border border-border/60 px-2 py-1 text-right font-bold">{tradeStatistics.winnerCount}</td>
+                          <td className="border border-border/60 px-2 py-1 text-right font-bold">{tradeStatistics.loserCount}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>
             </div>
           )}
+
+          <div className="mt-3 rounded-xl border border-border/60 bg-background/30 dark:bg-muted/20 p-3 md:p-4">
+            <p className="text-[10px] text-muted-foreground uppercase mb-1">Holding Period by Position</p>
+            <div className="h-44">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={holdingPeriodByPositionData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="positionLabel" tick={{ fontSize: 10 }} />
+                  <YAxis
+                    yAxisId="pnlDollar"
+                    domain={[histogramAxisDomain.minDollar, histogramAxisDomain.maxDollar]}
+                    tick={{ fontSize: 10 }}
+                    tickFormatter={(value) => `${Number(value) >= 0 ? '+' : ''}$${Math.round(Number(value))}`}
+                  />
+                  <YAxis
+                    yAxisId="pnlPercent"
+                    orientation="right"
+                    domain={[histogramAxisDomain.minPercent, histogramAxisDomain.maxPercent]}
+                    tick={{ fontSize: 10 }}
+                    tickFormatter={(value) => `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(1)}%`}
+                  />
+                  <RechartsTooltip
+                    formatter={(value) => {
+                      const dollarValue = Number(value);
+                      const pct = portfolioValue > 0 ? (dollarValue / portfolioValue) * 100 : 0;
+                      return [`${formatCurrencyTwoDecimals(dollarValue)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`, 'Portfolio Gain'];
+                    }}
+                    labelFormatter={(label, payload) => {
+                      const row = payload?.[0]?.payload as { status?: string } | undefined;
+                      return `${label}${row?.status ? ` (${row.status})` : ''}`;
+                    }}
+                  />
+                  <Bar yAxisId="pnlDollar" dataKey="totalGainLoss" name="Portfolio Gain" radius={[4, 4, 0, 0]}>
+                    {holdingPeriodByPositionData.map((entry) => (
+                      <Cell
+                        key={`${entry.positionLabel}-pnl`}
+                        fill={entry.totalGainLoss >= 0 ? 'hsl(142, 76%, 36%)' : 'hsl(0, 84%, 60%)'}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
         </div>
       )}
     </div>
@@ -2826,7 +2702,9 @@ export default function Portfolio() {
       const percentGain = pos.netCost !== 0 ? (realizedGain / pos.netCost) * 100 : 0;
       const equityContribution = (realizedGain / portfolioValueNumber) * 100;
       const days = calculateDaysInTrade(pos.openDate, pos.closedDate);
-      return { realizedGain, percentGain, equityContribution, days };
+      const initialRisk = calculateInitialRiskAmount(pos.cost, pos.initialStopLoss, pos.quantity);
+      const rMultiple = initialRisk > 0 ? realizedGain / initialRisk : 0;
+      return { realizedGain, percentGain, equityContribution, days, rMultiple };
     });
 
     const winners = trades.filter(t => t.realizedGain > 0);
@@ -2854,8 +2732,13 @@ export default function Portfolio() {
     const maxLossPercent = r2(maxVal(losers.map(t => Math.abs(t.percentGain))));
     const maxLossEquity = r2(maxVal(losers.map(t => Math.abs(t.equityContribution))));
 
+    const avgWinnerR = r2(avg(winners.map(t => t.rMultiple)));
+    const avgLoserR = r2(avg(losers.map(t => Math.abs(t.rMultiple))));
+
     const avgWinnerDays = r2(avg(winners.map(t => t.days)));
     const avgLoserDays = r2(avg(losers.map(t => t.days)));
+    const totalR = r2(trades.reduce((sum, trade) => sum + trade.rMultiple, 0));
+    const avgEquityPerTrade = r2(avg(trades.map(t => t.equityContribution)));
 
     const riskRewardRatio = avgLossDollar > 0 ? r2(avgGainDollar / avgLossDollar) : 0;
 
@@ -2876,6 +2759,10 @@ export default function Portfolio() {
       maxLossDollar,
       maxLossPercent,
       maxLossEquity,
+      avgWinnerR,
+      avgLoserR,
+      totalR,
+      avgEquityPerTrade,
       avgWinnerDays,
       avgLoserDays,
       riskRewardRatio,
@@ -3078,7 +2965,7 @@ export default function Portfolio() {
                 <div className="rounded-md border border-border/60 bg-background/40 p-2 w-full lg:w-auto">
                   <div className="grid grid-cols-1 sm:grid-cols-[auto_auto_auto_auto] gap-2 items-center">
                     <div className="space-y-1 min-w-[180px]">
-                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Worst-Case Stop Outcome</p>
+                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Open Risk</p>
                       <p className="text-sm font-bold font-mono">
                         -{formatCurrencyTwoDecimals(worstCaseStopLossDollar)} / -{worstCaseStopLossPercent.toFixed(2)}%
                       </p>
