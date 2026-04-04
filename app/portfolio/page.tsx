@@ -1078,6 +1078,22 @@ function PortfolioHero({
     }));
   }, [positions, currentBalance, portfolioValue]);
 
+  const realizedGainsBySymbolData = useMemo(() => {
+    const gainBySymbol = new Map<string, number>();
+
+    positions.forEach((position) => {
+      const realizedGain = calculateRealizedGainForPosition(position);
+      if (realizedGain === 0) {
+        return;
+      }
+      gainBySymbol.set(position.symbol, (gainBySymbol.get(position.symbol) ?? 0) + realizedGain);
+    });
+
+    return Array.from(gainBySymbol.entries())
+      .map(([symbol, realizedGain]) => ({ symbol, realizedGain }))
+      .sort((a, b) => b.realizedGain - a.realizedGain);
+  }, [positions]);
+
   return (
     <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
       {/* Main Hero Content */}
@@ -1463,60 +1479,87 @@ function PortfolioHero({
             </div>
           </div>
 
-          <div className="mt-3 rounded-xl border border-border/60 bg-background/30 dark:bg-muted/20 p-3 md:p-4">
-            <p className="text-[10px] text-muted-foreground uppercase mb-1">Realized Gain/Loss Distribution (%)</p>
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={gainLossDistributionData} margin={{ top: 4, right: 8, left: 0, bottom: 16 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="rangeLabel" tick={{ fontSize: 10 }} interval={0} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-                  <RechartsTooltip
-                    formatter={(value) => [`${Number(value)} trades`, '# of Trades']}
-                    labelFormatter={(label) => `Range: ${label}`}
-                  />
-                  <Bar dataKey="trades" name="# of Trades" radius={[4, 4, 0, 0]}>
-                    {gainLossDistributionData.map((entry) => (
-                      <Cell
-                        key={`${entry.rangeLabel}-count`}
-                        fill={
-                          entry.bucketType === 'negative'
-                            ? 'hsl(0, 84%, 60%)'
-                            : entry.bucketType === 'positive'
-                              ? 'hsl(142, 76%, 36%)'
-                              : 'hsl(var(--muted-foreground))'
-                        }
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+          <div className="mt-3 grid grid-cols-1 xl:grid-cols-2 gap-3">
+            <div className="rounded-xl border border-border/60 bg-background/30 dark:bg-muted/20 p-3 md:p-4">
+              <p className="text-[10px] text-muted-foreground uppercase mb-1">Realized Gain/Loss Distribution (%)</p>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={gainLossDistributionData} margin={{ top: 4, right: 8, left: 0, bottom: 16 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="rangeLabel" tick={{ fontSize: 10 }} interval={0} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                    <RechartsTooltip
+                      formatter={(value) => [`${Number(value)} trades`, '# of Trades']}
+                      labelFormatter={(label) => `Range: ${label}`}
+                    />
+                    <Bar dataKey="trades" name="# of Trades" radius={[4, 4, 0, 0]}>
+                      {gainLossDistributionData.map((entry) => (
+                        <Cell
+                          key={`${entry.rangeLabel}-count`}
+                          fill={
+                            entry.bucketType === 'negative'
+                              ? 'hsl(0, 84%, 60%)'
+                              : entry.bucketType === 'positive'
+                                ? 'hsl(142, 76%, 36%)'
+                                : 'hsl(var(--muted-foreground))'
+                          }
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border/60 bg-background/30 dark:bg-muted/20 p-3 md:p-4">
+              <p className="text-[10px] text-muted-foreground uppercase mb-1">Realized Equity Gain/Loss Distribution (%)</p>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={realizedEquityDistributionData} margin={{ top: 4, right: 8, left: 0, bottom: 16 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="rangeLabel" tick={{ fontSize: 10 }} interval={0} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                    <RechartsTooltip
+                      formatter={(value) => [`${Number(value)} trades`, '# of Trades']}
+                      labelFormatter={(label) => `Range: ${label}`}
+                    />
+                    <Bar dataKey="trades" name="# of Trades" radius={[4, 4, 0, 0]}>
+                      {realizedEquityDistributionData.map((entry) => (
+                        <Cell
+                          key={`${entry.rangeLabel}-equity-count`}
+                          fill={
+                            entry.bucketType === 'negative'
+                              ? 'hsl(0, 84%, 60%)'
+                              : entry.bucketType === 'positive'
+                                ? 'hsl(142, 76%, 36%)'
+                                : 'hsl(var(--muted-foreground))'
+                          }
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
 
           <div className="mt-3 rounded-xl border border-border/60 bg-background/30 dark:bg-muted/20 p-3 md:p-4">
-            <p className="text-[10px] text-muted-foreground uppercase mb-1">Realized Equity Gain/Loss Distribution (%)</p>
-            <div className="h-48">
+            <p className="text-[10px] text-muted-foreground uppercase mb-1">Realized Gain/Loss by Symbol</p>
+            <div className="h-52">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={realizedEquityDistributionData} margin={{ top: 4, right: 8, left: 0, bottom: 16 }}>
+                <BarChart data={realizedGainsBySymbolData} margin={{ top: 4, right: 8, left: 0, bottom: 12 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="rangeLabel" tick={{ fontSize: 10 }} interval={0} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
+                  <XAxis dataKey="symbol" tick={{ fontSize: 10 }} interval={0} />
+                  <YAxis tick={{ fontSize: 10 }} tickFormatter={(value) => `${Number(value) >= 0 ? '+' : ''}$${Math.round(Number(value))}`} />
                   <RechartsTooltip
-                    formatter={(value) => [`${Number(value)} trades`, '# of Trades']}
-                    labelFormatter={(label) => `Range: ${label}`}
+                    formatter={(value) => [formatCurrencyTwoDecimals(Number(value)), 'Realized Gain/Loss']}
+                    labelFormatter={(label) => `Symbol: ${label}`}
                   />
-                  <Bar dataKey="trades" name="# of Trades" radius={[4, 4, 0, 0]}>
-                    {realizedEquityDistributionData.map((entry) => (
+                  <Bar dataKey="realizedGain" name="Realized Gain/Loss" radius={[4, 4, 0, 0]}>
+                    {realizedGainsBySymbolData.map((entry) => (
                       <Cell
-                        key={`${entry.rangeLabel}-equity-count`}
-                        fill={
-                          entry.bucketType === 'negative'
-                            ? 'hsl(0, 84%, 60%)'
-                            : entry.bucketType === 'positive'
-                              ? 'hsl(142, 76%, 36%)'
-                              : 'hsl(var(--muted-foreground))'
-                        }
+                        key={`${entry.symbol}-realized`}
+                        fill={entry.realizedGain >= 0 ? 'hsl(142, 76%, 36%)' : 'hsl(0, 84%, 60%)'}
                       />
                     ))}
                   </Bar>
