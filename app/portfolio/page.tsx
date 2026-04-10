@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -695,6 +695,27 @@ function calculateTotalOpenRisk(positions: StockPosition[]): number {
 }
 
 type PortfolioTab = 'positions' | 'stats';
+const SELECTED_PORTFOLIO_TAB_STORAGE_KEY = 'financeguy-selected-portfolio-tab';
+
+const isPortfolioTab = (value: string): value is PortfolioTab => value === 'positions' || value === 'stats';
+
+const readStoredSelectedPortfolioTab = (userId?: string): PortfolioTab => {
+  if (typeof window === 'undefined') {
+    return 'positions';
+  }
+
+  try {
+    const suffix = userId ? `:${userId}` : '';
+    const stored = window.localStorage.getItem(`${SELECTED_PORTFOLIO_TAB_STORAGE_KEY}${suffix}`);
+    if (stored && isPortfolioTab(stored)) {
+      return stored;
+    }
+  } catch {
+    // Ignore storage read errors
+  }
+
+  return 'positions';
+};
 
 interface PortfolioToolbarProps {
   portfolios: Array<{ portfolio_key: number | string; portfolio_name: string }>;
@@ -708,8 +729,6 @@ interface PortfolioToolbarProps {
   isEditingPortfolio: boolean;
   activeTab: PortfolioTab;
   handleTabChange: (value: string) => void;
-  defaultPortfolioTab: PortfolioTab;
-  setDefaultPortfolioTab: (tab: PortfolioTab) => Promise<unknown> | void;
 }
 
 function PortfolioToolbar({
@@ -724,15 +743,7 @@ function PortfolioToolbar({
   isEditingPortfolio,
   activeTab,
   handleTabChange,
-  defaultPortfolioTab,
-  setDefaultPortfolioTab,
 }: PortfolioToolbarProps) {
-  const handleDefaultTabSelection = (value: string) => {
-    if (value === 'positions' || value === 'stats') {
-      void setDefaultPortfolioTab(value);
-    }
-  };
-
   return (
     <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
       <div className="flex flex-col gap-2 px-3 py-2.5 border-b border-border/50 bg-muted/30 lg:flex-row lg:items-center lg:justify-between">
@@ -827,7 +838,7 @@ function PortfolioToolbar({
             <Button
               size="sm"
               variant={activeTab === 'positions' ? 'secondary' : 'ghost'}
-              className="h-7 px-2.5 text-xs"
+              className="h-7 px-2.5 !text-sm font-medium"
               onClick={() => handleTabChange('positions')}
             >
               Positions
@@ -835,23 +846,11 @@ function PortfolioToolbar({
             <Button
               size="sm"
               variant={activeTab === 'stats' ? 'secondary' : 'ghost'}
-              className="h-7 px-2.5 text-xs"
+              className="h-7 px-2.5 !text-sm font-medium"
               onClick={() => handleTabChange('stats')}
             >
               Stats
             </Button>
-          </div>
-          <div className="flex w-full items-center gap-2 sm:w-auto">
-            <span className="text-xs text-muted-foreground">Default Tab</span>
-            <Select value={defaultPortfolioTab} onValueChange={handleDefaultTabSelection}>
-              <SelectTrigger className="h-7 w-full text-xs bg-background/50 sm:w-[130px]" aria-label="Select default portfolio tab">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="positions">Positions</SelectItem>
-                <SelectItem value="stats">Stats</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </div>
       </div>
@@ -2907,8 +2906,6 @@ export default function Portfolio() {
     isLoading: isPortfolioLoading,
     error: portfolioError,
     defaultPortfolioKey,
-    defaultPortfolioTab,
-    preferencesLoading,
     selectPortfolio,
     addPosition,
     updatePosition,
@@ -2916,7 +2913,6 @@ export default function Portfolio() {
     updatePortfolio,
     createPortfolio,
     setPortfolioAsDefault,
-    setDefaultPortfolioTab,
   } = usePortfolio();
 
   const [portfolioValue, setPortfolioValue] = useState<string>('');
@@ -2989,8 +2985,7 @@ export default function Portfolio() {
   const [newPortfolioName, setNewPortfolioName] = useState<string>('');
   const [newPortfolioValue, setNewPortfolioValue] = useState<string>('');
   const [isCreatingPortfolio, setIsCreatingPortfolio] = useState(false);
-  const [activeTab, setActiveTab] = useState<PortfolioTab>(defaultPortfolioTab);
-  const hasHydratedDefaultTabRef = useRef(false);
+  const [activeTab, setActiveTab] = useState<PortfolioTab>(() => readStoredSelectedPortfolioTab(user?.id));
 
   // Initialize portfolio value and name from database
   useEffect(() => {
@@ -3001,13 +2996,21 @@ export default function Portfolio() {
   }, [portfolio]);
 
   useEffect(() => {
-    if (preferencesLoading || hasHydratedDefaultTabRef.current) {
+    setActiveTab(readStoredSelectedPortfolioTab(user?.id));
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
       return;
     }
 
-    setActiveTab(defaultPortfolioTab);
-    hasHydratedDefaultTabRef.current = true;
-  }, [defaultPortfolioTab, preferencesLoading]);
+    try {
+      const suffix = user?.id ? `:${user.id}` : '';
+      window.localStorage.setItem(`${SELECTED_PORTFOLIO_TAB_STORAGE_KEY}${suffix}`, activeTab);
+    } catch {
+      // Ignore storage write errors
+    }
+  }, [activeTab, user?.id]);
 
   // Save symbol filters to localStorage when they change
   useEffect(() => {
@@ -3697,8 +3700,6 @@ export default function Portfolio() {
             isEditingPortfolio={isEditingPortfolio}
             activeTab={activeTab}
             handleTabChange={handleTabChange}
-            defaultPortfolioTab={defaultPortfolioTab}
-            setDefaultPortfolioTab={setDefaultPortfolioTab}
           />
 
           <TabsContent value="positions">

@@ -3,55 +3,11 @@ import { supabase, SupabaseUserPreferences } from '@/lib/supabase';
 import { useAuth } from '@/lib/context/auth-context';
 import { toast } from 'sonner';
 
-export type PortfolioTabPreference = 'positions' | 'stats';
-
-const DEFAULT_PORTFOLIO_TAB_STORAGE_KEY = 'financeguy-default-portfolio-tab';
-
-const isPortfolioTabPreference = (value: string): value is PortfolioTabPreference => {
-  return value === 'positions' || value === 'stats';
-};
-
-const readStoredDefaultPortfolioTab = (userId?: string): PortfolioTabPreference => {
-  if (typeof window === 'undefined') {
-    return 'positions';
-  }
-
-  try {
-    const suffix = userId ? `:${userId}` : '';
-    const stored = window.localStorage.getItem(`${DEFAULT_PORTFOLIO_TAB_STORAGE_KEY}${suffix}`);
-    if (stored && isPortfolioTabPreference(stored)) {
-      return stored;
-    }
-  } catch {
-    // Ignore storage read errors
-  }
-
-  return 'positions';
-};
-
-const writeStoredDefaultPortfolioTab = (tab: PortfolioTabPreference, userId?: string) => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    const suffix = userId ? `:${userId}` : '';
-    window.localStorage.setItem(`${DEFAULT_PORTFOLIO_TAB_STORAGE_KEY}${suffix}`, tab);
-  } catch {
-    // Ignore storage write errors
-  }
-};
-
 export function useUserPreferences() {
   const [preferences, setPreferences] = useState<SupabaseUserPreferences | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [defaultPortfolioTabFallback, setDefaultPortfolioTabFallback] = useState<PortfolioTabPreference>('positions');
   const { user } = useAuth();
-
-  useEffect(() => {
-    setDefaultPortfolioTabFallback(readStoredDefaultPortfolioTab(user?.id));
-  }, [user?.id]);
 
   // Fetch user preferences
   const fetchPreferences = useCallback(async () => {
@@ -174,62 +130,6 @@ export function useUserPreferences() {
     }
   }, [user]);
 
-  // Set default portfolio tab
-  const setDefaultPortfolioTab = useCallback(async (tab: PortfolioTabPreference) => {
-    if (!user) return;
-
-    setDefaultPortfolioTabFallback(tab);
-    writeStoredDefaultPortfolioTab(tab, user.id);
-
-    try {
-      const now = new Date().toISOString();
-
-      const { error: upsertError } = await supabase
-        .from('user_preferences')
-        .upsert({
-          user_id: user.id,
-          default_portfolio_tab: tab,
-          updated_at: now,
-        }, {
-          onConflict: 'user_id',
-        });
-
-      if (upsertError) {
-        throw upsertError;
-      }
-
-      setPreferences((prev) => {
-        if (!prev) {
-          return prev;
-        }
-        return {
-          ...prev,
-          default_portfolio_tab: tab,
-          updated_at: now,
-        };
-      });
-      return;
-    } catch (err) {
-      const message =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message?: unknown }).message)
-          : '';
-      const serialized = message || JSON.stringify(err);
-      const isMissingColumnIssue = /default_portfolio_tab|schema cache|column/i.test(serialized);
-
-      if (isMissingColumnIssue) {
-        toast.info('Default tab saved locally');
-        return;
-      }
-
-      console.error('Error setting default portfolio tab:', serialized);
-      setError('Failed to set default portfolio tab');
-      toast.error('Failed to set default portfolio tab');
-      // Keep UI responsive even if DB write fails.
-      return;
-    }
-  }, [user]);
-
   // Fetch preferences when user changes
   useEffect(() => {
     fetchPreferences();
@@ -241,10 +141,8 @@ export function useUserPreferences() {
     error,
     defaultWatchlistId: preferences?.default_watchlist_id ?? null,
     defaultPortfolioKey: preferences?.default_portfolio_key ?? null,
-    defaultPortfolioTab: (preferences?.default_portfolio_tab ?? defaultPortfolioTabFallback) as PortfolioTabPreference,
     setDefaultWatchlist,
     setDefaultPortfolio,
-    setDefaultPortfolioTab,
     refetch: fetchPreferences,
   };
 }

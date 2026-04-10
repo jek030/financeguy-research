@@ -49,9 +49,7 @@ export function usePortfolio() {
   const { user } = useAuth();
   const {
     defaultPortfolioKey,
-    defaultPortfolioTab,
     setDefaultPortfolio,
-    setDefaultPortfolioTab,
     isLoading: prefsLoading,
   } = useUserPreferences();
 
@@ -711,7 +709,6 @@ export function usePortfolio() {
     isLoading,
     error,
     defaultPortfolioKey,
-    defaultPortfolioTab,
     preferencesLoading: prefsLoading,
     selectPortfolio,
     addPosition,
@@ -721,7 +718,6 @@ export function usePortfolio() {
     updatePortfolio,
     createPortfolio,
     setPortfolioAsDefault,
-    setDefaultPortfolioTab,
     refetch: fetchPortfolio,
   };
 }

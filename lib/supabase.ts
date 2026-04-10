@@ -68,7 +68,6 @@ export interface SupabaseUserPreferences {
   user_id: string;
   default_watchlist_id: string | null;
   default_portfolio_key: number | null;
-  default_portfolio_tab: 'positions' | 'stats' | null;
   table_settings: TableSettings | null;
   created_at: string;
   updated_at: string;
