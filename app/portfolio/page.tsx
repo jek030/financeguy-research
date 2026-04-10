@@ -10,6 +10,7 @@ import { Calendar } from '@/components/ui/Calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { CalendarIcon, InfoIcon, X, Loader2, Pencil, PlusCircle, Star } from 'lucide-react';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { Tabs, TabsContent } from '@/components/ui/Tabs';
@@ -771,6 +772,12 @@ function PortfolioToolbar({
               ))}
             </SelectContent>
           </Select>
+          {isPortfolioLoading && (
+            <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>Loading</span>
+            </div>
+          )}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -863,6 +870,7 @@ interface PortfolioHeroProps {
   portfolioName: string;
   portfolioValue: number;
   positions: StockPosition[];
+  isLoading: boolean;
   isEditingPortfolio: boolean;
   tempPortfolioName: string;
   tempPortfolioValue: string;
@@ -898,10 +906,42 @@ interface PortfolioHeroProps {
   } | null;
 }
 
+function PortfolioHeroSkeleton() {
+  return (
+    <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden p-4 md:p-5">
+      <div className="space-y-3">
+        <Skeleton className="h-3 w-36" />
+        <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_1fr_1fr] gap-3">
+          <Skeleton className="h-28 rounded-xl" />
+          <Skeleton className="h-28 rounded-xl" />
+          <Skeleton className="h-28 rounded-xl" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2 md:gap-3">
+          <Skeleton className="h-24 rounded-lg" />
+          <Skeleton className="h-24 rounded-lg" />
+          <Skeleton className="h-24 rounded-lg" />
+          <Skeleton className="h-24 rounded-lg" />
+        </div>
+        <Skeleton className="h-56 rounded-xl" />
+        <Skeleton className="h-56 rounded-xl" />
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+          <Skeleton className="h-56 rounded-xl" />
+          <Skeleton className="h-56 rounded-xl" />
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+          <Skeleton className="h-56 rounded-xl" />
+          <Skeleton className="h-56 rounded-xl" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function PortfolioHero({
   portfolioName,
   portfolioValue,
   positions,
+  isLoading,
   isEditingPortfolio,
   tempPortfolioName,
   tempPortfolioValue,
@@ -1344,6 +1384,10 @@ function PortfolioHero({
       trades: counts[bucket.key] ?? 0,
     }));
   }, [positions]);
+
+  if (isLoading) {
+    return <PortfolioHeroSkeleton />;
+  }
 
   return (
     <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
@@ -3098,7 +3142,13 @@ export default function Portfolio() {
     }
   };
 
-  const isAddButtonDisabled = !symbol.trim() || !cost.trim() || !quantity.trim() || !initialStopLoss.trim();
+  const isAddButtonDisabled =
+    isPortfolioLoading ||
+    !portfolio ||
+    !symbol.trim() ||
+    !cost.trim() ||
+    !quantity.trim() ||
+    !initialStopLoss.trim();
 
 
   // Edit functions
@@ -3621,14 +3671,14 @@ export default function Portfolio() {
     );
   };
 
-  // Show loading state
-  if (isAuthLoading || isPortfolioLoading) {
+  // Show loading state while auth resolves
+  if (isAuthLoading) {
     return (
       <div className="w-full p-4 sm:p-6">
         <div className="flex items-center justify-center h-64">
           <div className="flex items-center gap-2">
             <Loader2 className="h-6 w-6 animate-spin" />
-            <span>Loading portfolio...</span>
+            <span>Loading...</span>
           </div>
         </div>
       </div>
@@ -3705,30 +3755,6 @@ export default function Portfolio() {
           <TabsContent value="positions">
             <div className="flex flex-col xl:flex-row gap-3">
               <div className="flex-1 min-w-0 space-y-3">
-                <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
-                  <div className="flex flex-col gap-2 p-2.5 sm:p-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant={showClosedPositions ? "secondary" : "ghost"}
-                        onClick={() => setShowClosedPositions(!showClosedPositions)}
-                        disabled={closedPositions.length === 0}
-                        className="h-8 text-xs"
-                      >
-                        {showClosedPositions ? "Hide" : "Show"} Closed ({closedPositions.length})
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant={summarizeOpenPositions ? "secondary" : "ghost"}
-                        onClick={() => setSummarizeOpenPositions(!summarizeOpenPositions)}
-                        disabled={!canSummarizeOpenPositions}
-                        className="h-8 text-xs"
-                      >
-                        {summarizeOpenPositions ? "Show Individual" : "Summarize Symbols"}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
                 {/* Positions Table Card */}
           <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden p-2.5 sm:p-3">
             <div className="mb-2 space-y-2">
@@ -3752,6 +3778,24 @@ export default function Portfolio() {
                     aria-label="Filter positions by symbol"
                     className="h-8 w-full text-xs bg-background/50 sm:w-[220px]"
                   />
+                  <Button
+                    size="sm"
+                    variant={showClosedPositions ? "secondary" : "ghost"}
+                    onClick={() => setShowClosedPositions(!showClosedPositions)}
+                    disabled={closedPositions.length === 0}
+                    className="h-8 text-xs"
+                  >
+                    {showClosedPositions ? "Hide" : "Show"} Closed ({closedPositions.length})
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={summarizeOpenPositions ? "secondary" : "ghost"}
+                    onClick={() => setSummarizeOpenPositions(!summarizeOpenPositions)}
+                    disabled={!canSummarizeOpenPositions}
+                    className="h-8 text-xs"
+                  >
+                    {summarizeOpenPositions ? "Show Individual" : "Summarize Symbols"}
+                  </Button>
                 </div>
                 <div className="rounded-md border border-border/60 bg-background/40 p-2 w-full lg:w-auto">
                   <div className="grid grid-cols-1 sm:grid-cols-[auto_auto_auto_auto] gap-2 items-center">
@@ -3819,7 +3863,18 @@ export default function Portfolio() {
               )}
             </div>
             <div className="overflow-x-auto [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
-              {hasPositions && hasDisplayedPositions ? (
+              {isPortfolioLoading ? (
+                <div className="flex flex-col gap-2 py-2">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground px-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Loading positions...</span>
+                  </div>
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              ) : hasPositions && hasDisplayedPositions ? (
                 <Table>
                   <TableHeader>
                     <TableRow className="border-b-2">
@@ -4240,7 +4295,15 @@ export default function Portfolio() {
               Allocation
             </div>
             <div className="px-3 pb-3 pt-3">
-              {allocationSummary.total === 0 ? (
+              {isPortfolioLoading ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-40 w-full rounded-lg" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Skeleton className="h-14 rounded-lg" />
+                    <Skeleton className="h-14 rounded-lg" />
+                  </div>
+                </div>
+              ) : allocationSummary.total === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">No allocation data</p>
               ) : (
                 <div className="space-y-3">
@@ -4290,6 +4353,7 @@ export default function Portfolio() {
               portfolioName={portfolioName}
               portfolioValue={portfolio?.portfolio_value ?? (portfolioValue ? parseFloat(portfolioValue) : 0)}
               positions={positions}
+              isLoading={isPortfolioLoading}
               isEditingPortfolio={isEditingPortfolio}
               tempPortfolioName={tempPortfolioName}
               tempPortfolioValue={tempPortfolioValue}
