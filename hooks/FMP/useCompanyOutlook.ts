@@ -33,10 +33,14 @@ async function fetchCompanyOutlook(symbol: string): Promise<CompanyOutlook> {
   } as CompanyOutlook;
 }
 
-export function useCompanyOutlook(symbol: string) {
+export function useCompanyOutlook(
+  symbol: string,
+  options?: { initialData?: CompanyOutlook }
+) {
   return useQuery({
     queryKey: ['company-outlook', symbol],
     queryFn: () => fetchCompanyOutlook(symbol),
     enabled: Boolean(symbol),
+    initialData: options?.initialData,
   });
 }

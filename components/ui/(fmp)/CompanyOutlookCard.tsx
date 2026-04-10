@@ -37,18 +37,27 @@ import IntradayChart from '@/components/ui/(fmp)/Chart';
 import PriceHistoryComponent from '@/components/ui/(fmp)/PriceHistory';
 import Earnings from '@/components/ui/(fmp)/Earnings';
 import { useDailyPrices } from '@/hooks/FMP/useDailyPrices';
+import type { CompanyOutlook, Ticker } from '@/lib/types';
 
 interface CompanyOutlookProps {
   symbol: string;
+  initialQuote?: Ticker;
+  initialCompanyOutlook?: CompanyOutlook;
 }
 
-export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) => {
+export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({
+  symbol,
+  initialQuote,
+  initialCompanyOutlook,
+}) => {
   const today = new Date();
   const [fromDate] = useState<Date>(addYears(today, -2));
   const [toDate] = useState<Date>(today);
 
   /** Quote Data from FMP */
-  const { data: quote, isLoading: quoteLoading } = useQuote(symbol);
+  const { data: quote, isLoading: quoteLoading } = useQuote(symbol, {
+    initialData: initialQuote,
+  });
   
   /** Aftermarket Trade Data from FMP */
   const { data: aftermarketTrade } = useAftermarketTrade(symbol);
@@ -78,7 +87,9 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({ symbol }) =>
   });
 
   /*Company Outlook Data from FMP*/
-  const { data: companyData, isLoading, error } = useCompanyOutlook(symbol);
+  const { data: companyData, isLoading, error } = useCompanyOutlook(symbol, {
+    initialData: initialCompanyOutlook,
+  });
   
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 

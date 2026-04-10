@@ -1,40 +1,45 @@
-"use client";
-import { use, useEffect } from 'react';
-import CompanyOutlookCard from '@/components/ui/(fmp)/CompanyOutlookCard';
-import { useQuote } from '@/hooks/FMP/useQuote';
+import type { Metadata } from "next";
+import SearchPageClient from "@/app/search/[symbol]/SearchPageClient";
+import { fetchServerCompanyOutlook, fetchServerQuote } from "@/lib/server/fmp";
 
-export default function Page({ params }: { params: Promise<{ symbol: string }> }) {
-  const resolvedParams = use(params);
+type PageParams = {
+  symbol: string;
+};
+
+function formatTitle(symbol: string, price?: number, changesPercentage?: number): string {
+  if (price === undefined || changesPercentage === undefined) {
+    return `${symbol} - Finance Guy`;
+  }
+
+  const formattedPrice = `$${price.toFixed(2)}`;
+  const formattedChange = `${changesPercentage >= 0 ? "+" : ""}${changesPercentage.toFixed(2)}%`;
+  return `${symbol} ${formattedPrice} (${formattedChange}) - Finance Guy`;
+}
+
+export async function generateMetadata({ params }: { params: Promise<PageParams> }): Promise<Metadata> {
+  const resolvedParams = await params;
   const symbol = resolvedParams.symbol.toUpperCase();
-  
-  // Get quote data for the browser title
-  const { data: quote, isLoading: quoteLoading } = useQuote(symbol);
+  const quote = await fetchServerQuote(symbol);
 
-  // Update document title when quote data changes
-  useEffect(() => {
-    if (quote && !quoteLoading) {
-      const price = quote.price ? `$${quote.price.toFixed(2)}` : 'N/A';
-      const changePercent = quote.changesPercentage !== undefined 
-        ? `${quote.changesPercentage >= 0 ? '+' : ''}${quote.changesPercentage.toFixed(2)}%`
-        : 'N/A';
-      
-      document.title = `${symbol} ${price} (${changePercent}) - Finance Guy`;
-    } else if (!quoteLoading) {
-      // If no data or loading failed, just show the symbol
-      document.title = `${symbol} - Finance Guy`;
-    }
-    
-    // Cleanup: Reset title when component unmounts
-    return () => {
-      document.title = 'Finance Guy';
-    };
-  }, [quote, quoteLoading, symbol]);
+  return {
+    title: formatTitle(symbol, quote?.price, quote?.changesPercentage),
+  };
+}
+
+export default async function Page({ params }: { params: Promise<PageParams> }) {
+  const resolvedParams = await params;
+  const symbol = resolvedParams.symbol.toUpperCase();
+
+  const [initialQuote, initialOutlook] = await Promise.all([
+    fetchServerQuote(symbol),
+    fetchServerCompanyOutlook(symbol),
+  ]);
 
   return (
-    <div className="flex flex-col w-full max-w-full overflow-hidden ">
-      <div className="flex flex-col">
-        <CompanyOutlookCard symbol={symbol} />
-      </div>
-    </div>
+    <SearchPageClient
+      symbol={symbol}
+      initialQuote={initialQuote}
+      initialOutlook={initialOutlook}
+    />
   );
 }

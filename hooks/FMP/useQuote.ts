@@ -29,6 +29,13 @@ export function quoteQueryOptions(symbol: string) {
   } as const;
 }
 
-export function useQuote(symbol: string) {
-  return useQuery(quoteQueryOptions(symbol));
+interface UseQuoteOptions {
+  initialData?: Ticker;
+}
+
+export function useQuote(symbol: string, options?: UseQuoteOptions) {
+  return useQuery({
+    ...quoteQueryOptions(symbol),
+    initialData: options?.initialData ? [options.initialData] : undefined,
+  });
 } 
