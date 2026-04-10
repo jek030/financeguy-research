@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, SupabasePortfolio, SupabasePortfolioPosition } from '@/lib/supabase';
 import { useAuth } from '@/lib/context/auth-context';
 import { useUserPreferences } from './useUserPreferences';
@@ -44,6 +44,8 @@ export function usePortfolio() {
   const [positions, setPositions] = useState<StockPosition[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasInitializedSelectionRef = useRef(false);
+  const selectedPortfolioKeyRef = useRef<number | null>(null);
   const { user } = useAuth();
   const {
     defaultPortfolioKey,
@@ -52,6 +54,10 @@ export function usePortfolio() {
     setDefaultPortfolioTab,
     isLoading: prefsLoading,
   } = useUserPreferences();
+
+  useEffect(() => {
+    selectedPortfolioKeyRef.current = selectedPortfolioKey;
+  }, [selectedPortfolioKey]);
 
   // Helper function to parse date string as local date (not UTC)
   const parseLocalDate = (dateString: string): Date => {
@@ -206,6 +212,8 @@ export function usePortfolio() {
       setPortfolios([]);
       setPositions([]);
       setSelectedPortfolioKey(null);
+      hasInitializedSelectionRef.current = false;
+      selectedPortfolioKeyRef.current = null;
       setIsLoading(false);
       return;
     }
@@ -273,17 +281,27 @@ export function usePortfolio() {
         }
       }
 
-      // Priority: overridePortfolioKey > defaultPortfolioKey > localStorage > selectedPortfolioKey > first portfolio
-      let targetKey =
-        overridePortfolioKey ??
-        (defaultPortfolioKey && normalizedPortfolios.some(p => normalizePortfolioKey(p.portfolio_key) === defaultPortfolioKey)
-          ? defaultPortfolioKey
-          : null) ??
-        storedSelectedKey ??
-        selectedPortfolioKey ??
-        (normalizedPortfolios.length > 0
-          ? normalizePortfolioKey(normalizedPortfolios[0].portfolio_key)
-          : null);
+      const hasPortfolioKey = (key: number | null) =>
+        key !== null && normalizedPortfolios.some((item) => normalizePortfolioKey(item.portfolio_key) === key);
+
+      const initialDefaultKey = hasPortfolioKey(defaultPortfolioKey) ? defaultPortfolioKey : null;
+      const storedKey = hasPortfolioKey(storedSelectedKey) ? storedSelectedKey : null;
+      const currentSelectedKey = hasPortfolioKey(selectedPortfolioKeyRef.current) ? selectedPortfolioKeyRef.current : null;
+      const firstPortfolioKey = normalizedPortfolios.length > 0
+        ? normalizePortfolioKey(normalizedPortfolios[0].portfolio_key)
+        : null;
+
+      let targetKey: number | null;
+      if (overridePortfolioKey !== undefined && hasPortfolioKey(overridePortfolioKey)) {
+        // Explicit user actions always win.
+        targetKey = overridePortfolioKey;
+      } else if (!hasInitializedSelectionRef.current) {
+        // First load: honor default/favorite behavior.
+        targetKey = initialDefaultKey ?? storedKey ?? currentSelectedKey ?? firstPortfolioKey;
+      } else {
+        // Refreshes: keep current selection stable when still valid.
+        targetKey = currentSelectedKey ?? storedKey ?? initialDefaultKey ?? firstPortfolioKey;
+      }
 
       let currentPortfolio =
         targetKey !== null
@@ -315,6 +333,8 @@ export function usePortfolio() {
       } else {
         setPositions([]);
       }
+
+      hasInitializedSelectionRef.current = true;
     } catch (err) {
       console.error('Error fetching portfolio:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch portfolio');
@@ -692,6 +712,7 @@ export function usePortfolio() {
     error,
     defaultPortfolioKey,
     defaultPortfolioTab,
+    preferencesLoading: prefsLoading,
     selectPortfolio,
     addPosition,
     updatePosition,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -2908,6 +2908,7 @@ export default function Portfolio() {
     error: portfolioError,
     defaultPortfolioKey,
     defaultPortfolioTab,
+    preferencesLoading,
     selectPortfolio,
     addPosition,
     updatePosition,
@@ -2989,6 +2990,7 @@ export default function Portfolio() {
   const [newPortfolioValue, setNewPortfolioValue] = useState<string>('');
   const [isCreatingPortfolio, setIsCreatingPortfolio] = useState(false);
   const [activeTab, setActiveTab] = useState<PortfolioTab>(defaultPortfolioTab);
+  const hasHydratedDefaultTabRef = useRef(false);
 
   // Initialize portfolio value and name from database
   useEffect(() => {
@@ -2999,8 +3001,13 @@ export default function Portfolio() {
   }, [portfolio]);
 
   useEffect(() => {
+    if (preferencesLoading || hasHydratedDefaultTabRef.current) {
+      return;
+    }
+
     setActiveTab(defaultPortfolioTab);
-  }, [defaultPortfolioTab]);
+    hasHydratedDefaultTabRef.current = true;
+  }, [defaultPortfolioTab, preferencesLoading]);
 
   // Save symbol filters to localStorage when they change
   useEffect(() => {
