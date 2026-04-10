@@ -39,7 +39,6 @@ function Chart({ symbol, exchange, height = 480 }: ChartProps) {
 
     const config = {
       autosize: true,
-      height,
       width: "100%",
       allow_symbol_change: false,
       calendar: false,
@@ -77,14 +76,14 @@ function Chart({ symbol, exchange, height = 480 }: ChartProps) {
   const containerStyle = useMemo<CSSProperties>(() => ({
     width: "100%",
     minHeight: height,
-    height,
+    height: "100%",
     display: "flex",
     flexDirection: "column"
   }), [height]);
 
   return (
-    <div className="tradingview-widget-container w-full" ref={containerRef} style={containerStyle}>
-      <div ref={widgetContainerRef} className="tradingview-widget-container__widget flex-1" style={{ width: "100%", minHeight: 0 }} />
+    <div className="tradingview-widget-container w-full h-full" ref={containerRef} style={containerStyle}>
+      <div ref={widgetContainerRef} className="tradingview-widget-container__widget flex-1 h-full" style={{ width: "100%", minHeight: 0 }} />
       <div className="tradingview-widget-copyright text-xs text-muted-foreground">
         <a href={tradingViewLink} rel="noopener nofollow" target="_blank" className="text-primary hover:underline">
           {symbol?.toUpperCase()} stock chart

@@ -1,11 +1,10 @@
 "use client"
 import React, { useState } from 'react';
 
-import {Building2, Users, DollarSign, PieChart, Activity, ChevronDown, ChevronUp, Calculator, TrendingUp, BarChart3, Layers} from 'lucide-react';
+import {Building2, Users, DollarSign, PieChart, Activity, ChevronDown, ChevronUp, Calculator, TrendingUp, BarChart3} from 'lucide-react';
 import { addYears } from 'date-fns';
 
 //UI Components
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Financials } from '@/components/ui/(fmp)/Financials';
 import { cn } from '@/lib/utils';
@@ -406,6 +405,13 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({
     return new Intl.NumberFormat('en-US').format(num);
   };
 
+  const riskToDayLowPct = quote.price > 0 ? ((quote.price - quote.dayLow) / quote.price) * 100 : null;
+  const upsideToDayHighPct = quote.price > 0 ? ((quote.dayHigh - quote.price) / quote.price) * 100 : null;
+  const yearRangePosition =
+    quote.yearHigh !== quote.yearLow
+      ? ((quote.price - quote.yearLow) / (quote.yearHigh - quote.yearLow)) * 100
+      : null;
+
   return (
     <div>
       {/* Company Header */}
@@ -460,13 +466,11 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({
         </div>
       )}
       
-      {/* Metrics Section - Card-based Layout */}
-      <div className={`${pageStyles.sectionPadding} py-6 ${pageStyles.gradientBg} ${pageStyles.borderBottom}`}>
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-5">
-          
-          {/* Technical Analysis Card */}
-          <MetricCard 
-            title="Technical Analysis" 
+      {/* Five-card summary section */}
+      <div className={`${pageStyles.sectionPadding} py-5 lg:py-6 ${pageStyles.gradientBg} ${pageStyles.borderBottom}`}>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+          <MetricCard
+            title="Technicals"
             icon={<Activity className="w-4 h-4" />}
           >
             <MetricGrid columns={2}>
@@ -505,22 +509,13 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({
                   valueClassName={cn(
                     quote.price > twentyEma ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                   )}
-                  tooltip={
-                    <div className="space-y-1 text-xs">
-                      <p>Current: ${safeFormat(quote.price)}</p>
-                      <p>21 EMA: ${safeFormat(twentyEma)}</p>
-                      <p>21 ATR: ${safeFormat(range21Day.averageTrueRange)}</p>
-                      <p className="text-neutral-400 mt-1">Distance from 21 EMA in ATR units</p>
-                    </div>
-                  }
                 />
               )}
             </MetricGrid>
           </MetricCard>
-          
-          {/* Fundamentals Card */}
-          <MetricCard 
-            title="Fundamentals" 
+
+          <MetricCard
+            title="Earnings Momentum"
             icon={<TrendingUp className="w-4 h-4" />}
           >
             <MetricGrid columns={2}>
@@ -529,90 +524,58 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({
                   value={`${lastQuarterEpsChange.value > 0 ? "+" : ""}${lastQuarterEpsChange.value.toFixed(1)}%`}
                   label={`EPS YoY (${lastQuarterEpsChange.period})`}
                   valueClassName={cn(
-                    lastQuarterEpsChange.value > 0 
-                      ? "text-emerald-600 dark:text-emerald-400" 
-                      : lastQuarterEpsChange.value < 0 
-                        ? "text-rose-600 dark:text-rose-400" 
+                    lastQuarterEpsChange.value > 0
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : lastQuarterEpsChange.value < 0
+                        ? "text-rose-600 dark:text-rose-400"
                         : ""
                   )}
-                  tooltip={
-                    <div className="space-y-1 text-xs">
-                      <p>Current: ${lastQuarterEpsChange.current.toFixed(4)}</p>
-                      <p>Previous: ${lastQuarterEpsChange.previous.toFixed(4)}</p>
-                      <p className="text-neutral-400 mt-1">YoY comparison for {lastQuarterEpsChange.period} {lastQuarterEpsChange.year}</p>
-                    </div>
-                  }
                 />
               )}
-              
               {lastQuarterRevenueChange && (
                 <MetricDisplay
                   value={`${lastQuarterRevenueChange.value > 0 ? "+" : ""}${lastQuarterRevenueChange.value.toFixed(1)}%`}
                   label={`Rev YoY (${lastQuarterRevenueChange.period})`}
                   valueClassName={cn(
-                    lastQuarterRevenueChange.value > 0 
-                      ? "text-emerald-600 dark:text-emerald-400" 
-                      : lastQuarterRevenueChange.value < 0 
-                        ? "text-rose-600 dark:text-rose-400" 
+                    lastQuarterRevenueChange.value > 0
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : lastQuarterRevenueChange.value < 0
+                        ? "text-rose-600 dark:text-rose-400"
                         : ""
                   )}
-                  tooltip={
-                    <div className="space-y-1 text-xs">
-                      <p>Current: ${(lastQuarterRevenueChange.current / 1000000).toFixed(1)}M</p>
-                      <p>Previous: ${(lastQuarterRevenueChange.previous / 1000000).toFixed(1)}M</p>
-                      <p className="text-neutral-400 mt-1">YoY comparison for {lastQuarterRevenueChange.period} {lastQuarterRevenueChange.year}</p>
-                    </div>
-                  }
                 />
               )}
-              
               {calculatedROE && (
                 <MetricDisplay
                   value={`${calculatedROE.value.toFixed(1)}%`}
                   label={`ROE (${calculatedROE.year})`}
                   valueClassName={cn(
-                    calculatedROE.value > 15 
-                      ? "text-emerald-600 dark:text-emerald-400" 
-                      : calculatedROE.value < 5 
-                        ? "text-rose-600 dark:text-rose-400" 
+                    calculatedROE.value > 15
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : calculatedROE.value < 5
+                        ? "text-rose-600 dark:text-rose-400"
                         : ""
                   )}
-                  tooltip={
-                    <div className="space-y-1 text-xs">
-                      <p>Net Income: ${(calculatedROE.annualNetIncome / 1000000).toFixed(1)}M</p>
-                      <p>Avg Equity: ${(calculatedROE.averageEquity / 1000000).toFixed(1)}M</p>
-                      <p className="text-neutral-400 mt-1">{">"}15% excellent, {"<"}5% poor</p>
-                    </div>
-                  }
                 />
               )}
-
               {previousWeekChange && (
                 <MetricDisplay
                   value={`${previousWeekChange.value > 0 ? "+" : ""}${previousWeekChange.value.toFixed(1)}%`}
                   label="Prev Week"
                   valueClassName={cn(
-                    previousWeekChange.value > 0 
-                      ? "text-emerald-600 dark:text-emerald-400" 
-                      : previousWeekChange.value < 0 
-                        ? "text-rose-600 dark:text-rose-400" 
+                    previousWeekChange.value > 0
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : previousWeekChange.value < 0
+                        ? "text-rose-600 dark:text-rose-400"
                         : ""
                   )}
-                  tooltip={
-                    <div className="space-y-1 text-xs">
-                      <p>{previousWeekChange.startDate.toLocaleDateString()}: ${previousWeekChange.startPrice.toFixed(2)}</p>
-                      <p>{previousWeekChange.endDate.toLocaleDateString()}: ${previousWeekChange.endPrice.toFixed(2)}</p>
-                      <p className="text-neutral-400 mt-1">Monday open to Friday close</p>
-                    </div>
-                  }
                 />
               )}
             </MetricGrid>
           </MetricCard>
-          
-          {/* Market Data Card */}
-          <MetricCard 
-            title="Market Data" 
+
+          <MetricCard
+            title="Volume & Liquidity"
             icon={<BarChart3 className="w-4 h-4" />}
           >
             <MetricGrid columns={2}>
@@ -620,51 +583,36 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({
                 value={quote.marketCap ? formatMarketCap(quote.marketCap) : 'N/A'}
                 label="Market Cap"
               />
-              
               <MetricDisplay
                 value={formatLargeNumber(quote.volume || 0)}
                 label="Volume"
               />
-              
               <MetricDisplay
                 value={formatLargeNumber(quote.avgVolume)}
                 label="Avg Vol (50D)"
               />
-              
               {!floatLoading && floatData?.[0] && (
                 <MetricDisplay
                   value={`${((quote.volume / floatData[0].floatShares) * 100).toFixed(2)}%`}
                   label="% Float Traded"
                 />
               )}
-            </MetricGrid>
-          </MetricCard>
-          
-          {/* Float & Shares Card */}
-          <MetricCard 
-            title="Float & Shares" 
-            icon={<Layers className="w-4 h-4" />}
-          >
-            <MetricGrid columns={2}>
               {!floatLoading && floatData?.[0] && (
                 <>
                   <MetricDisplay
                     value={`${floatData[0].freeFloat.toFixed(1)}%`}
                     label="Free Float"
                   />
-                  
                   <MetricDisplay
                     value={formatLargeNumber(floatData[0].floatShares)}
                     label="Float Shares"
                   />
-                  
                   <MetricDisplay
                     value={formatLargeNumber(floatData[0].outstandingShares)}
                     label="Outstanding"
                   />
                 </>
               )}
-              
               {(floatLoading || !floatData?.[0]) && (
                 <>
                   <MetricDisplay value="—" label="Free Float" />
@@ -674,96 +622,138 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({
               )}
             </MetricGrid>
           </MetricCard>
+
+          <MetricCard
+            title="Trading Stats"
+            icon={<Activity className="w-4 h-4" />}
+          >
+            <MetricGrid columns={2}>
+              <MetricDisplay
+                value={`$${safeFormat(quote.previousClose)}`}
+                label="Prev Close"
+              />
+              <MetricDisplay
+                value={`$${safeFormat(quote.open)}`}
+                label="Open"
+              />
+              <MetricDisplay
+                value={`$${safeFormat(quote.dayLow)}`}
+                label="Day Low"
+              />
+              <MetricDisplay
+                value={`$${safeFormat(quote.dayHigh)}`}
+                label="Day High"
+              />
+              <MetricDisplay
+                value={`$${safeFormat(quote.yearLow)}`}
+                label="52W Low"
+                tooltip={
+                  <div className="space-y-1 text-xs">
+                    <p>52W Low: ${safeFormat(quote.yearLow)}</p>
+                    <p>Current: ${safeFormat(quote.price)}</p>
+                    <div className="pt-1">
+                      <PercentageChange value={((quote.price - quote.yearLow) / quote.yearLow) * 100} size="sm" />
+                    </div>
+                  </div>
+                }
+              />
+              <MetricDisplay
+                value={`$${safeFormat(quote.yearHigh)}`}
+                label="52W High"
+                tooltip={
+                  <div className="space-y-1 text-xs">
+                    <p>52W High: ${safeFormat(quote.yearHigh)}</p>
+                    <p>Current: ${safeFormat(quote.price)}</p>
+                    <div className="pt-1">
+                      <PercentageChange value={((quote.price - quote.yearHigh) / quote.yearHigh) * 100} size="sm" />
+                    </div>
+                  </div>
+                }
+              />
+              <MetricDisplay
+                value={`${((quote.price - quote.yearLow) / quote.yearLow * 100).toFixed(2)}%`}
+                label="% from 52W Low"
+                valueClassName="text-emerald-600 dark:text-emerald-400"
+              />
+              <MetricDisplay
+                value={`${((quote.price - quote.yearHigh) / quote.yearHigh * 100).toFixed(2)}%`}
+                label="% from 52W High"
+                valueClassName="text-rose-600 dark:text-rose-400"
+              />
+              <MetricDisplay
+                value={rsiLoading ? "Loading..." : (rsi ? safeFormat(rsi) : "N/A")}
+                label="RSI (14)"
+              />
+              <MetricDisplay
+                value={quote.pe ? safeFormat(quote.pe) : "N/A"}
+                label="P/E"
+              />
+            </MetricGrid>
+          </MetricCard>
+
+          <MetricCard
+            title="Risk Snapshot"
+            icon={<Calculator className="w-4 h-4" />}
+          >
+            <MetricGrid columns={2}>
+              <MetricDisplay
+                value={`$${safeFormat(quote.previousClose)}`}
+                label="Prev Close"
+              />
+              <MetricDisplay
+                value={`$${safeFormat(quote.open)}`}
+                label="Open"
+              />
+              <MetricDisplay
+                value={`$${safeFormat(quote.dayLow)} - $${safeFormat(quote.dayHigh)}`}
+                label="Day Range"
+              />
+              <MetricDisplay
+                value={rsiLoading ? "Loading..." : (rsi ? safeFormat(rsi) : "N/A")}
+                label="RSI (14)"
+                valueClassName={cn(
+                  rsi && rsi >= 70 && "text-emerald-600 dark:text-emerald-400",
+                  rsi && rsi <= 30 && "text-rose-600 dark:text-rose-400"
+                )}
+              />
+              <MetricDisplay
+                value={quote.pe ? safeFormat(quote.pe) : "N/A"}
+                label="P/E"
+              />
+              {riskToDayLowPct !== null && (
+                <MetricDisplay
+                  value={`${riskToDayLowPct.toFixed(2)}%`}
+                  label="Risk to Day Low"
+                />
+              )}
+              {upsideToDayHighPct !== null && (
+                <MetricDisplay
+                  value={`${upsideToDayHighPct.toFixed(2)}%`}
+                  label="Upside to Day High"
+                />
+              )}
+              {yearRangePosition !== null && (
+                <MetricDisplay
+                  value={`${yearRangePosition.toFixed(1)}%`}
+                  label="52W Range Position"
+                />
+              )}
+            </MetricGrid>
+          </MetricCard>
         </div>
       </div>
-      
-      {/* Content Section */}
-      <div className={`${pageStyles.gradientBg}`}>
-        <div className={`${pageStyles.sectionPadding} py-6 space-y-6`}>
-          {/* Trading Stats, Moving Averages, and Risk Calculator Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Trading Stats Card */}
-            <Card className={`w-full ${pageStyles.card}`}>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-semibold">Trading Stats</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-0">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-neutral-500 dark:text-neutral-400">Previous Close</span>
-                    <div className="border-b border-dashed border-neutral-300 dark:border-neutral-700 flex-grow mx-3"></div>
-                    <span className="font-semibold tabular-nums">${safeFormat(quote.previousClose)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-neutral-500 dark:text-neutral-400">Open</span>
-                    <div className="border-b border-dashed border-neutral-300 dark:border-neutral-700 flex-grow mx-3"></div>
-                    <span className="font-semibold tabular-nums">${safeFormat(quote.open)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-neutral-500 dark:text-neutral-400">Day&apos;s Low</span>
-                    <div className="border-b border-dashed border-neutral-300 dark:border-neutral-700 flex-grow mx-3"></div>
-                    <span className="font-semibold tabular-nums">${safeFormat(quote.dayLow)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-neutral-500 dark:text-neutral-400">Day&apos;s High</span>
-                    <div className="border-b border-dashed border-neutral-300 dark:border-neutral-700 flex-grow mx-3"></div>
-                    <span className="font-semibold tabular-nums">${safeFormat(quote.dayHigh)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-neutral-500 dark:text-neutral-400">52 Week Low</span>
-                    <div className="border-b border-dashed border-neutral-300 dark:border-neutral-700 flex-grow mx-3"></div>
-                    <div className="text-right">
-                      <div className="font-semibold tabular-nums">${safeFormat(quote.yearLow)}</div>
-                      <div className="mt-0.5">
-                        <PercentageChange 
-                          value={((quote.price - quote.yearLow) / quote.yearLow * 100)} 
-                          size="sm"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-neutral-500 dark:text-neutral-400">52 Week High</span>
-                    <div className="border-b border-dashed border-neutral-300 dark:border-neutral-700 flex-grow mx-3"></div>
-                    <div className="text-right">
-                      <div className="font-semibold tabular-nums">${safeFormat(quote.yearHigh)}</div>
-                      <div className="mt-0.5">
-                        <PercentageChange 
-                          value={((quote.price - quote.yearHigh) / quote.yearHigh * 100)} 
-                          size="sm"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-neutral-500 dark:text-neutral-400">RSI (14)</span>
-                    <div className="border-b border-dashed border-neutral-300 dark:border-neutral-700 flex-grow mx-3"></div>
-                    <span className={cn("font-semibold tabular-nums", {
-                      "text-emerald-600 dark:text-emerald-400": rsi && rsi >= 70,
-                      "text-rose-600 dark:text-rose-400": rsi && rsi <= 30
-                    })}>
-                      {rsiLoading ? "Loading..." : (rsi ? `${safeFormat(rsi)}` : 'N/A')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-neutral-500 dark:text-neutral-400">P/E Ratio</span>
-                    <div className="border-b border-dashed border-neutral-300 dark:border-neutral-700 flex-grow mx-3"></div>
-                    <span className="font-semibold tabular-nums">{quote.pe ? safeFormat(quote.pe) : 'N/A'}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            {/* Moving Averages Card */}
-            <MovingAverages companyData={companyData} symbol={companyData.profile.symbol} />
-            
-            {/* Risk Calculator Card */}
-            <RRCard price={quote.price || 0} dayLow={quote.dayLow || 0} />
+
+      {/* Chart and right-rail area */}
+      <div className={`${pageStyles.sectionPadding} py-4 lg:py-5 ${pageStyles.gradientBg} ${pageStyles.borderBottom}`}>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5">
+          <div className={`relative w-full overflow-hidden h-[560px] lg:h-[760px] lg:col-span-8 xl:col-span-9 ${pageStyles.card}`}>
+            <IntradayChart symbol={symbol} exchange={quote?.exchange ?? undefined} height={760} />
           </div>
 
-          {/* Chart */}
-          <div className={`relative mt-6 w-full overflow-hidden ${pageStyles.card}`} style={{ minHeight: 480 }}>
-            <IntradayChart symbol={symbol} exchange={quote?.exchange ?? undefined} />
+          <div className="lg:col-span-4 xl:col-span-3 flex flex-col gap-4">
+            <MovingAverages companyData={companyData} symbol={companyData.profile.symbol} />
+
+            <RRCard price={quote.price || 0} dayLow={quote.dayLow || 0} />
           </div>
         </div>
       </div>

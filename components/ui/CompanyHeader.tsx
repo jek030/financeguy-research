@@ -223,8 +223,8 @@ export function CompanyHeader({
       : null;
 
   return (
-    <div className={`${pageStyles.gradientBg} ${pageStyles.borderBottom} ${pageStyles.sectionPadding} sm:py-6`}>
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr,auto] gap-4 lg:gap-8">
+    <div className={`${pageStyles.gradientBg} ${pageStyles.borderBottom} ${pageStyles.sectionPadding} py-4 sm:py-4`}>
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr,auto] gap-3 lg:gap-6">
         
         {/* Left Section: Company Info */}
         <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 items-start">
@@ -245,54 +245,54 @@ export function CompanyHeader({
           
           {/* Company Details */}
           <div className="flex-1 min-w-0">
-            
-            {/* Company Name & Symbol */}
-            <div className="flex flex-col gap-1">
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white truncate">
-                {companyName}
-              </h1>
-              <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
-                <span className="font-semibold text-neutral-700 dark:text-neutral-300">{symbol}</span>
-                <span className="w-1 h-1 rounded-full bg-neutral-400" />
-                <span>{exchange || 'N/A'}</span>
-                {displayTimestamp && (
-                  <>
-                    <span className="w-1 h-1 rounded-full bg-neutral-400 hidden sm:block" />
-                    <span className="text-xs hidden sm:inline">Updated: {displayTimestamp}</span>
-                  </>
+            <div className="flex flex-col lg:flex-row lg:items-start gap-2 lg:gap-5">
+              <div className="min-w-0">
+                <div className="flex flex-col gap-1">
+                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white truncate">
+                    {companyName}
+                  </h1>
+                  <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
+                    <span className="font-semibold text-neutral-700 dark:text-neutral-300">{symbol}</span>
+                    <span className="w-1 h-1 rounded-full bg-neutral-400" />
+                    <span>{exchange || 'N/A'}</span>
+                    {displayTimestamp && (
+                      <>
+                        <span className="w-1 h-1 rounded-full bg-neutral-400 hidden sm:block" />
+                        <span className="text-xs hidden sm:inline">Updated: {displayTimestamp}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="hidden lg:block self-stretch w-px bg-neutral-200 dark:bg-neutral-800" />
+
+              {/* Compact price strip in top row */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 lg:pt-1">
+                <span className="text-2xl sm:text-3xl font-bold tabular-nums tracking-tight text-neutral-900 dark:text-white">
+                  ${typeof quote.price === 'number' ? safeFormat(quote.price) : 'N/A'}
+                </span>
+
+                {quote?.change !== undefined && (
+                  <div className="flex items-center gap-1.5">
+                    <PriceChange value={quote.change} showArrow={true} size="md" />
+                    <PercentageChange value={quote.changesPercentage || 0} size="md" />
+                  </div>
+                )}
+
+                {aftermarketChange && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400 tracking-wide uppercase">
+                      AH
+                    </span>
+                    <span className="text-base font-semibold tabular-nums text-neutral-700 dark:text-neutral-200">
+                      ${aftermarketChange.price.toFixed(2)}
+                    </span>
+                    <PriceChange value={aftermarketChange.change} showArrow={true} size="md" />
+                    <PercentageChange value={aftermarketChange.changePercentage} size="md" />
+                  </div>
                 )}
               </div>
-            </div>
-            
-            {/* Price Section - All items vertically centered */}
-            <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 lg:gap-x-6">
-              
-              {/* Current Price */}
-              <span className="text-3xl sm:text-4xl font-bold tabular-nums tracking-tight text-neutral-900 dark:text-white">
-                ${typeof quote.price === 'number' ? safeFormat(quote.price) : 'N/A'}
-              </span>
-              
-              {/* Regular Hours Changes */}
-              {quote?.change !== undefined && (
-                <div className="flex items-center gap-1.5">
-                  <PriceChange value={quote.change} showArrow={true} size="md" />
-                  <PercentageChange value={quote.changesPercentage || 0} size="md" />
-                </div>
-              )}
-              
-              {/* After Hours Section */}
-              {aftermarketChange && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400 tracking-wide">
-                    After Hours:
-                  </span>
-                  <span className="text-lg font-semibold tabular-nums text-neutral-700 dark:text-neutral-200">
-                    ${aftermarketChange.price.toFixed(2)}
-                  </span>
-                  <PriceChange value={aftermarketChange.change} showArrow={true} size="md" />
-                  <PercentageChange value={aftermarketChange.changePercentage} size="md" />
-                </div>
-              )}
             </div>
             
             {/* Updated timestamp - Mobile only */}
