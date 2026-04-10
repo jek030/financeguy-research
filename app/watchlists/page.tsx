@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import {
   DndContext,
@@ -27,6 +28,55 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import { pageStyles } from '@/components/ui/CompanyHeader';
+
+function WatchlistSidebarSkeleton() {
+  return (
+    <div className="w-full md:w-[280px] border-r border-border bg-background flex-shrink-0 p-3 space-y-3">
+      <Skeleton className="h-9 w-full rounded-md" />
+      <Skeleton className="h-9 w-full rounded-md" />
+      <div className="space-y-2">
+        <Skeleton className="h-14 w-full rounded-md" />
+        <Skeleton className="h-14 w-full rounded-md" />
+        <Skeleton className="h-14 w-full rounded-md" />
+        <Skeleton className="h-14 w-full rounded-md" />
+      </div>
+    </div>
+  );
+}
+
+function WatchlistDetailSkeleton() {
+  return (
+    <div className="flex-1 overflow-hidden flex flex-col bg-background">
+      <div className="flex-1 overflow-y-auto p-2 sm:p-4">
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-64 rounded-md" />
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
+            <Skeleton className="h-10 w-full rounded-md" />
+            <Skeleton className="h-10 w-28 rounded-md" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-12 w-full rounded-md" />
+            <Skeleton className="h-12 w-full rounded-md" />
+            <Skeleton className="h-12 w-full rounded-md" />
+            <Skeleton className="h-12 w-full rounded-md" />
+            <Skeleton className="h-12 w-full rounded-md" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WatchlistsPageSkeleton() {
+  return (
+    <div className={`flex flex-col h-[calc(100vh-4rem)] w-full max-w-full overflow-hidden ${pageStyles.gradientBg}`}>
+      <div className="flex flex-1 overflow-hidden">
+        <WatchlistSidebarSkeleton />
+        <WatchlistDetailSkeleton />
+      </div>
+    </div>
+  );
+}
 
 export default function WatchlistPage() {
   const { user, isLoading: isAuthLoading } = useAuth();
@@ -221,11 +271,7 @@ export default function WatchlistPage() {
 
   // Loading state - show while fetching watchlists
   if (isWatchlistLoading || isAuthLoading) {
-    return (
-      <div className={`flex items-center justify-center h-[calc(100vh-4rem)] ${pageStyles.gradientBg}`}>
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <WatchlistsPageSkeleton />;
   }
 
   // Error state
