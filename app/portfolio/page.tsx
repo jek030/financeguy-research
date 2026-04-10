@@ -120,6 +120,35 @@ const getOpenHeatColorClass = (heatPercent: number | null) => {
   return heatPercent > 2 ? 'text-red-400' : 'text-orange-400';
 };
 
+const CHART_POSITIVE_BAR_COLOR = 'hsl(142, 76%, 36%)';
+const CHART_NEGATIVE_BAR_COLOR = 'hsl(0, 84%, 60%)';
+const CHART_NEUTRAL_BAR_COLOR = 'hsl(var(--muted-foreground))';
+
+const chartTooltipProps = {
+  contentStyle: {
+    backgroundColor: 'hsl(var(--popover))',
+    border: '1px solid hsl(var(--border))',
+    borderRadius: 10,
+    color: 'hsl(var(--popover-foreground))',
+    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.28)',
+    padding: '8px 10px',
+  },
+  itemStyle: {
+    color: 'hsl(var(--popover-foreground))',
+  },
+  labelStyle: {
+    color: 'hsl(var(--popover-foreground))',
+    fontWeight: 600,
+  },
+  cursor: { fill: 'hsl(var(--muted) / 0.35)' },
+};
+
+const formatAxisCurrencyTick = (value: number | string) =>
+  `${Number(value) >= 0 ? '+' : ''}$${Math.round(Number(value))}`;
+
+const formatAxisPercentTick = (value: number | string, precision = 1) =>
+  `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(precision)}%`;
+
 const formatSignedPercent = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
 const getSignedPercentColorClass = (value: number) => (value >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-400');
 
@@ -173,6 +202,130 @@ const PORTFOLIO_COLUMNS: TableColumnDef[] = [
   { id: 'daysInTrade', label: 'Days' },
   { id: 'actions', label: 'Actions', alwaysVisible: true, sortable: false },
 ];
+
+type HistogramBucketType = 'negative' | 'neutral' | 'positive';
+type HistogramBucketKey =
+  | 'neg-32-plus'
+  | 'neg-16-32'
+  | 'neg-8-16'
+  | 'neg-4-8'
+  | 'neg-2-4'
+  | 'neg-0-2'
+  | 'zero'
+  | 'pos-0-2'
+  | 'pos-2-4'
+  | 'pos-4-8'
+  | 'pos-8-16'
+  | 'pos-16-32'
+  | 'pos-32-plus';
+
+const HISTOGRAM_BUCKETS: Array<{ key: HistogramBucketKey; label: string; bucketType: HistogramBucketType }> = [
+  { key: 'neg-32-plus', label: '<-32%', bucketType: 'negative' },
+  { key: 'neg-16-32', label: '-32% to -16%', bucketType: 'negative' },
+  { key: 'neg-8-16', label: '-16% to -8%', bucketType: 'negative' },
+  { key: 'neg-4-8', label: '-8% to -4%', bucketType: 'negative' },
+  { key: 'neg-2-4', label: '-4% to -2%', bucketType: 'negative' },
+  { key: 'neg-0-2', label: '-2% to 0%', bucketType: 'negative' },
+  { key: 'zero', label: '0%', bucketType: 'neutral' },
+  { key: 'pos-0-2', label: '0% to 2%', bucketType: 'positive' },
+  { key: 'pos-2-4', label: '2% to 4%', bucketType: 'positive' },
+  { key: 'pos-4-8', label: '4% to 8%', bucketType: 'positive' },
+  { key: 'pos-8-16', label: '8% to 16%', bucketType: 'positive' },
+  { key: 'pos-16-32', label: '16% to 32%', bucketType: 'positive' },
+  { key: 'pos-32-plus', label: '32%+', bucketType: 'positive' },
+];
+
+type HistogramDistributionEntry = {
+  binKey: HistogramBucketKey;
+  rangeLabel: string;
+  trades: number;
+  bucketType: HistogramBucketType;
+};
+
+type HistogramDrilldownType = 'realizedGain' | 'realizedEquity';
+type HoldingPeriodBucketKey =
+  | 'days-0'
+  | 'days-1'
+  | 'days-2-3'
+  | 'days-3-5'
+  | 'days-5-10'
+  | 'days-10-30'
+  | 'days-30-plus';
+
+const HOLDING_PERIOD_BUCKETS: Array<{ key: HoldingPeriodBucketKey; label: string }> = [
+  { key: 'days-0', label: '0 Days' },
+  { key: 'days-1', label: '1 Day' },
+  { key: 'days-2-3', label: '2-3 Days' },
+  { key: 'days-3-5', label: '3-5 Days' },
+  { key: 'days-5-10', label: '5-10 Days' },
+  { key: 'days-10-30', label: '10-30 Days' },
+  { key: 'days-30-plus', label: '30+ Days' },
+];
+
+const getHoldingPeriodBucketKey = (days: number): HoldingPeriodBucketKey => {
+  if (days <= 0) return 'days-0';
+  if (days <= 1) return 'days-1';
+  if (days <= 3) return 'days-2-3';
+  if (days <= 5) return 'days-3-5';
+  if (days <= 10) return 'days-5-10';
+  if (days <= 30) return 'days-10-30';
+  return 'days-30-plus';
+};
+
+type PortfolioHeroDrilldownSelection =
+  | {
+      kind: 'distribution';
+      histogramType: HistogramDrilldownType;
+      binKey: HistogramBucketKey;
+      rangeLabel: string;
+    }
+  | {
+      kind: 'holdingPeriod';
+      positionId: string;
+      positionLabel: string;
+    }
+  | {
+      kind: 'realizedSymbol';
+      symbol: string;
+    }
+  | {
+      kind: 'realizedHoldingPeriod';
+      bucketKey: HoldingPeriodBucketKey;
+      rangeLabel: string;
+    };
+
+const HISTOGRAM_DRILLDOWN_COLUMNS: Array<{ id: string; label: string }> = [
+  { id: 'symbol', label: 'Symbol' },
+  { id: 'type', label: 'Type' },
+  { id: 'quantity', label: 'Qty' },
+  { id: 'cost', label: 'Cost' },
+  { id: 'netCost', label: 'Net Cost' },
+  { id: 'stopLoss', label: 'Stop Loss' },
+  { id: 'realizedGain', label: 'Realized $' },
+  { id: 'realizedPercent', label: 'Realized %' },
+  { id: 'rMultiple', label: 'R' },
+  { id: 'closedDate', label: 'Closed Date' },
+];
+
+const getBinKeyForPercent = (percent: number): HistogramBucketKey => {
+  if (percent === 0) return 'zero';
+
+  if (percent > 0) {
+    if (percent < 2) return 'pos-0-2';
+    if (percent < 4) return 'pos-2-4';
+    if (percent < 8) return 'pos-4-8';
+    if (percent < 16) return 'pos-8-16';
+    if (percent < 32) return 'pos-16-32';
+    return 'pos-32-plus';
+  }
+
+  if (percent > -2) return 'neg-0-2';
+  if (percent > -4) return 'neg-2-4';
+  if (percent > -8) return 'neg-4-8';
+  if (percent > -16) return 'neg-8-16';
+  if (percent > -32) return 'neg-16-32';
+  return 'neg-32-plus';
+};
 
 function renderPortfolioColumnHeader(
   col: TableColumnDef,
@@ -759,6 +912,8 @@ function PortfolioHero({
   handleCancelPortfolioEdit,
   tradeStatistics,
 }: PortfolioHeroProps) {
+  const [selectedDrilldown, setSelectedDrilldown] = useState<PortfolioHeroDrilldownSelection | null>(null);
+
   // Calculate metrics
   const totalOpenRisk = useMemo(() => calculateTotalOpenRisk(positions), [positions]);
   const riskPercent = portfolioValue > 0 ? (totalOpenRisk / portfolioValue) * 100 : 0;
@@ -912,6 +1067,7 @@ function PortfolioHero({
         const totalGainLoss = calculateProjectedGainForPosition(position, openPriceBySymbol.get(position.symbol));
         const portfolioGainPercent = portfolioValue > 0 ? (totalGainLoss / portfolioValue) * 100 : 0;
         return {
+          positionId: position.id,
           positionLabel: `${position.symbol}-${index + 1}`,
           status: isPositionFullyClosed(position) ? 'Closed' : 'Open',
           totalGainLoss,
@@ -968,24 +1124,11 @@ function PortfolioHero({
     };
   }, [holdingPeriodByPositionData, portfolioValue]);
 
-  const gainLossDistributionData = useMemo(() => {
-    const bins = [
-      { key: 'neg-32-plus', label: '<-32%', type: 'negative' as const },
-      { key: 'neg-16-32', label: '-32% to -16%', type: 'negative' as const },
-      { key: 'neg-8-16', label: '-16% to -8%', type: 'negative' as const },
-      { key: 'neg-4-8', label: '-8% to -4%', type: 'negative' as const },
-      { key: 'neg-2-4', label: '-4% to -2%', type: 'negative' as const },
-      { key: 'neg-0-2', label: '-2% to 0%', type: 'negative' as const },
-      { key: 'zero', label: '0%', type: 'neutral' as const },
-      { key: 'pos-0-2', label: '0% to 2%', type: 'positive' as const },
-      { key: 'pos-2-4', label: '2% to 4%', type: 'positive' as const },
-      { key: 'pos-4-8', label: '4% to 8%', type: 'positive' as const },
-      { key: 'pos-8-16', label: '8% to 16%', type: 'positive' as const },
-      { key: 'pos-16-32', label: '16% to 32%', type: 'positive' as const },
-      { key: 'pos-32-plus', label: '32%+', type: 'positive' as const },
-    ];
-
-    const counts = Object.fromEntries(bins.map((bin) => [bin.key, 0])) as Record<string, number>;
+  const gainLossDistributionData = useMemo<HistogramDistributionEntry[]>(() => {
+    const counts = HISTOGRAM_BUCKETS.reduce((acc, bin) => {
+      acc[bin.key] = 0;
+      return acc;
+    }, {} as Record<HistogramBucketKey, number>);
 
     positions.forEach((position) => {
       if (!position.closedDate || position.netCost === 0) {
@@ -994,51 +1137,27 @@ function PortfolioHero({
 
       const realizedGain = calculateRealizedGainForPosition(position);
       const percentGain = (realizedGain / position.netCost) * 100;
-
-      if (percentGain === 0) {
-        counts.zero += 1;
-      } else if (percentGain > 0) {
-        if (percentGain < 2) counts['pos-0-2'] += 1;
-        else if (percentGain < 4) counts['pos-2-4'] += 1;
-        else if (percentGain < 8) counts['pos-4-8'] += 1;
-        else if (percentGain < 16) counts['pos-8-16'] += 1;
-        else if (percentGain < 32) counts['pos-16-32'] += 1;
-        else counts['pos-32-plus'] += 1;
-      } else {
-        if (percentGain > -2) counts['neg-0-2'] += 1;
-        else if (percentGain > -4) counts['neg-2-4'] += 1;
-        else if (percentGain > -8) counts['neg-4-8'] += 1;
-        else if (percentGain > -16) counts['neg-8-16'] += 1;
-        else if (percentGain > -32) counts['neg-16-32'] += 1;
-        else counts['neg-32-plus'] += 1;
+      if (!Number.isFinite(percentGain)) {
+        return;
       }
+
+      const binKey = getBinKeyForPercent(percentGain);
+      counts[binKey] += 1;
     });
 
-    return bins.map((bin) => ({
+    return HISTOGRAM_BUCKETS.map((bin) => ({
+      binKey: bin.key,
       rangeLabel: bin.label,
       trades: counts[bin.key] ?? 0,
-      bucketType: bin.type,
+      bucketType: bin.bucketType,
     }));
   }, [positions]);
 
-  const realizedEquityDistributionData = useMemo(() => {
-    const bins = [
-      { key: 'neg-32-plus', label: '<-32%', type: 'negative' as const },
-      { key: 'neg-16-32', label: '-32% to -16%', type: 'negative' as const },
-      { key: 'neg-8-16', label: '-16% to -8%', type: 'negative' as const },
-      { key: 'neg-4-8', label: '-8% to -4%', type: 'negative' as const },
-      { key: 'neg-2-4', label: '-4% to -2%', type: 'negative' as const },
-      { key: 'neg-0-2', label: '-2% to 0%', type: 'negative' as const },
-      { key: 'zero', label: '0%', type: 'neutral' as const },
-      { key: 'pos-0-2', label: '0% to 2%', type: 'positive' as const },
-      { key: 'pos-2-4', label: '2% to 4%', type: 'positive' as const },
-      { key: 'pos-4-8', label: '4% to 8%', type: 'positive' as const },
-      { key: 'pos-8-16', label: '8% to 16%', type: 'positive' as const },
-      { key: 'pos-16-32', label: '16% to 32%', type: 'positive' as const },
-      { key: 'pos-32-plus', label: '32%+', type: 'positive' as const },
-    ];
-
-    const counts = Object.fromEntries(bins.map((bin) => [bin.key, 0])) as Record<string, number>;
+  const realizedEquityDistributionData = useMemo<HistogramDistributionEntry[]>(() => {
+    const counts = HISTOGRAM_BUCKETS.reduce((acc, bin) => {
+      acc[bin.key] = 0;
+      return acc;
+    }, {} as Record<HistogramBucketKey, number>);
     const equityBase = currentBalance > 0 ? currentBalance : portfolioValue;
 
     positions.forEach((position) => {
@@ -1051,32 +1170,134 @@ function PortfolioHero({
       }
 
       const realizedEquityPct = (realizedGain / equityBase) * 100;
-
-      if (realizedEquityPct === 0) {
-        counts.zero += 1;
-      } else if (realizedEquityPct > 0) {
-        if (realizedEquityPct < 2) counts['pos-0-2'] += 1;
-        else if (realizedEquityPct < 4) counts['pos-2-4'] += 1;
-        else if (realizedEquityPct < 8) counts['pos-4-8'] += 1;
-        else if (realizedEquityPct < 16) counts['pos-8-16'] += 1;
-        else if (realizedEquityPct < 32) counts['pos-16-32'] += 1;
-        else counts['pos-32-plus'] += 1;
-      } else {
-        if (realizedEquityPct > -2) counts['neg-0-2'] += 1;
-        else if (realizedEquityPct > -4) counts['neg-2-4'] += 1;
-        else if (realizedEquityPct > -8) counts['neg-4-8'] += 1;
-        else if (realizedEquityPct > -16) counts['neg-8-16'] += 1;
-        else if (realizedEquityPct > -32) counts['neg-16-32'] += 1;
-        else counts['neg-32-plus'] += 1;
+      if (!Number.isFinite(realizedEquityPct)) {
+        return;
       }
+
+      const binKey = getBinKeyForPercent(realizedEquityPct);
+      counts[binKey] += 1;
     });
 
-    return bins.map((bin) => ({
+    return HISTOGRAM_BUCKETS.map((bin) => ({
+      binKey: bin.key,
       rangeLabel: bin.label,
       trades: counts[bin.key] ?? 0,
-      bucketType: bin.type,
+      bucketType: bin.bucketType,
     }));
   }, [positions, currentBalance, portfolioValue]);
+
+  const openHistogramDrilldown = (histogramType: HistogramDrilldownType, entry: HistogramDistributionEntry) => {
+    setSelectedDrilldown({
+      kind: 'distribution',
+      histogramType,
+      binKey: entry.binKey,
+      rangeLabel: entry.rangeLabel,
+    });
+  };
+
+  const openHoldingPeriodDrilldown = (entry: { positionId: string; positionLabel: string }) => {
+    setSelectedDrilldown({
+      kind: 'holdingPeriod',
+      positionId: entry.positionId,
+      positionLabel: entry.positionLabel,
+    });
+  };
+
+  const openRealizedSymbolDrilldown = (symbol: string) => {
+    setSelectedDrilldown({
+      kind: 'realizedSymbol',
+      symbol,
+    });
+  };
+
+  const openRealizedHoldingPeriodDrilldown = (entry: { bucketKey: HoldingPeriodBucketKey; rangeLabel: string }) => {
+    setSelectedDrilldown({
+      kind: 'realizedHoldingPeriod',
+      bucketKey: entry.bucketKey,
+      rangeLabel: entry.rangeLabel,
+    });
+  };
+
+  const selectedHistogramPositions = useMemo(() => {
+    if (!selectedDrilldown) {
+      return [];
+    }
+
+    const equityBase = currentBalance > 0 ? currentBalance : portfolioValue;
+
+    if (selectedDrilldown.kind === 'holdingPeriod') {
+      const match = positions.find((position) => position.id === selectedDrilldown.positionId);
+      return match ? [match] : [];
+    }
+
+    if (selectedDrilldown.kind === 'realizedSymbol') {
+      return positions.filter((position) =>
+        position.symbol === selectedDrilldown.symbol && calculateRealizedGainForPosition(position) !== 0,
+      );
+    }
+
+    if (selectedDrilldown.kind === 'realizedHoldingPeriod') {
+      return positions.filter((position) => {
+        const realizedGainValue = calculateRealizedGainForPosition(position);
+        if (realizedGainValue === 0) {
+          return false;
+        }
+
+        const holdingDays = calculateDaysInTrade(position.openDate, position.closedDate);
+        return getHoldingPeriodBucketKey(holdingDays) === selectedDrilldown.bucketKey;
+      });
+    }
+
+    return positions.filter((position) => {
+      if (selectedDrilldown.histogramType === 'realizedGain') {
+        if (!position.closedDate || position.netCost === 0) {
+          return false;
+        }
+        const realizedGainValue = calculateRealizedGainForPosition(position);
+        const percentGain = (realizedGainValue / position.netCost) * 100;
+        if (!Number.isFinite(percentGain)) {
+          return false;
+        }
+        return getBinKeyForPercent(percentGain) === selectedDrilldown.binKey;
+      }
+
+      if (equityBase <= 0) {
+        return false;
+      }
+
+      const realizedGainValue = calculateRealizedGainForPosition(position);
+      if (realizedGainValue === 0) {
+        return false;
+      }
+      const realizedEquityPct = (realizedGainValue / equityBase) * 100;
+      if (!Number.isFinite(realizedEquityPct)) {
+        return false;
+      }
+      return getBinKeyForPercent(realizedEquityPct) === selectedDrilldown.binKey;
+    });
+  }, [selectedDrilldown, positions, currentBalance, portfolioValue]);
+
+  const selectedHistogramTitle = useMemo(() => {
+    if (!selectedDrilldown) {
+      return '';
+    }
+
+    if (selectedDrilldown.kind === 'distribution') {
+      return selectedDrilldown.histogramType === 'realizedGain'
+        ? `Realized Gain/Loss Distribution - ${selectedDrilldown.rangeLabel}`
+        : `Realized Equity Gain/Loss Distribution - ${selectedDrilldown.rangeLabel}`;
+    }
+
+    if (selectedDrilldown.kind === 'holdingPeriod') {
+      return `Holding Period by Position - ${selectedDrilldown.positionLabel}`;
+    }
+
+    if (selectedDrilldown.kind === 'realizedHoldingPeriod') {
+      return `Realized Gain/Loss by Avg Holding Period - ${selectedDrilldown.rangeLabel}`;
+    }
+
+    return `Realized Gain/Loss by Symbol - ${selectedDrilldown.symbol}`;
+  }, [selectedDrilldown]);
 
   const realizedGainsBySymbolData = useMemo(() => {
     const gainBySymbol = new Map<string, number>();
@@ -1092,6 +1313,37 @@ function PortfolioHero({
     return Array.from(gainBySymbol.entries())
       .map(([symbol, realizedGain]) => ({ symbol, realizedGain }))
       .sort((a, b) => b.realizedGain - a.realizedGain);
+  }, [positions]);
+
+  const realizedGainByAvgHoldingPeriodData = useMemo(() => {
+    const totals = HOLDING_PERIOD_BUCKETS.reduce((acc, bucket) => {
+      acc[bucket.key] = 0;
+      return acc;
+    }, {} as Record<HoldingPeriodBucketKey, number>);
+
+    const counts = HOLDING_PERIOD_BUCKETS.reduce((acc, bucket) => {
+      acc[bucket.key] = 0;
+      return acc;
+    }, {} as Record<HoldingPeriodBucketKey, number>);
+
+    positions.forEach((position) => {
+      const realizedGainValue = calculateRealizedGainForPosition(position);
+      if (realizedGainValue === 0) {
+        return;
+      }
+
+      const holdingDays = calculateDaysInTrade(position.openDate, position.closedDate);
+      const bucketKey = getHoldingPeriodBucketKey(holdingDays);
+      totals[bucketKey] += realizedGainValue;
+      counts[bucketKey] += 1;
+    });
+
+    return HOLDING_PERIOD_BUCKETS.map((bucket) => ({
+      bucketKey: bucket.key,
+      rangeLabel: bucket.label,
+      realizedGain: roundToTwoDecimals(totals[bucket.key] ?? 0),
+      trades: counts[bucket.key] ?? 0,
+    }));
   }, [positions]);
 
   return (
@@ -1409,9 +1661,10 @@ function PortfolioHero({
                   <YAxis
                     domain={[balanceChartDomain[0], balanceChartDomain[1]]}
                     tick={{ fontSize: 10 }}
-                    tickFormatter={(value) => `${Number(value) >= 0 ? '+' : ''}$${Math.round(Number(value))}`}
+                    tickFormatter={formatAxisCurrencyTick}
                   />
                   <RechartsTooltip
+                    {...chartTooltipProps}
                     formatter={(value, name, item) => {
                       const point = item?.payload as { dayRealizedGain?: number } | undefined;
                       const dayGain = point?.dayRealizedGain ?? 0;
@@ -1446,16 +1699,17 @@ function PortfolioHero({
                     yAxisId="pnlDollar"
                     domain={[histogramAxisDomain.minDollar, histogramAxisDomain.maxDollar]}
                     tick={{ fontSize: 10 }}
-                    tickFormatter={(value) => `${Number(value) >= 0 ? '+' : ''}$${Math.round(Number(value))}`}
+                    tickFormatter={formatAxisCurrencyTick}
                   />
                   <YAxis
                     yAxisId="pnlPercent"
                     orientation="right"
                     domain={[histogramAxisDomain.minPercent, histogramAxisDomain.maxPercent]}
                     tick={{ fontSize: 10 }}
-                    tickFormatter={(value) => `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(1)}%`}
+                    tickFormatter={(value) => formatAxisPercentTick(value, 1)}
                   />
                   <RechartsTooltip
+                    {...chartTooltipProps}
                     formatter={(value) => {
                       const dollarValue = Number(value);
                       const pct = portfolioValue > 0 ? (dollarValue / portfolioValue) * 100 : 0;
@@ -1466,11 +1720,24 @@ function PortfolioHero({
                       return `${label}${row?.status ? ` (${row.status})` : ''}`;
                     }}
                   />
-                  <Bar yAxisId="pnlDollar" dataKey="totalGainLoss" name="Portfolio Gain" radius={[4, 4, 0, 0]}>
+                  <Bar
+                    yAxisId="pnlDollar"
+                    dataKey="totalGainLoss"
+                    name="Portfolio Gain"
+                    radius={[4, 4, 0, 0]}
+                    onClick={(_, index) => {
+                      const entry = holdingPeriodByPositionData[index];
+                      if (!entry) {
+                        return;
+                      }
+                      openHoldingPeriodDrilldown(entry);
+                    }}
+                  >
                     {holdingPeriodByPositionData.map((entry) => (
                       <Cell
                         key={`${entry.positionLabel}-pnl`}
-                        fill={entry.totalGainLoss >= 0 ? 'hsl(142, 76%, 36%)' : 'hsl(0, 84%, 60%)'}
+                        cursor="pointer"
+                        fill={entry.totalGainLoss >= 0 ? CHART_POSITIVE_BAR_COLOR : CHART_NEGATIVE_BAR_COLOR}
                       />
                     ))}
                   </Bar>
@@ -1489,19 +1756,32 @@ function PortfolioHero({
                     <XAxis dataKey="rangeLabel" tick={{ fontSize: 10 }} interval={0} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                     <RechartsTooltip
+                      {...chartTooltipProps}
                       formatter={(value) => [`${Number(value)} trades`, '# of Trades']}
                       labelFormatter={(label) => `Range: ${label}`}
                     />
-                    <Bar dataKey="trades" name="# of Trades" radius={[4, 4, 0, 0]}>
+                    <Bar
+                      dataKey="trades"
+                      name="# of Trades"
+                      radius={[4, 4, 0, 0]}
+                      onClick={(_, index) => {
+                        const entry = gainLossDistributionData[index];
+                        if (!entry) {
+                          return;
+                        }
+                        openHistogramDrilldown('realizedGain', entry);
+                      }}
+                    >
                       {gainLossDistributionData.map((entry) => (
                         <Cell
                           key={`${entry.rangeLabel}-count`}
+                          cursor="pointer"
                           fill={
                             entry.bucketType === 'negative'
-                              ? 'hsl(0, 84%, 60%)'
+                              ? CHART_NEGATIVE_BAR_COLOR
                               : entry.bucketType === 'positive'
-                                ? 'hsl(142, 76%, 36%)'
-                                : 'hsl(var(--muted-foreground))'
+                                ? CHART_POSITIVE_BAR_COLOR
+                                : CHART_NEUTRAL_BAR_COLOR
                           }
                         />
                       ))}
@@ -1520,19 +1800,32 @@ function PortfolioHero({
                     <XAxis dataKey="rangeLabel" tick={{ fontSize: 10 }} interval={0} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                     <RechartsTooltip
+                      {...chartTooltipProps}
                       formatter={(value) => [`${Number(value)} trades`, '# of Trades']}
                       labelFormatter={(label) => `Range: ${label}`}
                     />
-                    <Bar dataKey="trades" name="# of Trades" radius={[4, 4, 0, 0]}>
+                    <Bar
+                      dataKey="trades"
+                      name="# of Trades"
+                      radius={[4, 4, 0, 0]}
+                      onClick={(_, index) => {
+                        const entry = realizedEquityDistributionData[index];
+                        if (!entry) {
+                          return;
+                        }
+                        openHistogramDrilldown('realizedEquity', entry);
+                      }}
+                    >
                       {realizedEquityDistributionData.map((entry) => (
                         <Cell
                           key={`${entry.rangeLabel}-equity-count`}
+                          cursor="pointer"
                           fill={
                             entry.bucketType === 'negative'
-                              ? 'hsl(0, 84%, 60%)'
+                              ? CHART_NEGATIVE_BAR_COLOR
                               : entry.bucketType === 'positive'
-                                ? 'hsl(142, 76%, 36%)'
-                                : 'hsl(var(--muted-foreground))'
+                                ? CHART_POSITIVE_BAR_COLOR
+                                : CHART_NEUTRAL_BAR_COLOR
                           }
                         />
                       ))}
@@ -1543,33 +1836,155 @@ function PortfolioHero({
             </div>
           </div>
 
-          <div className="mt-3 rounded-xl border border-border/60 bg-background/30 dark:bg-muted/20 p-3 md:p-4">
-            <p className="text-[10px] text-muted-foreground uppercase mb-1">Realized Gain/Loss by Symbol</p>
-            <div className="h-52">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={realizedGainsBySymbolData} margin={{ top: 4, right: 8, left: 0, bottom: 12 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="symbol" tick={{ fontSize: 10 }} interval={0} />
-                  <YAxis tick={{ fontSize: 10 }} tickFormatter={(value) => `${Number(value) >= 0 ? '+' : ''}$${Math.round(Number(value))}`} />
-                  <RechartsTooltip
-                    formatter={(value) => [formatCurrencyTwoDecimals(Number(value)), 'Realized Gain/Loss']}
-                    labelFormatter={(label) => `Symbol: ${label}`}
-                  />
-                  <Bar dataKey="realizedGain" name="Realized Gain/Loss" radius={[4, 4, 0, 0]}>
-                    {realizedGainsBySymbolData.map((entry) => (
-                      <Cell
-                        key={`${entry.symbol}-realized`}
-                        fill={entry.realizedGain >= 0 ? 'hsl(142, 76%, 36%)' : 'hsl(0, 84%, 60%)'}
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+          <div className="mt-3 grid grid-cols-1 xl:grid-cols-2 gap-3">
+            <div className="rounded-xl border border-border/60 bg-background/30 dark:bg-muted/20 p-3 md:p-4">
+              <p className="text-[10px] text-muted-foreground uppercase mb-1">Realized Gain/Loss by Symbol</p>
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={realizedGainsBySymbolData} margin={{ top: 4, right: 8, left: 0, bottom: 12 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="symbol" tick={{ fontSize: 10 }} interval={0} />
+                    <YAxis tick={{ fontSize: 10 }} tickFormatter={formatAxisCurrencyTick} />
+                    <RechartsTooltip
+                      {...chartTooltipProps}
+                      formatter={(value) => [formatCurrencyTwoDecimals(Number(value)), 'Realized Gain/Loss']}
+                      labelFormatter={(label) => `Symbol: ${label}`}
+                    />
+                    <Bar
+                      dataKey="realizedGain"
+                      name="Realized Gain/Loss"
+                      radius={[4, 4, 0, 0]}
+                      onClick={(_, index) => {
+                        const entry = realizedGainsBySymbolData[index];
+                        if (!entry) {
+                          return;
+                        }
+                        openRealizedSymbolDrilldown(entry.symbol);
+                      }}
+                    >
+                      {realizedGainsBySymbolData.map((entry) => (
+                        <Cell
+                          key={`${entry.symbol}-realized`}
+                          cursor="pointer"
+                          fill={entry.realizedGain >= 0 ? CHART_POSITIVE_BAR_COLOR : CHART_NEGATIVE_BAR_COLOR}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-border/60 bg-background/30 dark:bg-muted/20 p-3 md:p-4">
+              <p className="text-[10px] text-muted-foreground uppercase mb-1">Realized Gain/Loss by Avg Holding Period</p>
+              <div className="h-52">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={realizedGainByAvgHoldingPeriodData} margin={{ top: 4, right: 8, left: 0, bottom: 12 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="rangeLabel" tick={{ fontSize: 10 }} interval={0} />
+                    <YAxis tick={{ fontSize: 10 }} tickFormatter={formatAxisCurrencyTick} />
+                    <RechartsTooltip
+                      {...chartTooltipProps}
+                      formatter={(value, _name, item) => {
+                        const row = item?.payload as { trades?: number } | undefined;
+                        return [`${formatCurrencyTwoDecimals(Number(value))} (${row?.trades ?? 0} positions)`, 'Realized Gain/Loss'];
+                      }}
+                      labelFormatter={(label) => `Holding Period: ${label}`}
+                    />
+                    <Bar
+                      dataKey="realizedGain"
+                      name="Realized Gain/Loss"
+                      radius={[4, 4, 0, 0]}
+                      onClick={(_, index) => {
+                        const entry = realizedGainByAvgHoldingPeriodData[index];
+                        if (!entry) {
+                          return;
+                        }
+                        openRealizedHoldingPeriodDrilldown(entry);
+                      }}
+                    >
+                      {realizedGainByAvgHoldingPeriodData.map((entry) => (
+                        <Cell
+                          key={`${entry.bucketKey}-holding-period`}
+                          cursor="pointer"
+                          fill={entry.realizedGain >= 0 ? CHART_POSITIVE_BAR_COLOR : CHART_NEGATIVE_BAR_COLOR}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
 
         </div>
       )}
+
+      <Dialog
+        open={Boolean(selectedDrilldown)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedDrilldown(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedHistogramTitle}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedHistogramPositions.length} position{selectedHistogramPositions.length === 1 ? '' : 's'} in this bucket.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[70vh] overflow-auto [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-b-2">
+                  {HISTOGRAM_DRILLDOWN_COLUMNS.map((column) => (
+                    <TableHead key={column.id} className="border-r last:border-r-0">
+                      {column.label}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {selectedHistogramPositions.length > 0 ? (
+                  selectedHistogramPositions.map((position) => {
+                    const realizedGainValue = calculateRealizedGainForPosition(position);
+                    return (
+                      <TableRow key={position.id} className="border-b even:bg-muted/20 hover:bg-muted/40 transition-colors">
+                        {HISTOGRAM_DRILLDOWN_COLUMNS.map((column) => (
+                          <TableCell
+                            key={`${position.id}-${column.id}`}
+                            className={cn(
+                              column.id === 'symbol'
+                                ? 'font-medium border-r font-mono sticky left-0 z-20 !bg-background'
+                                : 'border-r font-mono',
+                              column.id === HISTOGRAM_DRILLDOWN_COLUMNS[HISTOGRAM_DRILLDOWN_COLUMNS.length - 1]?.id && 'border-r-0',
+                            )}
+                          >
+                            {renderHistogramDrilldownCell(column.id, position, realizedGainValue)}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    );
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={HISTOGRAM_DRILLDOWN_COLUMNS.length}
+                      className="text-center text-sm text-muted-foreground py-6"
+                    >
+                      No positions found for this bucket.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1588,6 +2003,56 @@ type PortfolioTableRow =
       realizedGain: number;
       positions: StockPosition[];
     };
+
+function renderHistogramDrilldownCell(columnId: string, position: StockPosition, realizedGain: number) {
+  const realizedPercent = position.netCost !== 0 ? (realizedGain / position.netCost) * 100 : null;
+
+  switch (columnId) {
+    case 'symbol':
+      return position.symbol;
+    case 'type':
+      return (
+        <span
+          className={cn(
+            'px-2 py-1 rounded-full text-xs font-medium',
+            position.type === 'Long'
+              ? 'bg-green-500/15 text-green-600 dark:text-green-400'
+              : 'bg-red-500/20 text-red-400',
+          )}
+        >
+          {position.type}
+        </span>
+      );
+    case 'quantity':
+      return position.quantity;
+    case 'cost':
+      return <span className="font-medium">{formatCurrency(position.cost)}</span>;
+    case 'netCost':
+      return <span className="font-medium">{formatCurrency(position.netCost)}</span>;
+    case 'stopLoss':
+      return <span className="font-medium">{formatCurrency(position.stopLoss)}</span>;
+    case 'realizedGain':
+      return (
+        <span className={cn('font-medium', realizedGain >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-400')}>
+          {formatCurrency(realizedGain)}
+        </span>
+      );
+    case 'realizedPercent':
+      return realizedPercent === null || !Number.isFinite(realizedPercent) ? (
+        <span className="text-muted-foreground">-</span>
+      ) : (
+        <span className={cn('font-medium', getSignedPercentColorClass(realizedPercent))}>
+          {formatSignedPercent(realizedPercent)}
+        </span>
+      );
+    case 'rMultiple':
+      return <RMultipleCell symbol={position.symbol} positions={[position]} />;
+    case 'closedDate':
+      return position.closedDate ? format(position.closedDate, 'MM/dd/yy') : <span className="text-muted-foreground">-</span>;
+    default:
+      return '-';
+  }
+}
 
 // Component to display equity (quantity × price)
 function EquityCell({ 
