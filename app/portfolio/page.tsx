@@ -685,14 +685,19 @@ function MetricCard({
   );
 }
 
-// Calculate total open risk helper
+// Net portfolio open risk: sum of signed $/share × remaining shares per position.
+// Long: (cost − stop) × shares — positive when stop is below cost (downside to stop); negative when stop is above cost (reduces net risk).
+// Short: (stop − cost) × shares — same idea mirrored for adverse move to the stop.
+// Clamped at 0 — unfavorable-to-stop placement cannot yield negative “risk”.
 function calculateTotalOpenRisk(positions: StockPosition[]): number {
-  return positions
-    .filter(pos => !pos.closedDate && pos.remainingShares > 0)
+  const raw = positions
+    .filter((pos) => !pos.closedDate && pos.remainingShares > 0)
     .reduce((total, pos) => {
-      const riskAmount = Math.abs(pos.cost - pos.stopLoss) * pos.remainingShares;
-      return total + riskAmount;
+      const perShare =
+        pos.type === 'Short' ? pos.stopLoss - pos.cost : pos.cost - pos.stopLoss;
+      return total + perShare * pos.remainingShares;
     }, 0);
+  return Math.max(0, raw);
 }
 
 type PortfolioTab = 'positions' | 'stats';
@@ -3531,8 +3536,9 @@ export default function Portfolio() {
     return portfolio?.portfolio_value ?? 0;
   }, [portfolioValue, portfolio]);
 
-  const worstCaseStopLossDollar = useMemo(() => calculateTotalOpenRisk(positions), [positions]);
-  const worstCaseStopLossPercent = portfolioValueNumber > 0 ? (worstCaseStopLossDollar / portfolioValueNumber) * 100 : 0;
+  const totalOpenRiskDollar = useMemo(() => calculateTotalOpenRisk(positions), [positions]);
+  const totalOpenRiskPercentOfPortfolio =
+    portfolioValueNumber > 0 ? (totalOpenRiskDollar / portfolioValueNumber) * 100 : 0;
 
   // Compute trade statistics from closed positions only
   const tradeStatistics = useMemo(() => {
@@ -3758,8 +3764,8 @@ export default function Portfolio() {
                 {/* Positions Table Card */}
           <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden p-2.5 sm:p-3">
             <div className="mb-2 space-y-2">
-              <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-2 items-start">
-                <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
                   {symbolFilters.length > 0 && (
                     <Button
                       size="sm"
@@ -3797,48 +3803,13 @@ export default function Portfolio() {
                     {summarizeOpenPositions ? "Show Individual" : "Summarize Symbols"}
                   </Button>
                 </div>
-                <div className="rounded-md border border-border/60 bg-background/40 p-2 w-full lg:w-auto">
-                  <div className="grid grid-cols-1 sm:grid-cols-[auto_auto_auto_auto] gap-2 items-center">
-                    <div className="space-y-1 min-w-[180px]">
-                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Open Risk</p>
-                      <p className="text-sm font-bold font-mono">
-                        -{formatCurrencyTwoDecimals(worstCaseStopLossDollar)} / -{worstCaseStopLossPercent.toFixed(2)}%
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">ADR %</label>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="2.50"
-                        value={adrPercent}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/[^0-9.]/g, '');
-                          const parts = value.split('.');
-                          const formattedValue = parts.length > 2
-                            ? parts[0] + '.' + parts.slice(1).join('')
-                            : value;
-                          if (parts.length === 2 && parts[1].length > 2) return;
-                          setAdrPercent(formattedValue);
-                        }}
-                        className="h-8 w-full sm:w-[92px] text-xs font-mono bg-background/50"
-                      />
-                    </div>
-                    <div className="space-y-1 min-w-[120px]">
-                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Max Position %</p>
-                      <p className="text-sm font-bold font-mono">
-                        {adrPercent && parseFloat(adrPercent) > 0 ? `${((1 / parseFloat(adrPercent)) * 100).toFixed(1)}%` : '—'}
-                      </p>
-                    </div>
-                    <div className="space-y-1 min-w-[140px]">
-                      <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">Max Amount</p>
-                      <p className="text-sm font-bold font-mono">
-                        {adrPercent && parseFloat(adrPercent) > 0
-                          ? formatCurrencyTwoDecimals((parseFloat(portfolioValue) || 0) * (1 / parseFloat(adrPercent)))
-                          : '—'}
-                      </p>
-                    </div>
-                  </div>
+                <div className="flex shrink-0 items-center gap-2 max-sm:ml-auto">
+                  <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                    Total Open Risk
+                  </span>
+                  <span className="text-sm font-bold font-mono tabular-nums whitespace-nowrap">
+                    {`-${formatCurrencyTwoDecimals(totalOpenRiskDollar)} / -${totalOpenRiskPercentOfPortfolio.toFixed(2)}%`}
+                  </span>
                 </div>
               </div>
               {symbolFilters.length > 0 && (
@@ -4174,6 +4145,50 @@ export default function Portfolio() {
 
         {/* Right Sidebar */}
         <aside className="w-full xl:w-80 shrink-0 space-y-2.5">
+          {/* ADR & max position (portfolio value) */}
+          <div className="rounded-lg border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
+            <div className="px-3 py-2.5 text-sm font-semibold border-b border-border/50">
+              Max Position based on ADR
+            </div>
+            <div className="px-3 pb-3 pt-3 space-y-3">
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">ADR %</label>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="2.50"
+                  value={adrPercent}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9.]/g, '');
+                    const parts = value.split('.');
+                    const formattedValue = parts.length > 2
+                      ? parts[0] + '.' + parts.slice(1).join('')
+                      : value;
+                    if (parts.length === 2 && parts[1].length > 2) return;
+                    setAdrPercent(formattedValue);
+                  }}
+                  className="h-8 w-full text-sm font-mono bg-background/50"
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Max Position %</p>
+                  <p className="text-sm font-bold font-mono">
+                    {adrPercent && parseFloat(adrPercent) > 0 ? `${((1 / parseFloat(adrPercent)) * 100).toFixed(1)}%` : '—'}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs font-medium text-muted-foreground">Max Amount</p>
+                  <p className="text-sm font-bold font-mono">
+                    {adrPercent && parseFloat(adrPercent) > 0
+                      ? formatCurrencyTwoDecimals((parseFloat(portfolioValue) || 0) * (1 / parseFloat(adrPercent)))
+                      : '—'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Add Position Panel */}
           <div className="rounded-lg border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
             <div className="px-3 py-2.5 text-sm font-semibold border-b border-border/50">
