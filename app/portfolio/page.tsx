@@ -306,6 +306,7 @@ const HISTOGRAM_DRILLDOWN_COLUMNS: Array<{ id: string; label: string }> = [
   { id: 'realizedPercent', label: 'Realized %' },
   { id: 'rMultiple', label: 'R' },
   { id: 'closedDate', label: 'Closed Date' },
+  { id: 'holdingPeriod', label: 'Holding Period' },
 ];
 
 const getBinKeyForPercent = (percent: number): HistogramBucketKey => {
@@ -2097,6 +2098,13 @@ function renderHistogramDrilldownCell(columnId: string, position: StockPosition,
       return <RMultipleCell symbol={position.symbol} positions={[position]} />;
     case 'closedDate':
       return position.closedDate ? format(position.closedDate, 'MM/dd/yy') : <span className="text-muted-foreground">-</span>;
+    case 'holdingPeriod': {
+      if (!position.closedDate) {
+        return <span className="text-muted-foreground">-</span>;
+      }
+      const daysHeld = calculateDaysInTrade(position.openDate, position.closedDate);
+      return <span className="font-medium tabular-nums">{`${daysHeld}d`}</span>;
+    }
     default:
       return '-';
   }
