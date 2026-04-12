@@ -3445,7 +3445,6 @@ export default function Portfolio() {
   }, [filteredPositions, sortColumn, sortDirection, portfolio?.portfolio_value, portfolioValue]);
 
   // Filter positions based on closed status (memoized to prevent unnecessary recalculations)
-  const openPositions = useMemo(() => positions.filter(pos => !pos.closedDate), [positions]);
   const closedPositions = useMemo(() => positions.filter(pos => pos.closedDate), [positions]);
 
   const openPositionsForAllocation = useMemo(
