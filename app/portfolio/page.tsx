@@ -3439,7 +3439,16 @@ export default function Portfolio() {
   // Filter positions based on closed status (memoized to prevent unnecessary recalculations)
   const openPositions = useMemo(() => positions.filter(pos => !pos.closedDate), [positions]);
   const closedPositions = useMemo(() => positions.filter(pos => pos.closedDate), [positions]);
-  
+
+  const openPositionsForAllocation = useMemo(
+    () => positions.filter((p) => !isPositionFullyClosed(p) && p.remainingShares > 0),
+    [positions],
+  );
+
+  const allocationQuoteQueries = useQueries({
+    queries: openPositionsForAllocation.map((position) => quoteQueryOptions(position.symbol)),
+  });
+
   // Apply filter to sorted positions for display
   const displayedPositions = useMemo(
     () => (showClosedPositions ? sortedPositions : sortedPositions.filter((pos) => !pos.closedDate)),
@@ -3619,14 +3628,23 @@ export default function Portfolio() {
   }, [closedPositions, portfolioValueNumber]);
 
   const allocationSummary = useMemo(() => {
-    const slices = openPositions.map((position) => {
-      const price = position.currentPrice ?? position.cost;
-      const equity = price * position.remainingShares;
-      return {
-        name: position.symbol,
-        value: equity,
-      };
-    }).filter((item) => item.value > 0);
+    const equityBySymbol = new Map<string, number>();
+    for (let i = 0; i < openPositionsForAllocation.length; i += 1) {
+      const position = openPositionsForAllocation[i];
+      const quotePrice = allocationQuoteQueries[i]?.data?.price;
+      const markPrice = typeof quotePrice === 'number' ? quotePrice : position.cost;
+      const equity = markPrice * position.remainingShares;
+      if (equity <= 0) {
+        continue;
+      }
+      const symbol = position.symbol;
+      equityBySymbol.set(symbol, (equityBySymbol.get(symbol) ?? 0) + equity);
+    }
+
+    const slices = Array.from(equityBySymbol.entries()).map(([name, value]) => ({
+      name,
+      value,
+    }));
 
     const openEquity = slices.reduce((sum, item) => sum + item.value, 0);
     const cashValue = Math.max(portfolioValueNumber - openEquity, 0);
@@ -3646,7 +3664,7 @@ export default function Portfolio() {
       cashValue,
       total,
     };
-  }, [openPositions, portfolioValueNumber]);
+  }, [openPositionsForAllocation, allocationQuoteQueries, portfolioValueNumber]);
 
   const hasPositions = positions.length > 0;
   const hasDisplayedPositions = tableRows.length > 0;
@@ -3654,6 +3672,25 @@ export default function Portfolio() {
   const totalAllocation = allocationSummary.total;
   const openEquityValue = allocationSummary.openEquity;
   const cashAllocationValue = allocationSummary.cashValue;
+
+  const allocationRowsWithColors = useMemo(() => {
+    let equityIdx = 0;
+    return allocationSlices.map((slice) => {
+      const fill =
+        slice.name === 'Cash'
+          ? 'hsl(var(--allocation-cash))'
+          : allocationColors[equityIdx++ % allocationColors.length];
+      return { ...slice, fill };
+    });
+  }, [allocationSlices]);
+
+  const allocationLegendRows = useMemo(
+    () =>
+      [...allocationRowsWithColors]
+        .filter((row) => row.name !== 'Cash')
+        .sort((a, b) => b.value - a.value),
+    [allocationRowsWithColors],
+  );
 
   const renderAllocationTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload?: { name?: string; value?: number } }> }) => {
     if (!active || !payload || payload.length === 0) {
@@ -4312,21 +4349,44 @@ export default function Portfolio() {
             <div className="px-3 pb-3 pt-3">
               {isPortfolioLoading ? (
                 <div className="space-y-3">
-                  <Skeleton className="h-40 w-full rounded-lg" />
                   <div className="grid grid-cols-2 gap-2">
                     <Skeleton className="h-14 rounded-lg" />
                     <Skeleton className="h-14 rounded-lg" />
                   </div>
+                  <Skeleton className="mx-auto h-40 max-w-[220px] rounded-lg" />
+                  <Skeleton className="h-28 w-full rounded-lg" />
                 </div>
               ) : allocationSummary.total === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">No allocation data</p>
               ) : (
                 <div className="space-y-3">
-                  <div className="h-40">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-lg border border-border/50 bg-background/50 p-2.5">
+                      <p className="text-xs font-medium text-muted-foreground">Open equity</p>
+                      <p className="text-sm font-bold font-mono tabular-nums text-foreground">
+                        {formatCurrency(openEquityValue)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-border/60 bg-muted/45 p-2.5 dark:bg-muted/35">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-sm ring-1 ring-border/50"
+                          style={{ backgroundColor: 'hsl(var(--allocation-cash))' }}
+                          aria-hidden
+                        />
+                        <p className="text-xs font-medium text-muted-foreground">Cash</p>
+                      </div>
+                      <p className="mt-0.5 text-sm font-bold font-mono tabular-nums text-foreground">
+                        {formatCurrency(cashAllocationValue)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mx-auto h-[168px] w-full max-w-[220px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <RechartsPieChart>
                         <Pie
-                          data={allocationSlices}
+                          data={allocationRowsWithColors}
                           dataKey="value"
                           nameKey="name"
                           cx="50%"
@@ -4334,26 +4394,36 @@ export default function Portfolio() {
                           innerRadius={34}
                           outerRadius={62}
                           paddingAngle={3}
-                          stroke="transparent"
+                          stroke="hsl(var(--card))"
+                          strokeWidth={2}
                         >
-                          {allocationSlices.map((slice, index) => (
-                            <Cell key={slice.name} fill={allocationColors[index % allocationColors.length]} />
+                          {allocationRowsWithColors.map((row) => (
+                            <Cell key={row.name} fill={row.fill} />
                           ))}
                         </Pie>
                         <RechartsTooltip content={renderAllocationTooltip} />
                       </RechartsPieChart>
                     </ResponsiveContainer>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-lg border border-border/50 bg-background/50 p-2">
-                      <p className="text-[10px] text-muted-foreground uppercase">Open Equity</p>
-                      <p className="text-sm font-bold font-mono">{formatCurrency(openEquityValue)}</p>
-                    </div>
-                    <div className="rounded-lg border border-border/50 bg-background/50 p-2">
-                      <p className="text-[10px] text-muted-foreground uppercase">Cash</p>
-                      <p className="text-sm font-bold font-mono">{formatCurrency(cashAllocationValue)}</p>
-                    </div>
-                  </div>
+
+                  <ul
+                    className="grid grid-cols-2 gap-x-2 gap-y-1.5 overflow-y-auto rounded-lg border border-border/40 bg-muted/15 px-2 py-2 text-xs dark:bg-muted/10 sm:text-sm max-h-40"
+                    aria-label="Allocation by position"
+                  >
+                    {allocationLegendRows.map((row) => (
+                      <li
+                        key={row.name}
+                        className="flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 hover:bg-muted/40"
+                      >
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-sm ring-1 ring-border/60"
+                          style={{ backgroundColor: row.fill }}
+                          aria-hidden
+                        />
+                        <span className="min-w-0 truncate font-medium text-foreground">{row.name}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>
