@@ -5,8 +5,7 @@ import { useMemo } from "react";
 import { useSupabaseFearGreed } from "@/hooks/useSupabaseFearGreed";
 import { formatNumber } from "@/components/home/marketFormatters";
 import { SentimentCard, type SentimentReferenceRow, type SentimentTone } from "@/components/home/SentimentCard";
-import { SeriesSparkline } from "@/components/home/SeriesSparkline";
-import type { FearGreedSnapshot } from "@/lib/types";
+import type { FearGreedSnapshot } from "@/hooks/useSupabaseFearGreed";
 
 interface DerivedRating {
   label: string;
@@ -35,11 +34,6 @@ function pointDelta(current: number, reference: number | null): number | null {
   return current - reference;
 }
 
-function percentDelta(current: number, reference: number | null): number | null {
-  if (reference === null || reference === 0 || Number.isNaN(reference)) return null;
-  return ((current - reference) / reference) * 100;
-}
-
 function buildReferenceRows(latest: FearGreedSnapshot): SentimentReferenceRow[] {
   const { score } = latest;
   const rows: { name: string; reference: number | null }[] = [
@@ -52,13 +46,12 @@ function buildReferenceRows(latest: FearGreedSnapshot): SentimentReferenceRow[] 
   return rows.map(({ name, reference }) => ({
     name,
     referenceValue: reference === null ? "--" : formatNumber(reference),
-    percentChange: percentDelta(score, reference),
     pointDelta: pointDelta(score, reference)
   }));
 }
 
 export function FearGreedCard() {
-  const { latest, history, isLoading, error } = useSupabaseFearGreed();
+  const { latest, isLoading, error } = useSupabaseFearGreed();
 
   const rating = useMemo<DerivedRating | undefined>(() => {
     if (!latest) return undefined;
@@ -78,14 +71,7 @@ export function FearGreedCard() {
     return buildReferenceRows(latest);
   }, [latest]);
 
-  const sparklineValues = useMemo(() => {
-    if (history.length < 2) return [] as number[];
-    // history is newest-first from Supabase — reverse for left-to-right rendering.
-    return [...history].reverse().map((row) => row.score);
-  }, [history]);
-
   const hasData = latest !== null;
-  const isPositiveTrend = delta !== null ? delta >= 0 : true;
 
   return (
     <SentimentCard
@@ -95,13 +81,6 @@ export function FearGreedCard() {
       heroSuffix="/100"
       rating={rating}
       delta={delta}
-      sparkline={
-        <SeriesSparkline
-          values={sparklineValues}
-          isPositive={isPositiveTrend}
-          ariaLabel="CNN Fear & Greed 30-day trend"
-        />
-      }
       referenceRows={referenceRows}
       isLoading={isLoading}
       hasData={hasData}

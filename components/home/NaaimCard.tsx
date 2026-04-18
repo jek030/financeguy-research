@@ -5,7 +5,6 @@ import { useMemo } from "react";
 import { useSupabaseNaaim } from "@/hooks/useSupabaseNaaim";
 import { formatNumber } from "@/components/home/marketFormatters";
 import { SentimentCard, type SentimentReferenceRow } from "@/components/home/SentimentCard";
-import { SeriesSparkline } from "@/components/home/SeriesSparkline";
 import type { NaaimSnapshot } from "@/lib/types";
 
 interface LookbackSpec {
@@ -24,11 +23,6 @@ const WEEKLY_LOOKBACKS: LookbackSpec[] = [
 function pointDelta(current: number, reference: number | null): number | null {
   if (reference === null || Number.isNaN(reference)) return null;
   return current - reference;
-}
-
-function percentDelta(current: number, reference: number | null): number | null {
-  if (reference === null || reference === 0 || Number.isNaN(reference)) return null;
-  return ((current - reference) / reference) * 100;
 }
 
 function findExtremes(history: NaaimSnapshot[]): { high: number | null; low: number | null } {
@@ -52,7 +46,6 @@ function buildReferenceRows(history: NaaimSnapshot[]): SentimentReferenceRow[] {
     return {
       name,
       referenceValue: reference === null ? "--" : formatNumber(reference),
-      percentChange: percentDelta(current, reference),
       pointDelta: pointDelta(current, reference)
     };
   });
@@ -63,13 +56,11 @@ function buildReferenceRows(history: NaaimSnapshot[]): SentimentReferenceRow[] {
     {
       name: "52W High",
       referenceValue: high === null ? "--" : formatNumber(high),
-      percentChange: percentDelta(current, high),
       pointDelta: pointDelta(current, high)
     },
     {
       name: "52W Low",
       referenceValue: low === null ? "--" : formatNumber(low),
-      percentChange: percentDelta(current, low),
       pointDelta: pointDelta(current, low)
     }
   ];
@@ -87,14 +78,7 @@ export function NaaimCard() {
 
   const referenceRows = useMemo(() => buildReferenceRows(history), [history]);
 
-  const sparklineValues = useMemo(() => {
-    if (history.length < 2) return [] as number[];
-    // history is newest-first from Supabase — reverse for left-to-right rendering.
-    return [...history].reverse().map((row) => row.mean_exposure);
-  }, [history]);
-
   const hasData = latest !== null;
-  const isPositiveTrend = delta !== null ? delta >= 0 : true;
 
   return (
     <SentimentCard
@@ -102,13 +86,6 @@ export function NaaimCard() {
       label="Active Mgr Exposure"
       heroValue={latest ? formatNumber(latest.mean_exposure) : "--"}
       delta={delta}
-      sparkline={
-        <SeriesSparkline
-          values={sparklineValues}
-          isPositive={isPositiveTrend}
-          ariaLabel="NAAIM exposure index 52-week trend"
-        />
-      }
       referenceRows={referenceRows}
       isLoading={isLoading}
       hasData={hasData}

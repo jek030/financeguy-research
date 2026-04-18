@@ -1,7 +1,5 @@
 'use client';
 
-import type { ReactNode } from "react";
-
 import { cn } from "@/lib/utils";
 import { DeltaCell } from "@/components/home/DeltaCell";
 
@@ -10,7 +8,6 @@ export type SentimentTone = "bullish" | "bearish" | "neutral";
 export interface SentimentReferenceRow {
   name: string;
   referenceValue: string;
-  percentChange: number | null;
   pointDelta: number | null;
 }
 
@@ -21,7 +18,6 @@ export interface SentimentCardProps {
   heroSuffix?: string;
   rating?: { label: string; tone: SentimentTone };
   delta?: number | null;
-  sparkline?: ReactNode;
   referenceRows: SentimentReferenceRow[];
   isLoading: boolean;
   hasData: boolean;
@@ -42,7 +38,6 @@ export function SentimentCard({
   heroSuffix,
   rating,
   delta,
-  sparkline,
   referenceRows,
   isLoading,
   hasData,
@@ -92,19 +87,16 @@ export function SentimentCard({
           </div>
         )}
 
-        {hasData && sparkline ? <div className="mt-2">{sparkline}</div> : null}
       </div>
 
       {isLoading ? (
         <div className="space-y-1.5 pb-0.5">
-          <div className="grid grid-cols-[1fr,72px,72px] gap-2 border-b border-neutral-200 pb-1 font-mono text-[10px] uppercase tracking-wide text-neutral-400 dark:border-neutral-800 dark:text-neutral-500">
+          <div className="grid grid-cols-[1fr,72px] gap-2 border-b border-neutral-200 pb-1 font-mono text-[10px] uppercase tracking-wide text-neutral-400 dark:border-neutral-800 dark:text-neutral-500">
             <span>Period</span>
-            <span className="text-right">% Chg</span>
             <span className="text-right">Δ Pts</span>
           </div>
           {Array.from({ length: 4 }).map((_, idx) => (
-            <div key={idx} className="grid grid-cols-[1fr,72px,72px] items-center gap-2">
-              <div className="h-3 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+            <div key={idx} className="grid grid-cols-[1fr,72px] items-center gap-2">
               <div className="h-3 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
               <div className="h-3 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
             </div>
@@ -112,16 +104,15 @@ export function SentimentCard({
         </div>
       ) : hasData ? (
         <div className="space-y-0.5 pb-0.5">
-          <div className="grid grid-cols-[1fr,72px,72px] gap-2 border-b border-neutral-200 pb-1 font-mono text-[10px] uppercase tracking-wide text-neutral-400 dark:border-neutral-800 dark:text-neutral-500">
+          <div className="grid grid-cols-[1fr,72px] gap-2 border-b border-neutral-200 pb-1 font-mono text-[10px] uppercase tracking-wide text-neutral-400 dark:border-neutral-800 dark:text-neutral-500">
             <span>Period</span>
-            <span className="text-right">% Chg</span>
             <span className="text-right">Δ Pts</span>
           </div>
           {referenceRows.map((row, index) => (
             <div
               key={row.name}
               className={cn(
-                "grid grid-cols-[1fr,72px,72px] items-center gap-2 rounded px-1 py-1 font-mono text-[11px]",
+                "grid grid-cols-[1fr,72px] items-center gap-2 rounded px-1 py-1 font-mono text-[11px]",
                 index % 2 === 0 ? "bg-neutral-100/50 dark:bg-neutral-900/40" : "bg-transparent"
               )}
             >
@@ -131,7 +122,6 @@ export function SentimentCard({
                   {row.referenceValue}
                 </span>
               </span>
-              <DeltaCell value={row.percentChange} format="percent" />
               <DeltaCell value={row.pointDelta} format="points" />
             </div>
           ))}

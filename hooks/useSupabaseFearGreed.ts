@@ -1,48 +1,59 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 
-import { supabase } from "@/lib/supabase";
-import type { FearGreedSnapshot } from "@/lib/types";
+export interface FearGreedSnapshot {
+  date: string;
+  score: number;
+  rating: string | null;
+  previous_close: number | null;
+  previous_1_week: number | null;
+  previous_1_month: number | null;
+  previous_1_year: number | null;
+}
 
-const HISTORY_LIMIT = 30;
+interface FearGreedHistoricalPoint {
+  date: string;
+  score: number;
+  rating: string | null;
+}
 
-async function fetchFearGreedHistory(): Promise<FearGreedSnapshot[]> {
-  const { data, error } = await supabase
-    .from("market_sentiment_fear_greed")
-    .select("*")
-    .order("date", { ascending: false })
-    .limit(HISTORY_LIMIT);
+interface FearGreedApiResponse {
+  latest: FearGreedSnapshot;
+  history: FearGreedHistoricalPoint[];
+}
 
-  if (error) {
-    console.error("[sentiment] fear-greed fetch failed", error);
-    throw new Error(`Supabase query error for fear & greed: ${error.message}`);
+async function fetchFearGreedHistory(): Promise<FearGreedApiResponse> {
+  const response = await fetch("/api/market/fear-greed", {
+    headers: { "Content-Type": "application/json" }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Fear & Greed API error (${response.status})`);
   }
 
-  return (data ?? []) as FearGreedSnapshot[];
+  return (await response.json()) as FearGreedApiResponse;
 }
 
 export interface UseSupabaseFearGreedResult {
   latest: FearGreedSnapshot | null;
-  history: FearGreedSnapshot[];
+  history: FearGreedHistoricalPoint[];
   isLoading: boolean;
   error: Error | null;
 }
 
 export function useSupabaseFearGreed(): UseSupabaseFearGreedResult {
-  const query = useQuery<FearGreedSnapshot[], Error>({
-    queryKey: ["supabase-fear-greed"],
+  const query = useQuery<FearGreedApiResponse, Error>({
+    queryKey: ["cnn-fear-greed"],
     queryFn: fetchFearGreedHistory,
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000
   });
 
   return useMemo(() => {
-    const rows = query.data ?? [];
-    const latest = rows.length > 0 ? rows[0] : null;
-
+    const payload = query.data;
     return {
-      latest,
-      history: rows,
+      latest: payload?.latest ?? null,
+      history: payload?.history ?? [],
       isLoading: query.isLoading,
       error: query.error ?? null
     };

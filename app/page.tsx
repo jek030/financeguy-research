@@ -17,14 +17,12 @@ export default function Home() {
   const { data: slvData, isLoading: isSlvLoading } = useQuote("SLV");
   const { data: gldData, isLoading: isGldLoading } = useQuote("GLD");
   const { data: vixData, isLoading: isVixLoading } = useQuote("^VIX");
-  const { data: rspData, isLoading: isRspLoading } = useQuote("RSP");
   const { sectorsBySymbol, latestDate, isLoading: sectorsLoading, error: sectorsError } = useSupabaseSectorData();
 
   const instrumentDataBySymbol = {
     SPY: { data: spyData, isLoading: isSpyLoading },
     QQQ: { data: qqqData, isLoading: isQqqLoading },
     DIA: { data: diaData, isLoading: isDiaLoading },
-    RSP: { data: rspData, isLoading: isRspLoading },
     SLV: { data: slvData, isLoading: isSlvLoading },
     GLD: { data: gldData, isLoading: isGldLoading },
     "^VIX": { data: vixData, isLoading: isVixLoading }
