@@ -7,8 +7,6 @@ import {
   calculateTransactionSummary,
   calculateSymbolSummaries,
   calculateActionSummaries,
-  calculateDailyVolume,
-  calculateOpenPositions,
 } from '@/utils/transactionCalculations';
 
 // Components
@@ -17,14 +15,12 @@ import TransactionSummaryCards from '@/components/ui/(transactions)/TransactionS
 import TransactionTable from '@/components/ui/(transactions)/TransactionTable';
 import SymbolSummaryTable from '@/components/ui/(transactions)/SymbolSummaryTable';
 import ActionSummaryTable from '@/components/ui/(transactions)/ActionSummaryTable';
-import TransactionCharts from '@/components/ui/(transactions)/TransactionCharts';
-import OpenPositionsTable from '@/components/ui/(transactions)/OpenPositionsTable';
 
 export default function TransactionsPage() {
   const [transactionData, setTransactionData] = useState<TransactionFile | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [symbolFilter, setSymbolFilter] = useState<string | null>(null);
-  const [actionFilter, setActionFilter] = useState<string | null>(null);
+  const [actionFilters, setActionFilters] = useState<string[]>([]);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -57,17 +53,7 @@ export default function TransactionsPage() {
     return calculateActionSummaries(transactionData.transactions);
   }, [transactionData]);
 
-  const dailyVolume = useMemo(() => {
-    if (!transactionData) return [];
-    return calculateDailyVolume(transactionData.transactions);
-  }, [transactionData]);
-
-  const openPositions = useMemo(() => {
-    if (!transactionData) return [];
-    return calculateOpenPositions(transactionData.transactions);
-  }, [transactionData]);
-
-  // Filter transactions based on symbol or action selection
+  // Filter transactions based on symbol and action selections
   const filteredTransactions = useMemo(() => {
     if (!transactionData) return [];
     let filtered = transactionData.transactions;
@@ -76,28 +62,30 @@ export default function TransactionsPage() {
       filtered = filtered.filter((t) => t.symbol === symbolFilter);
     }
     
-    if (actionFilter) {
-      filtered = filtered.filter((t) => t.action === actionFilter);
+    if (actionFilters.length > 0) {
+      filtered = filtered.filter((t) => actionFilters.includes(t.action));
     }
     
     return filtered;
-  }, [transactionData, symbolFilter, actionFilter]);
+  }, [transactionData, symbolFilter, actionFilters]);
 
   const handleSymbolClick = (symbol: string) => {
     setSymbolFilter(symbol);
-    setActionFilter(null);
     setActiveTab('all');
   };
 
   const handleActionClick = (action: string) => {
-    setActionFilter(action);
-    setSymbolFilter(null);
+    setActionFilters((prev) =>
+      prev.includes(action)
+        ? prev.filter((existing) => existing !== action)
+        : [...prev, action]
+    );
     setActiveTab('all');
   };
 
   const clearFilters = () => {
     setSymbolFilter(null);
-    setActionFilter(null);
+    setActionFilters([]);
   };
 
   const handleDataLoaded = (data: TransactionFile) => {
@@ -127,24 +115,22 @@ export default function TransactionsPage() {
         {transactionData && summary && (
           <>
             {/* Summary Cards */}
-            <TransactionSummaryCards summary={summary} />
-
-            {/* Open Positions Section */}
-            <OpenPositionsTable 
-              data={openPositions} 
-              onSymbolClick={handleSymbolClick}
+            <TransactionSummaryCards
+              summary={summary}
+              selectedActionFilters={actionFilters}
+              onActionTypeClick={handleActionClick}
             />
 
             {/* Filter Indicator */}
-            {(symbolFilter || actionFilter) && (
+            {(symbolFilter || actionFilters.length > 0) && (
               <div className="flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 p-3">
                 <span className="text-xs text-primary">
                   Filter:
                   {symbolFilter && (
                     <span className="ml-2 font-semibold">{symbolFilter}</span>
                   )}
-                  {actionFilter && (
-                    <span className="ml-2 font-semibold">{actionFilter}</span>
+                  {actionFilters.length > 0 && (
+                    <span className="ml-2 font-semibold">{actionFilters.join(', ')}</span>
                   )}
                 </span>
                 <button
@@ -155,9 +141,6 @@ export default function TransactionsPage() {
                 </button>
               </div>
             )}
-
-            {/* Charts */}
-            <TransactionCharts dailyVolume={dailyVolume} actionSummary={actionSummaries} />
 
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">

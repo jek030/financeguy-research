@@ -67,8 +67,12 @@ const calculatePercentageChange = (targetValue: number, cost: number) => {
   return ((targetValue - cost) / cost) * 100;
 };
 
+const hasConfiguredStopLoss = (cost: number, stopLoss: number) => {
+  return Number.isFinite(cost) && cost > 0 && Number.isFinite(stopLoss) && stopLoss > 0;
+};
+
 const calculateOpenRiskAmount = (cost: number, stopLoss: number, quantity: number) => {
-  if (quantity <= 0) {
+  if (quantity <= 0 || !hasConfiguredStopLoss(cost, stopLoss)) {
     return 0;
   }
 
@@ -76,7 +80,7 @@ const calculateOpenRiskAmount = (cost: number, stopLoss: number, quantity: numbe
 };
 
 const calculateInitialRiskAmount = (cost: number, stopLoss: number, quantity: number) => {
-  if (quantity <= 0) {
+  if (quantity <= 0 || !hasConfiguredStopLoss(cost, stopLoss)) {
     return 0;
   }
   return Math.abs(cost - stopLoss) * quantity;
@@ -87,6 +91,13 @@ const getOpenRiskDisplay = (position: StockPosition) => {
     return {
       text: `0.00% (${formatCurrency(0)})`,
       colorClass: '',
+    };
+  }
+
+  if (!hasConfiguredStopLoss(position.cost, position.stopLoss)) {
+    return {
+      text: 'N/A',
+      colorClass: 'text-muted-foreground',
     };
   }
 
@@ -105,6 +116,10 @@ const getOpenHeatPercent = (position: StockPosition, portfolioValue: number): nu
   }
 
   if (portfolioValue <= 0) {
+    return null;
+  }
+
+  if (!hasConfiguredStopLoss(position.cost, position.stopLoss)) {
     return null;
   }
 
@@ -451,6 +466,9 @@ const calculateRealizedGainForPosition = (position: StockPosition): number => {
 };
 
 const calculateInitialRiskForPosition = (position: StockPosition): number => {
+  if (!hasConfiguredStopLoss(position.cost, position.initialStopLoss)) {
+    return 0;
+  }
   return Math.abs(position.cost - position.initialStopLoss) * position.quantity;
 };
 
@@ -694,6 +712,9 @@ function calculateTotalOpenRisk(positions: StockPosition[]): number {
   const raw = positions
     .filter((pos) => !pos.closedDate && pos.remainingShares > 0)
     .reduce((total, pos) => {
+      if (!hasConfiguredStopLoss(pos.cost, pos.stopLoss)) {
+        return total;
+      }
       const perShare =
         pos.type === 'Short' ? pos.stopLoss - pos.cost : pos.cost - pos.stopLoss;
       return total + perShare * pos.remainingShares;
@@ -2977,6 +2998,7 @@ export default function Portfolio() {
   const [symbol, setSymbol] = useState<string>('');
   const [cost, setCost] = useState<string>('');
   const [quantity, setQuantity] = useState<string>('');
+  const [positionInstrument, setPositionInstrument] = useState<'stock' | 'option'>('stock');
   const [initialStopLoss, setInitialStopLoss] = useState<string>('');
   const [type, setType] = useState<'Long' | 'Short'>('Long');
   const [openDate, setOpenDate] = useState<Date>(new Date());
@@ -3108,13 +3130,28 @@ export default function Portfolio() {
   };
 
   const handleAddStock = async () => {
-    if (!symbol.trim() || !cost.trim() || !quantity.trim() || !initialStopLoss.trim()) {
+    if (!symbol.trim() || !cost.trim() || !quantity.trim()) {
       return;
     }
 
     const costValue = parseFloat(cost);
-    const quantityValue = parseFloat(quantity);
-    const stopLossValue = parseFloat(initialStopLoss);
+    const enteredQuantity = parseFloat(quantity);
+    const isOptionPosition = positionInstrument === 'option';
+    const quantityValue = isOptionPosition ? enteredQuantity * 100 : enteredQuantity;
+    const stopLossInput = parseFloat(initialStopLoss);
+    const stopLossValue =
+      !Number.isNaN(stopLossInput) && stopLossInput > 0
+        ? stopLossInput
+        : 0;
+    if (
+      Number.isNaN(costValue) ||
+      Number.isNaN(quantityValue) ||
+      costValue <= 0 ||
+      quantityValue <= 0 ||
+      (!isOptionPosition && stopLossValue <= 0)
+    ) {
+      return;
+    }
     const netCost = costValue * quantityValue;
 
     // Calculate R-based price targets
@@ -3147,6 +3184,7 @@ export default function Portfolio() {
       setCost('');
       setQuantity('');
       setInitialStopLoss('');
+      setPositionInstrument('stock');
       setType('Long');
       setOpenDate(new Date());
     } catch (error) {
@@ -3161,7 +3199,7 @@ export default function Portfolio() {
     !symbol.trim() ||
     !cost.trim() ||
     !quantity.trim() ||
-    !initialStopLoss.trim();
+    (positionInstrument !== 'option' && !initialStopLoss.trim());
 
 
   // Edit functions
@@ -3383,12 +3421,20 @@ export default function Portfolio() {
           bValue = b.stopLoss;
           break;
         case 'openRisk':
-          aValue = ((a.stopLoss - a.cost) / a.cost) * 100;
-          bValue = ((b.stopLoss - b.cost) / b.cost) * 100;
+          aValue = hasConfiguredStopLoss(a.cost, a.stopLoss)
+            ? ((a.stopLoss - a.cost) / a.cost) * 100
+            : 0;
+          bValue = hasConfiguredStopLoss(b.cost, b.stopLoss)
+            ? ((b.stopLoss - b.cost) / b.cost) * 100
+            : 0;
           break;
         case 'openHeat':
-          const aRisk = ((a.stopLoss - a.cost) / a.cost) * 100;
-          const bRisk = ((b.stopLoss - b.cost) / b.cost) * 100;
+          const aRisk = hasConfiguredStopLoss(a.cost, a.stopLoss)
+            ? ((a.stopLoss - a.cost) / a.cost) * 100
+            : 0;
+          const bRisk = hasConfiguredStopLoss(b.cost, b.stopLoss)
+            ? ((b.stopLoss - b.cost) / b.cost) * 100
+            : 0;
           const aPortPercent = ((a.currentPrice || a.cost) * a.remainingShares / (portfolio?.portfolio_value || 1)) * 100;
           const bPortPercent = ((b.currentPrice || b.cost) * b.remainingShares / (portfolio?.portfolio_value || 1)) * 100;
           aValue = (aRisk * aPortPercent) / 100;
@@ -4180,7 +4226,7 @@ export default function Portfolio() {
                 </Table>
               ) : (
                 <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
-                  {hasPositions ? "No positions match the current filter." : "No positions yet. Add a stock position to get started."}
+                  {hasPositions ? "No positions match the current filter." : "No positions yet. Add a stock or option position to get started."}
                 </div>
               )}
             </div>
@@ -4244,7 +4290,7 @@ export default function Portfolio() {
                   <label className="text-xs font-medium text-muted-foreground">Symbol</label>
                   <Input
                     type="text"
-                    placeholder="AAPL"
+                    placeholder={positionInstrument === 'option' ? 'AAPL240621C00180000' : 'AAPL'}
                     value={symbol}
                     onChange={(e) => setSymbol(e.target.value.toUpperCase())}
                     className="h-8 text-sm font-mono bg-background/50"
@@ -4262,6 +4308,18 @@ export default function Portfolio() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Instrument</label>
+                <Select value={positionInstrument} onValueChange={(value: 'stock' | 'option') => setPositionInstrument(value)}>
+                  <SelectTrigger className="h-8 text-sm bg-background/50">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="stock">Stock</SelectItem>
+                    <SelectItem value="option">Option</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -4281,11 +4339,13 @@ export default function Portfolio() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Quantity</label>
+                  <label className="text-xs font-medium text-muted-foreground">
+                    {positionInstrument === 'option' ? 'Contracts' : 'Quantity'}
+                  </label>
                   <Input
                     type="text"
                     inputMode="decimal"
-                    placeholder="0"
+                    placeholder={positionInstrument === 'option' ? '1' : '0'}
                     value={quantity}
                     onChange={(e) => {
                       const value = e.target.value.replace(/[^0-9.]/g, '');
@@ -4298,11 +4358,13 @@ export default function Portfolio() {
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Initial Stop Loss</label>
+                <label className="text-xs font-medium text-muted-foreground">
+                  Initial Stop Loss {positionInstrument === 'option' ? '(Optional)' : ''}
+                </label>
                 <Input
                   type="text"
                   inputMode="decimal"
-                  placeholder="0.00"
+                  placeholder={positionInstrument === 'option' ? '0.00 (defaults to 0)' : '0.00'}
                   value={initialStopLoss}
                   onChange={(e) => {
                     const value = e.target.value.replace(/[^0-9.]/g, '');

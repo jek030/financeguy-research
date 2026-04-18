@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
-import { BrokerageTransaction, TRADE_ACTIONS } from '@/lib/types/transactions';
+import { BrokerageTransaction, OPTION_ACTIONS, TRADE_ACTIONS, isOptionAction } from '@/lib/types/transactions';
 import { usePortfolio, StockPosition } from '@/hooks/usePortfolio';
 import { useAuth } from '@/lib/context/auth-context';
 import { calculateRPriceTargets } from '@/utils/portfolioCalculations';
@@ -35,14 +35,26 @@ interface AddToPortfolioModalProps {
 
 type Mode = 'new' | 'offset';
 type OffsetSlot = 'pt1' | 'pt2' | 'trail';
+const OPTION_CONTRACT_MULTIPLIER = 100;
+
+function isOpeningAction(action: string): boolean {
+  return action === 'Buy' || action === 'Sell Short' || action === 'Buy to Open' || action === 'Sell to Open';
+}
 
 function getDefaultMode(action: string): Mode {
-  if (action === 'Buy' || action === 'Sell Short') return 'new';
+  if (isOpeningAction(action)) return 'new';
   return 'offset';
 }
 
 function getPositionType(action: string): 'Long' | 'Short' {
-  if (action === 'Sell Short' || action === 'Buy to Cover') return 'Short';
+  if (
+    action === 'Sell Short' ||
+    action === 'Buy to Cover' ||
+    action === 'Sell to Open' ||
+    action === 'Buy to Close'
+  ) {
+    return 'Short';
+  }
   return 'Long';
 }
 
@@ -78,6 +90,7 @@ export default function AddToPortfolioModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const isOptionTransaction = Boolean(transaction && isOptionAction(transaction.action));
 
   // Sync the local dropdown to whichever portfolio the hook already loaded
   useEffect(() => {
@@ -130,24 +143,26 @@ export default function AddToPortfolioModal({
   const newPositionPreview = useMemo(() => {
     if (!transaction || !transaction.price || !transaction.quantity) return null;
     const cost = transaction.price;
-    const qty = Math.abs(transaction.quantity);
+    const contractsOrShares = Math.abs(transaction.quantity);
+    const qty = isOptionTransaction
+      ? contractsOrShares * OPTION_CONTRACT_MULTIPLIER
+      : contractsOrShares;
     const type = getPositionType(transaction.action);
     const sl = parseFloat(stopLoss);
-    const rTargets =
-      !isNaN(sl) && sl > 0
-        ? calculateRPriceTargets(cost, sl, type)
-        : null;
+    const effectiveStop = !isNaN(sl) && sl > 0 ? sl : 0;
+    const rTargets = calculateRPriceTargets(cost, effectiveStop, type);
 
     return {
       symbol: transaction.symbol,
       cost,
       quantity: qty,
+      displayQuantity: contractsOrShares,
       netCost: cost * qty,
       type,
       openDate: parseTxnDate(transaction.date),
       rTargets,
     };
-  }, [transaction, stopLoss]);
+  }, [isOptionTransaction, stopLoss, transaction]);
 
   // Which slots are available for the selected position
   const availableSlots = useMemo(() => {
@@ -181,10 +196,13 @@ export default function AddToPortfolioModal({
     if (!transaction || !selectedPosition || !transaction.price) return null;
     const sellPrice = transaction.price;
 
+    const offsetInput = parseFloat(offsetQty) || 0;
     const soldQty =
       offsetSlot === 'trail'
         ? trailShares
-        : parseFloat(offsetQty) || 0;
+        : isOptionTransaction
+          ? offsetInput * OPTION_CONTRACT_MULTIPLIER
+          : offsetInput;
     if (soldQty <= 0) return null;
 
     const gainPerShare =
@@ -199,28 +217,34 @@ export default function AddToPortfolioModal({
       gainPerShare,
       gainIncrement,
       soldQty,
+      displayQty: offsetSlot === 'trail' ? trailShares : offsetInput,
       willClose,
       slot: offsetSlot,
     };
-  }, [transaction, selectedPosition, offsetQty, offsetSlot, trailShares]);
+  }, [isOptionTransaction, transaction, selectedPosition, offsetQty, offsetSlot, trailShares]);
 
   const handleSubmitNewPosition = async () => {
-    if (!transaction || !newPositionPreview || !newPositionPreview.rTargets) return;
+    if (!transaction || !newPositionPreview) return;
 
     setIsSubmitting(true);
     setSubmitError(null);
 
     try {
-      const { rTargets } = newPositionPreview;
       const sl = parseFloat(stopLoss);
+      const resolvedStopLoss = !isNaN(sl) && sl > 0 ? sl : 0;
+      const rTargets = calculateRPriceTargets(
+        newPositionPreview.cost,
+        resolvedStopLoss,
+        newPositionPreview.type,
+      );
 
       const newPosition: Omit<StockPosition, 'id'> = {
         symbol: newPositionPreview.symbol,
         cost: newPositionPreview.cost,
         quantity: newPositionPreview.quantity,
         netCost: newPositionPreview.netCost,
-        initialStopLoss: sl,
-        stopLoss: sl,
+        initialStopLoss: resolvedStopLoss,
+        stopLoss: resolvedStopLoss,
         type: newPositionPreview.type,
         openDate: newPositionPreview.openDate,
         closedDate: null,
@@ -275,8 +299,8 @@ export default function AddToPortfolioModal({
 
   const canSubmitNew =
     !!selectedPortfolioKey &&
-    !!newPositionPreview?.rTargets &&
-    parseFloat(stopLoss) > 0;
+    !!newPositionPreview &&
+    (isOptionTransaction || parseFloat(stopLoss) > 0);
 
   const canSubmitOffset =
     !!selectedPortfolioKey &&
@@ -286,8 +310,10 @@ export default function AddToPortfolioModal({
 
   if (!transaction) return null;
 
-  const isTradeAction = TRADE_ACTIONS.includes(transaction.action as typeof TRADE_ACTIONS[number]);
-  if (!isTradeAction) return null;
+  const canHandleAction =
+    TRADE_ACTIONS.includes(transaction.action as typeof TRADE_ACTIONS[number]) ||
+    OPTION_ACTIONS.includes(transaction.action as typeof OPTION_ACTIONS[number]);
+  if (!canHandleAction) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -296,6 +322,7 @@ export default function AddToPortfolioModal({
           <DialogTitle>Add to Portfolio</DialogTitle>
           <DialogDescription>
             {transaction.action} {transaction.quantity ? Math.abs(transaction.quantity) : 0}{' '}
+            {isOptionTransaction ? 'contracts' : 'shares'}{' '}
             <span className="font-semibold text-foreground">{transaction.symbol}</span>
             {transaction.price ? ` @ ${formatCurrency(transaction.price)}` : ''}
           </DialogDescription>
@@ -373,6 +400,7 @@ export default function AddToPortfolioModal({
                 preview={newPositionPreview}
                 stopLoss={stopLoss}
                 onStopLossChange={setStopLoss}
+                isOptionTransaction={isOptionTransaction}
               />
             ) : (
               <OffsetForm
@@ -388,6 +416,7 @@ export default function AddToPortfolioModal({
                 preview={offsetPreview}
                 selectedPosition={selectedPosition}
                 trailShares={trailShares}
+                isOptionTransaction={isOptionTransaction}
               />
             )}
 
@@ -431,18 +460,21 @@ function NewPositionForm({
   preview,
   stopLoss,
   onStopLossChange,
+  isOptionTransaction,
 }: {
   preview: {
     symbol: string;
     cost: number;
     quantity: number;
+    displayQuantity: number;
     netCost: number;
     type: 'Long' | 'Short';
     openDate: Date;
-    rTargets: { priceTarget2R: number; priceTarget5R: number } | null;
+    rTargets: { priceTarget2R: number; priceTarget5R: number };
   } | null;
   stopLoss: string;
   onStopLossChange: (v: string) => void;
+  isOptionTransaction: boolean;
 }) {
   if (!preview) return null;
 
@@ -468,8 +500,14 @@ function NewPositionForm({
           <div className="text-sm font-mono">{formatCurrency(preview.cost)}</div>
         </div>
         <div className="space-y-1">
-          <Label className="text-[10px] text-muted-foreground">Quantity</Label>
-          <div className="text-sm font-mono">{preview.quantity.toLocaleString()}</div>
+          <Label className="text-[10px] text-muted-foreground">
+            {isOptionTransaction ? 'Contracts' : 'Quantity'}
+          </Label>
+          <div className="text-sm font-mono">
+            {isOptionTransaction
+              ? `${preview.displayQuantity.toLocaleString()} (${preview.quantity.toLocaleString()} sh eq)`
+              : preview.quantity.toLocaleString()}
+          </div>
         </div>
         <div className="space-y-1">
           <Label className="text-[10px] text-muted-foreground">Net Cost</Label>
@@ -486,13 +524,13 @@ function NewPositionForm({
       {/* Stop Loss Input */}
       <div className="space-y-1.5">
         <Label className="text-xs" htmlFor="stop-loss">
-          Initial Stop Loss <span className="text-red-500">*</span>
+          Initial Stop Loss {!isOptionTransaction && <span className="text-red-500">*</span>}
         </Label>
         <Input
           id="stop-loss"
           type="number"
           step="0.01"
-          placeholder={preview.type === 'Long' ? 'Below entry price' : 'Above entry price'}
+          placeholder={isOptionTransaction ? 'Optional (default 0)' : (preview.type === 'Long' ? 'Below entry price' : 'Above entry price')}
           value={stopLoss}
           onChange={(e) => onStopLossChange(e.target.value)}
           className="h-8 text-sm font-mono"
@@ -505,7 +543,7 @@ function NewPositionForm({
       </div>
 
       {/* R Targets Preview */}
-      {preview.rTargets && (
+      {preview.rTargets.priceTarget2R > 0 && preview.rTargets.priceTarget5R > 0 && (
         <div className="rounded-md border border-border/50 bg-muted/20 p-2.5 space-y-1">
           <div className="text-[10px] font-medium text-muted-foreground">Price Targets</div>
           <div className="grid grid-cols-2 gap-2 text-xs font-mono">
@@ -541,6 +579,7 @@ function OffsetForm({
   preview,
   selectedPosition,
   trailShares,
+  isOptionTransaction,
 }: {
   transaction: BrokerageTransaction;
   matchingPositions: StockPosition[];
@@ -557,10 +596,12 @@ function OffsetForm({
     gainIncrement: number;
     willClose: boolean;
     soldQty: number;
+    displayQty: number;
     slot: OffsetSlot;
   } | null;
   selectedPosition: StockPosition | null;
   trailShares: number;
+  isOptionTransaction: boolean;
 }) {
   if (matchingPositions.length === 0) {
     return (
@@ -684,7 +725,7 @@ function OffsetForm({
           {offsetSlot !== 'trail' ? (
             <div className="space-y-1.5">
               <Label className="text-xs" htmlFor="offset-qty">
-                Shares to Sell
+                {isOptionTransaction ? 'Contracts to Close' : 'Shares to Sell'}
               </Label>
               <Input
                 id="offset-qty"
@@ -697,7 +738,8 @@ function OffsetForm({
             </div>
           ) : (
             <div className="text-xs text-muted-foreground">
-              Sells remaining <span className="font-mono font-semibold text-foreground">{trailShares}</span> shares at the trailing stop.
+              Sells remaining <span className="font-mono font-semibold text-foreground">{trailShares}</span>{' '}
+              {isOptionTransaction ? 'share-equivalent units' : 'shares'} at the trailing stop.
             </div>
           )}
 
@@ -707,8 +749,8 @@ function OffsetForm({
               <div className="text-[10px] font-medium text-muted-foreground">Preview</div>
               <div className="space-y-1 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Shares</span>
-                  <span className="font-mono">{preview.soldQty}</span>
+                  <span className="text-muted-foreground">{isOptionTransaction ? 'Contracts' : 'Shares'}</span>
+                  <span className="font-mono">{isOptionTransaction ? preview.displayQty : preview.soldQty}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Gain/share</span>

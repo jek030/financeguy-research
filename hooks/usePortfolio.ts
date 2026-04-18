@@ -16,6 +16,16 @@ const formatDateForDb = (date: Date): string => {
   return `${year}-${month}-${day}`;
 };
 
+const calculateOpenRiskPercentage = (cost: number, stopLoss: number): number => {
+  if (!Number.isFinite(cost) || cost <= 0) {
+    return 0;
+  }
+  if (!Number.isFinite(stopLoss) || stopLoss <= 0) {
+    return 0;
+  }
+  return ((stopLoss - cost) / cost) * 100;
+};
+
 export interface StockPosition {
   id: string;
   symbol: string;
@@ -102,7 +112,10 @@ export function usePortfolio() {
     // The open_risk column stores the percentage value that should be displayed in "Open Risk %" column
     // We need to convert this percentage back to the actual stop loss value for the stopLoss field
     // Formula: stopLoss = cost + (open_risk / 100) * cost = cost * (1 + open_risk / 100)
-    const stopLossValue = data.cost * (1 + data.open_risk / 100);
+    const stopLossValue =
+      data.initial_stop_loss <= 0
+        ? 0
+        : data.cost * (1 + data.open_risk / 100);
 
     return {
       id: `${data.portfolio_key}-${data.trade_key}`,
@@ -134,7 +147,7 @@ export function usePortfolio() {
 
     // Calculate the Open Risk % percentage: (stopLoss - cost) / cost * 100
     // This is the value that should be stored in the open_risk column
-    const openRiskPercentage = ((position.stopLoss - position.cost) / position.cost) * 100;
+    const openRiskPercentage = calculateOpenRiskPercentage(position.cost, position.stopLoss);
 
     // Calculate the % Portfolio percentage: (equity / portfolio_value) * 100
     // This is the value that should be stored in the percent_of_portfolio column
@@ -420,7 +433,7 @@ export function usePortfolio() {
         // Calculate the Open Risk % percentage: (stopLoss - cost) / cost * 100
         // This is the value that should be stored in the open_risk column
         const cost = updates.cost !== undefined ? updates.cost : currentPosition.cost;
-        const openRiskPercentage = ((updates.stopLoss - cost) / cost) * 100;
+        const openRiskPercentage = calculateOpenRiskPercentage(cost, updates.stopLoss);
         supabaseUpdates.open_risk = openRiskPercentage;
       }
       if (updates.type !== undefined) supabaseUpdates.type = updates.type;

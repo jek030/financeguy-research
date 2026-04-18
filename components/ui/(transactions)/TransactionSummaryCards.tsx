@@ -18,10 +18,17 @@ import { cn } from '@/lib/utils';
 
 interface TransactionSummaryCardsProps {
   summary: TransactionSummary;
+  selectedActionFilters?: string[];
+  onActionTypeClick?: (action: string) => void;
   className?: string;
 }
 
-export default function TransactionSummaryCards({ summary, className }: TransactionSummaryCardsProps) {
+export default function TransactionSummaryCards({
+  summary,
+  selectedActionFilters = [],
+  onActionTypeClick,
+  className,
+}: TransactionSummaryCardsProps) {
   const summaryItems = [
     {
       title: 'Net Cash Flow',
@@ -147,13 +154,21 @@ export default function TransactionSummaryCards({ summary, className }: Transact
               {Object.entries(summary.actionBreakdown)
                 .sort(([, a], [, b]) => b - a)
                 .map(([action, count]) => (
-                  <div 
+                  <button
                     key={action} 
-                    className="rounded-sm border border-border bg-muted/30 px-2 py-1"
+                    type="button"
+                    onClick={() => onActionTypeClick?.(action)}
+                    className={cn(
+                      "rounded-sm border px-2 py-1 transition-colors",
+                      selectedActionFilters.includes(action)
+                        ? "border-primary/60 bg-primary/15 text-primary"
+                        : "border-border bg-muted/30 hover:bg-muted/45"
+                    )}
+                    title="Click to toggle filter"
                   >
                     <span className="text-[11px] font-medium">{action}</span>
                     <span className="ml-2 text-[11px] text-muted-foreground">({count})</span>
-                  </div>
+                  </button>
                 ))}
             </div>
           </CardContent>

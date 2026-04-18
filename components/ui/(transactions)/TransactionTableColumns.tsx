@@ -3,7 +3,7 @@
 import { ColumnDef } from '@tanstack/react-table';
 import { ArrowUpDown, ArrowUp, ArrowDown, FolderInput } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { BrokerageTransaction, getActionCategory, isTradeAction } from '@/lib/types/transactions';
+import { BrokerageTransaction, getActionCategory, isOptionAction, isTradeAction } from '@/lib/types/transactions';
 import { formatCurrency } from '@/utils/transactionCalculations';
 import { cn } from '@/lib/utils';
 
@@ -72,6 +72,12 @@ function AmountCell({ amount }: { amount: number }) {
 
 interface ColumnOptions {
   onAddToPortfolio?: (transaction: BrokerageTransaction) => void;
+}
+
+function canPortTransactionToPortfolio(txn: BrokerageTransaction): boolean {
+  const hasTradeFields = txn.quantity !== null && txn.price !== null;
+  if (!hasTradeFields) return false;
+  return isTradeAction(txn.action) || isOptionAction(txn.action);
 }
 
 export function getTransactionTableColumns(options?: ColumnOptions): ColumnDef<BrokerageTransaction>[] {
@@ -169,10 +175,7 @@ export function getTransactionTableColumns(options?: ColumnOptions): ColumnDef<B
       header: () => null,
       cell: ({ row }) => {
         const txn = row.original;
-        const eligible =
-          isTradeAction(txn.action) &&
-          txn.quantity !== null &&
-          txn.price !== null;
+        const eligible = canPortTransactionToPortfolio(txn);
 
         if (!eligible) return null;
 
