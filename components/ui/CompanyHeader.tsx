@@ -180,9 +180,9 @@ function AddToWatchlistControl({ symbol }: { symbol: string }) {
   }
 
   return (
-    <div className="flex items-center justify-end gap-2 w-full lg:w-auto">
+    <div className="flex items-center justify-end gap-1.5 sm:gap-2 w-auto">
       <Select value={selectedWatchlistId} onValueChange={setSelectedWatchlistId} disabled={isLoadingWatchlists || watchlists.length === 0}>
-        <SelectTrigger className="h-8 w-[170px] text-xs">
+        <SelectTrigger className="h-8 w-[140px] sm:w-[170px] text-xs">
           <SelectValue placeholder="Select watchlist" />
         </SelectTrigger>
         <SelectContent>
@@ -227,7 +227,7 @@ export function CompanyHeader({
       <div className="grid grid-cols-1 lg:grid-cols-[1fr,auto] gap-3 lg:gap-6">
         
         {/* Left Section: Company Info */}
-        <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 items-start">
+        <div className="flex flex-row gap-3 sm:gap-5 items-start">
           
           {/* Company Logo */}
           {image && (
@@ -305,9 +305,9 @@ export function CompanyHeader({
         </div>
         
         {/* Right Section: Next Earnings + Watchlist actions */}
-        <div className="flex flex-col lg:items-end justify-between pt-2 lg:pt-0 border-t lg:border-t-0 border-neutral-200 dark:border-neutral-800 mt-2 lg:mt-0 lg:text-right gap-3">
+        <div className="flex flex-row items-end justify-between lg:flex-col lg:items-end pt-2 lg:pt-0 border-t lg:border-t-0 border-neutral-200 dark:border-neutral-800 mt-2 lg:mt-0 lg:text-right gap-3">
           {nextEarnings ? (
-            <div className="flex flex-col items-start lg:items-end gap-1">
+            <div className="flex flex-col items-start lg:items-end gap-1 shrink-0">
               <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
                 <Calendar className="w-3.5 h-3.5" />
                 <span>Next Earnings</span>
@@ -321,9 +321,9 @@ export function CompanyHeader({
               </p>
             </div>
           ) : (
-            <div />
+            <div className="flex-1" />
           )}
-          <div className="w-full flex justify-start lg:justify-end">
+          <div className="flex justify-end lg:justify-end">
             <AddToWatchlistControl symbol={symbol} />
           </div>
         </div>
