@@ -1,0 +1,51 @@
+---
+description: Supabase usage — auth, client selection, RLS safety, and security rules
+globs: "**/{lib,hooks,app,components}/**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Supabase Conventions
+
+## Client Selection
+
+| Context | Client to use |
+|---------|--------------|
+| Browser / React component | `createBrowserClient` from `@/lib/supabase` |
+| Server Component / Route Handler | `createServerClient` (cookies) from `@/lib/supabase` |
+| GitHub Actions / backend job | `service_role` key via env only — never in `NEXT_PUBLIC_*` |
+
+## Auth
+
+Always get the current user with `getUser()`, never `getSession()` for authorization:
+
+```ts
+// ✅ server-side auth check
+const { data: { user }, error } = await supabase.auth.getUser();
+if (!user) redirect('/login');
+
+// ❌ getSession() is unauthenticated — JWT only, not verified server-side
+```
+
+## Row-Level Security
+
+All tables use RLS. Always include `user_id` on inserts for user-owned tables.
+
+```ts
+// ✅ insert with owner
+await supabase.from('tblPortfolio').insert({ ...data, user_id: user.id });
+
+// ❌ missing user_id — RLS WITH CHECK will reject it
+await supabase.from('tblPortfolio').insert({ ...data });
+```
+
+User-owned tables: `tblPortfolio`, `tblPortfolioPositions`, `watchlists`, `watchlist_tickers`, `user_preferences`.
+Reference/market data tables (`sectors`, `earnings_calendar`, `income_statements`) are public-read, service_role-write.
+
+## Never Expose
+
+- `SUPABASE_SERVICE_ROLE_KEY` — server/CI only
+- Any key in `NEXT_PUBLIC_*` other than the publishable anon key
+
+## `raw_user_meta_data` is not safe for authorization
+
+Store authorization data in `app_metadata` only.

@@ -1,0 +1,103 @@
+---
+description: Next.js 15 App Router patterns — server vs client components, routing, API routes
+globs: app/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Next.js 15 App Router Patterns
+
+## Server vs Client Components
+
+Default to **Server Components**. Add `"use client"` only when you need:
+- `useState`, `useEffect`, `useContext`, event handlers
+- Browser-only APIs
+
+```tsx
+// ✅ Server Component — data fetching without "use client"
+export default async function PortfolioPage() {
+  const supabase = await createServerSupabaseClient();
+  const { data } = await supabase.from('tblPortfolio').select('*');
+  return <PortfolioList data={data} />;
+}
+
+// ✅ Client Component — interactive
+"use client";
+export function PortfolioList({ data }: Props) {
+  const [selected, setSelected] = useState(null);
+  ...
+}
+```
+
+## API Routes (Route Handlers)
+
+All FMP calls go through `app/api/fmp/` — never call FMP from browser.
+
+```ts
+// app/api/fmp/quote/route.ts
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const symbol = searchParams.get('symbol');
+  const res = await fetch(`https://financialmodelingprep.com/api/v3/quote/${symbol}?apikey=${process.env.FMP_API_KEY}`);
+  const data = await res.json();
+  return Response.json(data);
+}
+```
+
+## Routing Conventions
+
+- Dynamic segments: `app/search/[symbol]/page.tsx`
+- Collocate client logic in `*Client.tsx` files alongside the server page
+- Loading UI: `loading.tsx` per segment; error boundary: `error.tsx`
+
+## Supabase in Server Components
+
+Use the server client from `lib/supabase.ts` (or `lib/server/`), never the browser client.
+
+```ts
+// ✅ server action / server component
+import { createServerSupabaseClient } from '@/lib/supabase';
+const supabase = await createServerSupabaseClient();
+
+// ❌ never in server context
+import { supabase } from '@/lib/supabase'; // browser singleton
+```
+
+## Suspense Boundaries
+
+Wrap client components that fetch data or do heavy work in `<Suspense>` with a fallback:
+
+```tsx
+import { Suspense } from 'react';
+
+export default function Page() {
+  return (
+    <Suspense fallback={<PortfolioSkeleton />}>
+      <PortfolioChart />
+    </Suspense>
+  );
+}
+```
+
+Every route can also provide a `loading.tsx` file for segment-level streaming UI.
+
+## Dynamic Imports for Non-Critical Components
+
+Heavy components that aren't needed on first paint should be lazy-loaded:
+
+```tsx
+import dynamic from 'next/dynamic';
+
+const LightweightChart = dynamic(() => import('@/components/LightweightChart'), {
+  ssr: false,
+  loading: () => <ChartSkeleton />,
+});
+```
+
+Good candidates: charting libs, CSV import UI, modals/dialogs, admin-only panels.
+
+## Performance Checklist for Pages
+
+- Is this component actually interactive? If no, drop `"use client"`.
+- Is data fetched on the server where possible?
+- Is the heavy bundle (charts, editors, pickers) behind `dynamic()`?
+- Is long-running async work inside `<Suspense>`?

@@ -1,0 +1,84 @@
+---
+description: shadcn/ui, Tailwind CSS, and theming conventions
+globs: "**/{components,app}/**/*.tsx"
+alwaysApply: false
+---
+
+# UI Component Conventions
+
+## shadcn/ui
+
+- Generated components live in `components/ui/` — **do not hand-edit** them.
+- Add new shadcn components via `npx shadcn@latest add <component>`.
+- Compose domain components from these primitives; never re-implement what shadcn already provides.
+
+## Tailwind
+
+- Use semantic CSS variables (defined in `app/globals.css`) instead of raw color values.
+- Custom semantic tokens available in `tailwind.config.ts`:
+  - `positive` / `negative` — gains/losses
+  - `info` — neutral data callouts
+  - Standard: `background`, `foreground`, `card`, `muted`, `border`, `ring`, `destructive`
+
+```tsx
+// ✅ semantic
+<span className="text-positive">+4.2%</span>
+<span className="text-negative">-1.8%</span>
+
+// ❌ raw colour
+<span className="text-green-500">+4.2%</span>
+```
+
+## Dark Mode
+
+`next-themes` + Tailwind `darkMode: ["class"]` — always test both modes.
+Use `dark:` variants for anything that isn't covered by CSS variables.
+
+## Component Structure
+
+```
+components/
+  ui/              # shadcn primitives (auto-generated)
+  layout/          # Header, Sidenav — one responsibility each
+  navigation/      # NavLinks, ProfileMenu, Sidenav
+  [feature]/       # Domain components (watchlist, home, etc.)
+```
+
+- Client-only interactivity: add `"use client"` at the top of the file.
+- Keep presentational components stateless; lift state to hooks.
+- Icons: prefer `lucide-react`; `@heroicons/react` is also available.
+
+## Responsive Design (Mobile-First)
+
+Write mobile styles as the base, then layer up:
+
+```tsx
+// ✅ mobile-first
+<div className="flex flex-col gap-2 md:flex-row md:gap-4 lg:gap-6">
+
+// ❌ desktop-first with overrides
+<div className="flex flex-row gap-6 max-md:flex-col max-md:gap-2">
+```
+
+Tailwind breakpoints: `sm` (640), `md` (768), `lg` (1024), `xl` (1280), `2xl` (1536).
+
+## Images
+
+Always use `next/image` with width/height:
+
+```tsx
+import Image from 'next/image';
+
+<Image
+  src="/chart.webp"
+  alt="Sector performance chart"
+  width={800}
+  height={400}
+  loading="lazy"
+/>
+```
+
+- Prefer **WebP** (or AVIF) over PNG/JPG.
+- Always provide `width` and `height` to avoid layout shift (CLS).
+- Use `loading="lazy"` except for above-the-fold hero images (set `priority` instead).
+- Remote images: whitelist the domain in `next.config.ts` `images.remotePatterns`.

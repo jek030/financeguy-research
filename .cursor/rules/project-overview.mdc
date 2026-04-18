@@ -1,0 +1,67 @@
+---
+description: Project overview, tech stack, and directory conventions for financeguy-research
+alwaysApply: true
+---
+
+# financeguy-research — Project Overview
+
+Finance research tool: portfolio tracking, watchlists, sector/earnings data, CANSLIM scans.
+
+## Tech Stack
+
+- **Framework**: Next.js 15 App Router, React 19, TypeScript (strict)
+- **Styling**: Tailwind CSS 3 + shadcn/ui (New York style) + Radix UI primitives
+- **Auth / DB**: Supabase (auth-helpers-nextjs + supabase-js v2)
+- **Data fetching**: TanStack React Query v5
+- **Tables**: TanStack Table v8
+- **Forms**: React Hook Form + Zod
+- **Charts**: Recharts, Lightweight Charts
+- **Market data**: Financial Modeling Prep (FMP) via internal Next.js API proxy at `app/api/fmp/`
+- **Backend job server**: `server/` — Express + Prisma 6 (separate subproject, excluded from root tsconfig)
+
+## Key Directory Layout
+
+```
+app/                  # Next.js App Router pages + API routes
+  api/fmp/            # FMP proxy routes (never call FMP directly from client)
+  api/earnings/       # Earnings calendar API
+components/
+  ui/                 # shadcn primitives — do not hand-edit generated files
+  layout/             # Header, Sidenav
+  navigation/
+hooks/
+  FMP/                # React Query hooks wrapping /api/fmp/* routes
+lib/
+  supabase.ts         # Supabase client helpers (browser + server)
+  context/            # Auth context, MobileMenu context
+  types/              # Shared TypeScript types
+utils/                # Pure calculation helpers (portfolio, trades, CSV)
+server/               # Express + Prisma job server (own tsconfig + package.json)
+```
+
+## Conventions
+
+- Path alias `@/` maps to the project root.
+- All FMP market data goes through `app/api/fmp/` proxy — never call FMP from the browser directly (protects the API key).
+- Supabase writes always include the authenticated user's `user_id`.
+- `service_role` key is server/CI-only; never expose it in client code or `NEXT_PUBLIC_*` env vars.
+
+## Coding Style
+
+- Write concise, technical TypeScript. Prefer accurate, minimal examples over prose.
+- Functional and declarative patterns — **avoid classes**.
+- Prefer iteration and modularization over duplication.
+- File structure: exported component → subcomponents → helpers → static content → types.
+
+## Code Preservation (important)
+
+When editing existing files:
+
+- **Do not remove existing code** unless it's required for the change.
+- **Do not remove comments or commented-out code** unless they are clearly obsolete and in the way of the change.
+- **Do not reformat imports** that are already there.
+- **Do not reflow existing code** just to match a style — only change formatting when it's genuinely required by the new functionality.
+
+## Performance Priorities
+
+Optimize Core Web Vitals (LCP, CLS, FID). See `nextjs-patterns.mdc` and `ui-components.mdc` for concrete patterns.

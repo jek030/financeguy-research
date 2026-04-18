@@ -1,0 +1,97 @@
+---
+description: TypeScript strict-mode conventions, naming, syntax, Zod validation
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# TypeScript Standards
+
+Strict mode is enabled (`"strict": true`). Never disable it or use `@ts-ignore` without a justifying comment.
+
+## Types vs Interfaces
+
+- **Prefer `interface` over `type`** for object shapes and component props.
+- Use `type` only for unions, intersections, mapped types, or `z.infer` aliases.
+
+```ts
+// ✅ interface for shapes
+interface Position { symbol: string; cost: number; quantity: number; }
+interface TableProps { columns: ColumnDef[]; data: Position[]; }
+
+// ✅ type for unions / inferred
+type TradeSide = 'long' | 'short';
+type PortfolioForm = z.infer<typeof portfolioSchema>;
+```
+
+## No `any`, No Enums
+
+```ts
+// ❌ any
+function process(data: any) { ... }
+
+// ✅ unknown + narrow
+function process(data: unknown) {
+  if (!isPortfolio(data)) throw new Error('Invalid');
+  ...
+}
+```
+
+```ts
+// ❌ enum
+enum TradeType { Long, Short }
+
+// ✅ const map (tree-shakable, no runtime enum object)
+const TRADE_TYPE = { long: 'long', short: 'short' } as const;
+type TradeType = typeof TRADE_TYPE[keyof typeof TRADE_TYPE];
+```
+
+## Naming Conventions
+
+- `camelCase` for variables and functions: `isFetchingData`, `handleUserInput`.
+- `PascalCase` for React components and their files: `UserProfile.tsx`, `ChatScreen.tsx`.
+- `kebab-case` (lowercase + hyphens) for non-component directory names: `user-profile/`, `chat-screen/`.
+- Use descriptive names with auxiliary verbs for booleans: `isLoading`, `hasError`, `shouldFetch`.
+
+## Syntax
+
+- Use the `function` keyword for pure functions; arrow functions for callbacks and JSX handlers.
+- Avoid unnecessary curly braces in simple conditionals: `if (x) doThing();` over a 3-line block.
+- Use declarative JSX.
+
+```ts
+// ✅
+function calculateGain(cost: number, equity: number): number {
+  return equity - cost;
+}
+
+// ✅ concise conditional
+if (!user) redirect('/login');
+```
+
+## Zod for Runtime Validation
+
+Use Zod at form boundaries and API response boundaries.
+
+```ts
+const portfolioSchema = z.object({
+  portfolio_name: z.string().min(1),
+  portfolio_value: z.number().nonnegative(),
+});
+type PortfolioForm = z.infer<typeof portfolioSchema>;
+```
+
+## Type Locations
+
+- Shared app types: `lib/types/`
+- Component-local types: co-located in the component file
+- Supabase DB types (generated): regenerate via the Supabase MCP `generate_typescript_types` tool or `supabase gen types`. **Do not hand-edit generated types.**
+
+## Error Handling in Async Functions
+
+```ts
+const { data, error } = await supabase.from('tblPortfolio').select('*');
+if (error) {
+  console.error('[portfolio] fetch failed', error);
+  throw error;
+}
+```

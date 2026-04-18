@@ -1,0 +1,67 @@
+---
+description: TanStack React Query v5 patterns and FMP API proxy conventions
+globs: "**/{hooks,app,components}/**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Data Fetching Patterns
+
+## React Query (TanStack Query v5)
+
+All client-side market data fetching goes through custom hooks in `hooks/FMP/`.
+All Supabase data fetching goes through custom hooks in `hooks/`.
+
+```ts
+// ✅ hooks/FMP/useQuote.ts
+export function useQuote(symbol: string) {
+  return useQuery({
+    queryKey: ['quote', symbol],
+    queryFn: () => fetch(`/api/fmp/quote?symbol=${symbol}`).then(r => r.json()),
+    enabled: !!symbol,
+    staleTime: 60_000, // market data: 1 min
+  });
+}
+```
+
+```ts
+// ✅ hooks/usePortfolio.ts — Supabase data
+export function usePortfolio() {
+  const supabase = createBrowserClient();
+  return useQuery({
+    queryKey: ['portfolio'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('tblPortfolio').select('*, tblPortfolioPositions(*)');
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+```
+
+## Mutations
+
+Use `useMutation` with `onSuccess` query invalidation:
+
+```ts
+const addPosition = useMutation({
+  mutationFn: (position) => supabase.from('tblPortfolioPositions').insert(position),
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: ['portfolio'] }),
+});
+```
+
+## FMP API Proxy Rules
+
+- Never import FMP base URL or API key in client code.
+- All FMP routes live at `app/api/fmp/[endpoint]/route.ts`.
+- Pass symbol/params as query strings: `/api/fmp/quote?symbol=AAPL`.
+- Return `Response.json(data)` — do not forward FMP error objects to the client as-is; normalize first.
+
+## staleTime Guidelines
+
+| Data type | staleTime |
+|-----------|-----------|
+| Real-time quote | 30–60s |
+| Daily OHLCV / sectors | 5 min |
+| Earnings calendar | 1 hour |
+| Income statements | 24 hours |
+| User portfolio / watchlist | 0 (always fresh) |
