@@ -3034,23 +3034,6 @@ export default function Portfolio() {
   const [showClosedPositions, setShowClosedPositions] = useState(false);
   const [summarizeOpenPositions, setSummarizeOpenPositions] = useState(false);
   const [symbolFilterInput, setSymbolFilterInput] = useState<string>('');
-  const [symbolFilters, setSymbolFilters] = useState<string[]>(() => {
-    // Initialize from localStorage on first render
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = window.localStorage.getItem('financeguy-symbol-filters');
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed)) {
-            return parsed;
-          }
-        }
-      } catch {
-        // Ignore storage read errors
-      }
-    }
-    return [];
-  });
   
   // Edit state
   const [editingPosition, setEditingPosition] = useState<StockPosition | null>(null);
@@ -3090,44 +3073,6 @@ export default function Portfolio() {
       // Ignore storage write errors
     }
   }, [activeTab, user?.id]);
-
-  // Save symbol filters to localStorage when they change
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        window.localStorage.setItem('financeguy-symbol-filters', JSON.stringify(symbolFilters));
-      } catch {
-        // Ignore storage write errors
-      }
-    }
-  }, [symbolFilters]);
-
-  // Add a symbol to the filter list
-  const addSymbolFilter = (symbol: string) => {
-    const normalized = symbol.trim().toUpperCase();
-    if (normalized && !symbolFilters.includes(normalized)) {
-      setSymbolFilters(prev => [...prev, normalized]);
-    }
-    setSymbolFilterInput('');
-  };
-
-  // Remove a symbol from the filter list
-  const removeSymbolFilter = (symbol: string) => {
-    setSymbolFilters(prev => prev.filter(s => s !== symbol));
-  };
-
-  // Clear all symbol filters
-  const clearAllSymbolFilters = () => {
-    setSymbolFilters([]);
-  };
-
-  // Handle Enter key in symbol filter input
-  const handleSymbolFilterKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      addSymbolFilter(symbolFilterInput);
-    }
-  };
 
   const handleAddStock = async () => {
     if (!symbol.trim() || !cost.trim() || !quantity.trim()) {
@@ -3314,15 +3259,27 @@ export default function Portfolio() {
   // handleSort is provided by useSortableTable hook
 
   const filteredPositions = useMemo(() => {
-    if (symbolFilters.length === 0) {
+    const rawFilter = symbolFilterInput.trim();
+    if (!rawFilter) {
       return positions;
     }
 
-    // Exact match against any of the symbols in the filter list
+    const quotedMatch = rawFilter.match(/^(['"])(.*)\1$/);
+    if (quotedMatch) {
+      const exactSymbol = quotedMatch[2].trim().toUpperCase();
+      if (!exactSymbol) {
+        return positions;
+      }
+      return positions.filter((pos) => pos.symbol.toUpperCase() === exactSymbol);
+    }
+
+    const normalizedFilter = rawFilter.toUpperCase();
+
+    // Prefix-only filter (e.g., "MU" matches "MU..." but not "ALMU")
     return positions.filter((pos) => 
-      symbolFilters.includes(pos.symbol.toUpperCase())
+      pos.symbol.toUpperCase().startsWith(normalizedFilter)
     );
-  }, [positions, symbolFilters]);
+  }, [positions, symbolFilterInput]);
 
   const canSummarizeOpenPositions = useMemo(() => {
     const symbolCounts = new Map<string, number>();
@@ -3856,21 +3813,10 @@ export default function Portfolio() {
             <div className="mb-2 space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  {symbolFilters.length > 0 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={clearAllSymbolFilters}
-                      className="h-8 px-3 text-xs"
-                    >
-                      Clear
-                    </Button>
-                  )}
                   <Input
                     value={symbolFilterInput}
                     onChange={(e) => setSymbolFilterInput(e.target.value.toUpperCase())}
-                    onKeyDown={handleSymbolFilterKeyDown}
-                    placeholder="Keyword Search"
+                    placeholder="Filter Symbol Prefix"
                     aria-label="Filter positions by symbol"
                     className="h-8 w-full text-xs bg-background/50 sm:w-[220px]"
                   />
@@ -3902,26 +3848,6 @@ export default function Portfolio() {
                   </span>
                 </div>
               </div>
-              {symbolFilters.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {symbolFilters.map((symbol) => (
-                    <span
-                      key={symbol}
-                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20"
-                    >
-                      {symbol}
-                      <button
-                        type="button"
-                        onClick={() => removeSymbolFilter(symbol)}
-                        className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full hover:bg-primary/20 transition-colors"
-                        aria-label={`Remove ${symbol} filter`}
-                      >
-                        <X className="h-2.5 w-2.5" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
             <div className="overflow-x-auto [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
               {isPortfolioLoading ? (
