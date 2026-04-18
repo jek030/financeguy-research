@@ -3,6 +3,8 @@
 import { useQuote } from "@/hooks/FMP/useQuote";
 import { TerminalTicker } from "@/components/home/TerminalTicker";
 import { marketInstruments } from "@/components/home/marketInstruments";
+import { FearGreedCard } from "@/components/home/FearGreedCard";
+import { NaaimCard } from "@/components/home/NaaimCard";
 import SectorReturns from "@/components/SectorReturns";
 import SectorOverviewChart from "@/components/SectorOverviewChart";
 import { useSupabaseSectorData } from "@/hooks/useSupabaseSectorData";
@@ -37,39 +39,42 @@ export default function Home() {
   return (
     <div className={`min-h-screen ${pageStyles.gradientBg}`}>
       <main className="w-full px-1 pb-3 pt-2 sm:px-2 sm:pb-4 sm:pt-3 lg:px-2">
-        <section className="rounded-lg border border-neutral-300/80 bg-neutral-50/90 p-2 shadow-[0_0_0_1px_rgba(115,115,115,0.1)] backdrop-blur-sm dark:border-neutral-700 dark:bg-neutral-900/80 dark:shadow-[0_0_0_1px_rgba(115,115,115,0.18)]">
-          <div className="-mx-2 mb-2 grid grid-flow-col auto-cols-[minmax(285px,1fr)] gap-1.5 overflow-x-auto px-2 pb-1 md:mx-0 md:grid-flow-row md:auto-cols-auto md:grid-cols-2 md:overflow-visible md:px-0 xl:grid-cols-3 2xl:grid-cols-4">
-            {marketInstruments.map((instrument) => {
-              const snapshot = getInstrumentSnapshot(instrument.symbol);
-              return (
-                <TerminalTicker
-                  key={instrument.symbol}
-                  label={instrument.label}
-                  symbol={instrument.symbol}
-                  data={snapshot.data}
-                  isLoading={snapshot.isLoading}
-                />
-              );
-            })}
-          </div>
-        </section>
+        <div className="mb-2 grid grid-cols-1 gap-1.5 md:grid-cols-2">
+          <FearGreedCard />
+          <NaaimCard />
+        </div>
 
-        <section className="mt-3 rounded-lg border border-neutral-300/80 bg-neutral-50/85 p-2 shadow-[0_0_0_1px_rgba(115,115,115,0.08)] backdrop-blur-sm dark:border-neutral-700 dark:bg-neutral-900/75 dark:shadow-[0_0_0_1px_rgba(115,115,115,0.16)]">
+        <div className="-mx-2 mb-2 grid grid-flow-col auto-cols-[minmax(285px,1fr)] gap-1.5 overflow-x-auto px-2 pb-1 md:mx-0 md:grid-flow-row md:auto-cols-auto md:grid-cols-2 md:overflow-visible md:px-0 xl:grid-cols-3 2xl:grid-cols-4">
+          {marketInstruments.map((instrument) => {
+            const snapshot = getInstrumentSnapshot(instrument.symbol);
+            return (
+              <TerminalTicker
+                key={instrument.symbol}
+                label={instrument.label}
+                symbol={instrument.symbol}
+                data={snapshot.data}
+                isLoading={snapshot.isLoading}
+              />
+            );
+          })}
+        </div>
+
+        <div className="mt-3">
           <SectorReturns
             sectorsBySymbol={sectorsBySymbol}
             latestDate={latestDate}
             isLoading={sectorsLoading}
             error={sectorsError}
           />
-        </section>
+        </div>
 
-        <section className="mt-3 rounded-lg border border-neutral-300/80 bg-neutral-50/85 p-2 shadow-[0_0_0_1px_rgba(115,115,115,0.08)] backdrop-blur-sm dark:border-neutral-700 dark:bg-neutral-900/75 dark:shadow-[0_0_0_1px_rgba(115,115,115,0.16)]">
+        <div className="mt-3">
           <SectorOverviewChart
             sectorsBySymbol={sectorsBySymbol}
             isLoading={sectorsLoading}
             error={sectorsError}
           />
-        </section>
+        </div>
       </main>
     </div>
   );

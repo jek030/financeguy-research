@@ -439,3 +439,28 @@ export interface Sector {
   change: number;
   changePercent: number;
 }
+
+export interface FearGreedSnapshot {
+  id: string;
+  created_at: string;
+  date: string;
+  score: number;
+  rating: string | null;
+  previous_close: number | null;
+  previous_1_week: number | null;
+  previous_1_month: number | null;
+  previous_1_year: number | null;
+}
+
+export interface NaaimSnapshot {
+  id: string;
+  created_at: string;
+  week_ending: string;
+  mean_exposure: number;
+  deviation: number | null;
+  q1: number | null;
+  q2: number | null;
+  q3: number | null;
+  most_bullish: number | null;
+  most_bearish: number | null;
+}

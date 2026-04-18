@@ -1,13 +1,16 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Card, CardContent, CardHeader } from "@/components/ui/Card";
+import { DeltaCell } from "@/components/home/DeltaCell";
 
 import { SectorReturnChart } from "./SectorReturnChart";
 
 interface SectorPerformanceCardProps {
+  tag: string;
   title: string;
   startDate?: string | null;
   endDate?: string | null;
+  averagePerformance: number | null;
   data: Array<{ name: string; symbol: string; performance: number }>;
 }
 
@@ -35,19 +38,38 @@ function formatDate(dateString?: string | null): string {
   });
 }
 
-export function SectorPerformanceCard({ title, startDate, endDate, data }: SectorPerformanceCardProps) {
+export function SectorPerformanceCard({
+  tag,
+  title,
+  startDate,
+  endDate,
+  averagePerformance,
+  data
+}: SectorPerformanceCardProps) {
   return (
-    <Card className="w-full border-neutral-300/80 bg-white/95 shadow-sm dark:border-neutral-700 dark:bg-neutral-950/70">
-      <CardHeader className="space-y-1.5 border-b border-neutral-200 px-3 pb-2 pt-2.5 dark:border-neutral-800">
-        <CardTitle className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{title}</CardTitle>
-        {startDate && endDate && (
-          <p className="font-mono text-[10px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-            {formatDate(startDate)} to {formatDate(endDate)}
-          </p>
-        )}
+    <Card className="w-full rounded border border-neutral-300/80 bg-white/95 shadow-sm dark:border-neutral-700 dark:bg-neutral-950/70">
+      <CardHeader className="space-y-1.5 border-b border-neutral-200 p-2.5 pb-2 dark:border-neutral-800">
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate rounded bg-neutral-200 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
+            {tag}
+          </span>
+          {startDate && endDate && (
+            <span className="truncate font-mono text-[10px] text-neutral-500 dark:text-neutral-400">
+              {formatDate(startDate)} → {formatDate(endDate)}
+            </span>
+          )}
+        </div>
+        <div className="flex items-end justify-between gap-2">
+          <h3 className="font-mono text-sm font-semibold leading-none tracking-tight text-neutral-900 dark:text-neutral-50">
+            {title}
+          </h3>
+          {averagePerformance !== null && (
+            <DeltaCell value={averagePerformance} isDollar={false} className="font-mono text-[11px]" />
+          )}
+        </div>
       </CardHeader>
-      <CardContent className="px-2.5 pb-2.5 pt-2">
-        <SectorReturnChart title="" data={data} />
+      <CardContent className="p-2 pt-2">
+        <SectorReturnChart data={data} />
       </CardContent>
     </Card>
   );

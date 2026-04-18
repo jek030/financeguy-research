@@ -16,6 +16,7 @@ const sectorNameMap = sectorDefinitions.reduce<Record<string, string>>((acc, sec
 
 interface PerformanceConfig {
   key: string;
+  tag: string;
   title: string;
   computeTargetDate: (latestDate: Date) => Date;
 }
@@ -23,21 +24,25 @@ interface PerformanceConfig {
 const performanceConfigs: PerformanceConfig[] = [
   {
     key: "week",
+    tag: "1W",
     title: "1 Week Performance",
     computeTargetDate: (latest) => adjustUtcDate(latest, { days: 7 })
   },
   {
     key: "month",
+    tag: "1M",
     title: "1 Month Performance",
     computeTargetDate: (latest) => adjustUtcDate(latest, { months: 1 })
   },
   {
     key: "quarter",
+    tag: "3M",
     title: "3 Month Performance",
     computeTargetDate: (latest) => adjustUtcDate(latest, { months: 3 })
   },
   {
     key: "halfYear",
+    tag: "6M",
     title: "6 Month Performance",
     computeTargetDate: (latest) => adjustUtcDate(latest, { months: 6 })
   }
@@ -47,6 +52,7 @@ interface PreparedPerformance {
   rows: Array<{ name: string; symbol: string; performance: number }>;
   startDate: string | null;
   endDate: string | null;
+  averagePerformance: number | null;
 }
 
 interface PreparedSymbolData {
@@ -192,10 +198,15 @@ function preparePerformanceData(
 
   const sortedRows = rows.sort((a, b) => b.performance - a.performance);
 
+  const averagePerformance = sortedRows.length > 0
+    ? sortedRows.reduce((sum, row) => sum + row.performance, 0) / sortedRows.length
+    : null;
+
   return {
     rows: sortedRows,
     startDate,
-    endDate: globalEndDate
+    endDate: globalEndDate,
+    averagePerformance
   };
 }
 
@@ -239,16 +250,26 @@ export default function SectorReturns({ sectorsBySymbol, latestDate, isLoading, 
 
   const performanceCards = useMemo(() => {
     if (!hasAnyData) {
-      return [] as Array<{ key: string; title: string; startDate: string | null; endDate: string | null; rows: Array<{ name: string; symbol: string; performance: number }> }>;
+      return [] as Array<{
+        key: string;
+        tag: string;
+        title: string;
+        startDate: string | null;
+        endDate: string | null;
+        averagePerformance: number | null;
+        rows: Array<{ name: string; symbol: string; performance: number }>;
+      }>;
     }
 
     return performanceConfigs.map((config) => {
       const result = preparePerformanceData(preparedBySymbol, config, latestDate ?? null);
       return {
         key: config.key,
+        tag: config.tag,
         title: config.title,
         startDate: result.startDate,
         endDate: result.endDate,
+        averagePerformance: result.averagePerformance,
         rows: result.rows
       };
     });
@@ -258,12 +279,23 @@ export default function SectorReturns({ sectorsBySymbol, latestDate, isLoading, 
     return (
       <div className="w-full grid grid-cols-1 gap-1.5 md:grid-cols-2 xl:grid-cols-4">
         {performanceConfigs.map((config) => (
-          <Card key={config.key} className="w-full">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg font-medium text-foreground/90">{config.title}</CardTitle>
+          <Card
+            key={config.key}
+            className="w-full rounded border border-neutral-300/80 bg-white/95 shadow-sm dark:border-neutral-700 dark:bg-neutral-950/70"
+          >
+            <CardHeader className="space-y-1.5 border-b border-neutral-200 p-2.5 pb-2 dark:border-neutral-800">
+              <div className="flex items-center justify-between gap-2">
+                <span className="rounded bg-neutral-200 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
+                  {config.tag}
+                </span>
+                <span className="h-3 w-24 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+              </div>
+              <CardTitle className="font-mono text-sm font-semibold leading-none tracking-tight text-neutral-900 dark:text-neutral-50">
+                {config.title}
+              </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="h-[300px] bg-muted/30 rounded-lg animate-pulse" />
+            <CardContent className="p-2 pt-2">
+              <div className="h-[260px] animate-pulse rounded bg-neutral-100 dark:bg-neutral-900/60" />
             </CardContent>
           </Card>
         ))}
@@ -296,9 +328,11 @@ export default function SectorReturns({ sectorsBySymbol, latestDate, isLoading, 
       {performanceCards.map((card) => (
         <SectorPerformanceCard
           key={card.key}
+          tag={card.tag}
           title={card.title}
           startDate={card.startDate}
           endDate={card.endDate}
+          averagePerformance={card.averagePerformance}
           data={card.rows}
         />
       ))}

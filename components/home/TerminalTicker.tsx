@@ -1,16 +1,11 @@
 'use client';
 
-import { ArrowDown, ArrowUp } from "lucide-react";
-
 import type { Ticker } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useMovingAveragesSnapshot } from "@/hooks/FMP/useMovingAveragesSnapshot";
-import {
-  calculatePercentDiff,
-  formatDollarChange,
-  formatNumber,
-  formatPercentage
-} from "@/components/home/marketFormatters";
+import { calculatePercentDiff, formatNumber } from "@/components/home/marketFormatters";
+import { DeltaCell } from "@/components/home/DeltaCell";
+import { TickerSparkline } from "@/components/home/TickerSparkline";
 
 interface TerminalTickerProps {
   label: string;
@@ -26,33 +21,16 @@ interface MetricRow {
   dollarChange: number | null;
 }
 
-function DeltaCell({ value, isDollar }: { value: number | null; isDollar: boolean }) {
-  if (value === null) {
-    return <span className="text-neutral-400">--</span>;
-  }
-
-  const isPositive = value >= 0;
-  const toneClassName = isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400";
-  const Icon = isPositive ? ArrowUp : ArrowDown;
-
-  return (
-    <span className={cn("inline-flex items-center justify-end gap-0.5 text-right tabular-nums", toneClassName)}>
-      <Icon className="h-3 w-3" />
-      {isDollar ? formatDollarChange(value) : formatPercentage(value)}
-    </span>
-  );
-}
-
 export function TerminalTicker({ label, symbol, data, isLoading }: TerminalTickerProps) {
   const currentPrice = data?.price || 0;
   const movingAverages = useMovingAveragesSnapshot(symbol, currentPrice);
 
+  const isPositive = (data?.changesPercentage ?? 0) >= 0;
+
   const rows: MetricRow[] = data
     ? [
         {
-          name: movingAverages.ema21.isLoading
-            ? "21EMA"
-            : "21EMA",
+          name: "21EMA",
           referenceValue: movingAverages.ema21.isLoading
             ? "--"
             : `$${formatNumber(movingAverages.ema21.snapshot.value)}`,
@@ -60,9 +38,7 @@ export function TerminalTicker({ label, symbol, data, isLoading }: TerminalTicke
           dollarChange: movingAverages.ema21.isLoading ? null : movingAverages.ema21.snapshot.dollarDiff
         },
         {
-          name: movingAverages.ema50.isLoading
-            ? "50EMA"
-            : "50EMA",
+          name: "50EMA",
           referenceValue: movingAverages.ema50.isLoading
             ? "--"
             : `$${formatNumber(movingAverages.ema50.snapshot.value)}`,
@@ -70,9 +46,7 @@ export function TerminalTicker({ label, symbol, data, isLoading }: TerminalTicke
           dollarChange: movingAverages.ema50.isLoading ? null : movingAverages.ema50.snapshot.dollarDiff
         },
         {
-          name: movingAverages.sma200.isLoading
-            ? "200SMA"
-            : "200SMA",
+          name: "200SMA",
           referenceValue: movingAverages.sma200.isLoading
             ? "--"
             : `$${formatNumber(movingAverages.sma200.snapshot.value)}`,
@@ -95,9 +69,11 @@ export function TerminalTicker({ label, symbol, data, isLoading }: TerminalTicke
     : [];
 
   return (
-    <div className="min-w-[285px] shrink-0 rounded border border-neutral-300/80 bg-white/95 px-2 py-1.5 shadow-sm dark:border-neutral-700 dark:bg-neutral-950/70">
-      <div className="mb-1.5 border-b border-neutral-200 pb-1.5 dark:border-neutral-800">
-        <div className="mb-1 flex items-center justify-between gap-2">
+    <div
+      className="min-w-[285px] shrink-0 rounded border border-neutral-300/80 bg-white/95 px-2.5 py-2 shadow-sm dark:border-neutral-700 dark:bg-neutral-950/70"
+    >
+      <div className="mb-2 border-b border-neutral-200 pb-2 dark:border-neutral-800">
+        <div className="mb-1.5 flex items-center justify-between gap-2">
           <span className="truncate rounded bg-neutral-200 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
             {symbol}
           </span>
@@ -105,13 +81,13 @@ export function TerminalTicker({ label, symbol, data, isLoading }: TerminalTicke
         </div>
 
         {isLoading ? (
-          <div className="h-4 w-36 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+          <div className="h-8 w-40 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
         ) : data ? (
-          <div className="flex items-center justify-between gap-2">
-            <span className="font-mono text-[15px] font-semibold tabular-nums text-neutral-900 dark:text-neutral-100">
+          <div className="flex items-end justify-between gap-3">
+            <span className="font-mono text-2xl font-semibold leading-none tabular-nums text-neutral-900 dark:text-neutral-50 sm:text-[26px]">
               ${formatNumber(data.price)}
             </span>
-            <div className="flex items-center gap-2 font-mono text-[10px]">
+            <div className="flex flex-col items-end gap-0.5 font-mono text-[11px]">
               <DeltaCell value={data.changesPercentage} isDollar={false} />
               <DeltaCell value={data.change} isDollar={true} />
             </div>
@@ -119,11 +95,17 @@ export function TerminalTicker({ label, symbol, data, isLoading }: TerminalTicke
         ) : (
           <div className="font-mono text-[11px] text-rose-600 dark:text-rose-400">Unable to load {symbol}</div>
         )}
+
+        {data && (
+          <div className="mt-2">
+            <TickerSparkline symbol={symbol} isPositive={isPositive} />
+          </div>
+        )}
       </div>
 
       {isLoading ? (
         <div className="space-y-1.5 pb-0.5">
-          <div className="grid grid-cols-[1fr,72px,72px] gap-2 border-b border-neutral-200 pb-1 font-mono text-[10px] uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+          <div className="grid grid-cols-[1fr,72px,72px] gap-2 border-b border-neutral-200 pb-1 font-mono text-[10px] uppercase tracking-wide text-neutral-400 dark:border-neutral-800 dark:text-neutral-500">
             <span>Name</span>
             <span className="text-right">% Chg</span>
             <span className="text-right">$ Chg</span>
@@ -137,8 +119,8 @@ export function TerminalTicker({ label, symbol, data, isLoading }: TerminalTicke
           ))}
         </div>
       ) : data ? (
-        <div className="space-y-1 pb-0.5">
-          <div className="grid grid-cols-[1fr,72px,72px] gap-2 border-b border-neutral-200 pb-1 font-mono text-[10px] uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
+        <div className="space-y-0.5 pb-0.5">
+          <div className="grid grid-cols-[1fr,72px,72px] gap-2 border-b border-neutral-200 pb-1 font-mono text-[10px] uppercase tracking-wide text-neutral-400 dark:border-neutral-800 dark:text-neutral-500">
             <span>Name</span>
             <span className="text-right">% Chg</span>
             <span className="text-right">$ Chg</span>
@@ -148,12 +130,12 @@ export function TerminalTicker({ label, symbol, data, isLoading }: TerminalTicke
               key={row.name}
               className={cn(
                 "grid grid-cols-[1fr,72px,72px] items-center gap-2 rounded px-1 py-1 font-mono text-[11px]",
-                index % 2 === 0 ? "bg-neutral-100/70 dark:bg-neutral-900/55" : "bg-transparent"
+                index % 2 === 0 ? "bg-neutral-100/50 dark:bg-neutral-900/40" : "bg-transparent"
               )}
             >
               <span className="flex min-w-0 items-center justify-between gap-2">
-                <span className="truncate text-neutral-800 dark:text-neutral-200">{row.name}</span>
-                <span className="flex-shrink-0 tabular-nums text-[10px] text-neutral-500 dark:text-neutral-400">
+                <span className="truncate text-neutral-500 dark:text-neutral-400">{row.name}</span>
+                <span className="flex-shrink-0 tabular-nums text-[10px] text-neutral-400 dark:text-neutral-500">
                   {row.referenceValue}
                 </span>
               </span>

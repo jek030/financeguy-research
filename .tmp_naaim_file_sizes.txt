@@ -1,0 +1,6 @@
+.tmp_naaim_import_01.sql:12721
+.tmp_naaim_import_02.sql:12778
+.tmp_naaim_import_03.sql:12776
+.tmp_naaim_import_04.sql:12680
+.tmp_naaim_import_05.sql:12681
+.tmp_naaim_import_06.sql:9571

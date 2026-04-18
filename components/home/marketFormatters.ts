@@ -23,6 +23,11 @@ export function formatDollarChange(value: number): string {
   return `${sign}$${formatNumber(Math.abs(value))}`;
 }
 
+export function formatPointChange(value: number): string {
+  const sign = value >= 0 ? "+" : "-";
+  return `${sign}${formatNumber(Math.abs(value))}`;
+}
+
 export function calculatePercentDiff(current: number, target: number): number {
   if (!current || !target) return 0;
   return ((current - target) / target) * 100;

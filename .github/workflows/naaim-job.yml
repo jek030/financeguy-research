@@ -1,0 +1,36 @@
+name: NAAIM Sync (Weekly)
+
+on:
+  schedule:
+    - cron: "30 23 * * 3" # Wednesdays 23:30 UTC
+  workflow_dispatch:
+    inputs:
+      source_url:
+        description: "Optional override URL for the NAAIM XLSX source"
+        required: false
+        type: string
+
+jobs:
+  sync-naaim:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests openpyxl
+
+      - name: Sync NAAIM data to Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NAAIM_SOURCE_URL: ${{ inputs.source_url || secrets.NAAIM_SOURCE_URL }}
+        run: python scripts/sync_naaim_to_supabase.py
