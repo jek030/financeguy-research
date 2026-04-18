@@ -52,6 +52,9 @@ npm install
 # or
 yarn install
 
+# Create local env file for Next.js
+cp .env.local.example .env.local
+
 # Run the development server
 npm run dev
 # or
@@ -59,6 +62,66 @@ yarn dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+## 🔧 Local Development Setup (Frontend + Backend)
+
+This repository contains:
+
+- `web app` (Next.js) at the repo root
+- `backend API` (Express + Prisma) in `server/`
+
+### 1) Frontend environment
+
+Create `.env.local` in the repo root (example values shown):
+
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=demo-anon-key
+NEXT_PUBLIC_API_URL=http://localhost:3001
+NEXT_PUBLIC_SIGNUP_ENABLED=false
+FMP_API_KEY=demo
+```
+
+### 2) Backend environment
+
+Create `server/.env`:
+
+```bash
+PORT=3001
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
+DIRECT_URL=postgresql://postgres:postgres@localhost:5432/postgres
+FRONTEND_URL=http://localhost:3000
+NODE_ENV=development
+```
+
+Generate Prisma client:
+
+```bash
+cd server
+npx prisma generate
+```
+
+### 3) Run both apps
+
+In one terminal:
+
+```bash
+npm run dev
+```
+
+In another terminal:
+
+```bash
+cd server
+npm run dev
+```
+
+Health checks:
+
+```bash
+curl http://localhost:3000
+curl http://localhost:3001/api/health
+```
 
 ## 📝 License
 This project is for educational purposes.
