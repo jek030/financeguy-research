@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(echo \"\")",
+      "Bash(echo \".superpowers/\")",
+      "Bash(sed -n '3784,3795p' \"C:/Users/james/Documents - Local/financeguy-researchtool/app/portfolio/page.tsx\")",
+      "Bash(sed -n '4429,4450p' \"C:/Users/james/Documents - Local/financeguy-researchtool/app/portfolio/page.tsx\")",
+      "Bash(sed -n '870,890p' \"C:/Users/james/Documents - Local/financeguy-researchtool/app/portfolio/page.tsx\")",
+      "Bash(sed -n '85,100p' \"C:/Users/james/Documents - Local/financeguy-researchtool/app/portfolio/page.tsx\")",
+      "Bash(sed -n '498,510p' \"C:/Users/james/Documents - Local/financeguy-researchtool/app/portfolio/page.tsx\")",
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git commit *)",
+      "Bash(npx tsc *)",
+      "Bash(node_modules/.bin/tsc --noEmit)"
+    ]
+  }
+}
