@@ -51,9 +51,9 @@ const OUTCOME_LABELS: Record<SimOutcome, string> = {
 };
 
 const OUTCOME_CLASSES: Record<SimOutcome, string> = {
-  stopped: 'bg-red-950 text-red-400',
-  'hit-trim2': 'bg-emerald-950 text-emerald-400',
-  'trail-exit': 'bg-blue-950 text-blue-400',
+  stopped: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400',
+  'hit-trim2': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400',
+  'trail-exit': 'bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400',
   'no-exit': 'bg-muted text-muted-foreground',
 };
 
