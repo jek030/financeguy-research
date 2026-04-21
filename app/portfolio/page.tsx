@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils';
 import { PercentageChange } from '@/components/ui/PriceIndicator';
 import { quoteQueryOptions, useQuote } from '@/hooks/FMP/useQuote';
 import { usePortfolio, type StockPosition } from '@/hooks/usePortfolio';
+import { BacktestTab } from '@/components/ui/BacktestTab';
 import { useAuth } from '@/lib/context/auth-context';
 import { calculateRPriceTargets } from '@/utils/portfolioCalculations';
 import Link from 'next/link';
@@ -722,10 +723,11 @@ function calculateTotalOpenRisk(positions: StockPosition[]): number {
   return Math.max(0, raw);
 }
 
-type PortfolioTab = 'positions' | 'stats';
+type PortfolioTab = 'positions' | 'stats' | 'backtest';
 const SELECTED_PORTFOLIO_TAB_STORAGE_KEY = 'financeguy-selected-portfolio-tab';
 
-const isPortfolioTab = (value: string): value is PortfolioTab => value === 'positions' || value === 'stats';
+const isPortfolioTab = (value: string): value is PortfolioTab =>
+  value === 'positions' || value === 'stats' || value === 'backtest';
 
 const readStoredSelectedPortfolioTab = (userId?: string): PortfolioTab => {
   if (typeof window === 'undefined') {
@@ -884,6 +886,14 @@ function PortfolioToolbar({
               onClick={() => handleTabChange('stats')}
             >
               Stats
+            </Button>
+            <Button
+              size="sm"
+              variant={activeTab === 'backtest' ? 'secondary' : 'ghost'}
+              className="h-7 px-2.5 !text-sm font-medium"
+              onClick={() => handleTabChange('backtest')}
+            >
+              Backtest
             </Button>
           </div>
         </div>
@@ -3782,7 +3792,7 @@ export default function Portfolio() {
   };
 
   const handleTabChange = (value: string) => {
-    if (value === 'positions' || value === 'stats') {
+    if (isPortfolioTab(value)) {
       setActiveTab(value);
     }
   };
@@ -4426,6 +4436,10 @@ export default function Portfolio() {
 
         </aside>
             </div>
+          </TabsContent>
+
+          <TabsContent value="backtest">
+            <BacktestTab closedPositions={closedPositions} />
           </TabsContent>
 
           <TabsContent value="stats">
