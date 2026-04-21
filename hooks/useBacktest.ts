@@ -46,16 +46,21 @@ async function fetchMA(symbol: string, type: MAType, period: number): Promise<MA
   const data = (await res.json()) as Array<Record<string, unknown>>;
   const key = type.toLowerCase() as 'ema' | 'sma';
   return data
-    .map((bar) => ({
-      date: (bar.date as string).split(' ')[0],
-      value: bar[key] as number,
-    }))
+    .map((bar) => {
+      const value = bar[key];
+      if (typeof value !== 'number') throw new Error(`MA field '${key}' missing in FMP response for ${symbol}`);
+      return {
+        date: (bar.date as string).split(' ')[0],
+        value,
+      };
+    })
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function toTradeInput(position: StockPosition): BacktestTradeInput {
-  const openDate = new Date(position.openDate);
-  const closedDate = new Date(position.closedDate!);
+  if (!position.closedDate) throw new Error(`toTradeInput called with open position: ${position.id}`);
+  const openDate = position.openDate;
+  const closedDate = position.closedDate;
   const actualDays = Math.round(
     (closedDate.getTime() - openDate.getTime()) / (1000 * 60 * 60 * 24),
   );
@@ -78,12 +83,12 @@ export function useBacktest(
   runKey: number,
 ): { entries: BacktestEntry[] } {
   const [entries, setEntries] = useState<BacktestEntry[]>([]);
-  const cancelRef = useRef(false);
+  const runGenRef = useRef(0);
 
   useEffect(() => {
     if (runKey === 0 || closedPositions.length === 0) return;
 
-    cancelRef.current = false;
+    const gen = ++runGenRef.current;
     const tradeInputs = closedPositions.map(toTradeInput);
 
     setEntries(
@@ -96,12 +101,14 @@ export function useBacktest(
       })),
     );
 
-    tradeInputs.forEach(async (trade) => {
+    void Promise.all(tradeInputs.map(async (trade) => {
       try {
         const fromDate = new Date(trade.openDate);
         fromDate.setDate(fromDate.getDate() - 60);
         const from = fromDate.toISOString().split('T')[0];
-        const to = new Date().toISOString().split('T')[0];
+        const toDate = new Date(trade.closedDate);
+        toDate.setDate(toDate.getDate() + 30);
+        const to = toDate.toISOString().split('T')[0];
 
         const needStopMA = config.stop.method === 'trailing-ma';
 
@@ -113,7 +120,7 @@ export function useBacktest(
             : Promise.resolve<MABar[]>([]),
         ]);
 
-        if (cancelRef.current) return;
+        if (runGenRef.current !== gen) return;
 
         const result = runBacktest(trade, ohlc, stopMA, trailMA, config);
 
@@ -121,7 +128,7 @@ export function useBacktest(
           prev.map((e) => (e.tradeId === trade.id ? { ...e, result, loading: false } : e)),
         );
       } catch {
-        if (cancelRef.current) return;
+        if (runGenRef.current !== gen) return;
         const result = noDataResult(trade);
         setEntries((prev) =>
           prev.map((e) =>
@@ -131,11 +138,11 @@ export function useBacktest(
           ),
         );
       }
-    });
+    }));
 
-    return () => {
-      cancelRef.current = true;
-    };
+    return () => {};
+  // runKey is the sole trigger; config and closedPositions are intentionally
+  // read at run-time (snapshot semantics — submittedConfig in parent ensures consistency)
   }, [runKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { entries };
