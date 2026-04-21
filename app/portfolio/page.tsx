@@ -4439,7 +4439,7 @@ export default function Portfolio() {
           </TabsContent>
 
           <TabsContent value="backtest">
-            <BacktestTab closedPositions={closedPositions} />
+            <BacktestTab closedPositions={positions.filter(isPositionFullyClosed)} />
           </TabsContent>
 
           <TabsContent value="stats">
