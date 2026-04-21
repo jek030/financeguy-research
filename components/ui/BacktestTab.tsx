@@ -1,7 +1,7 @@
 // components/ui/BacktestTab.tsx
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import type { StockPosition } from '@/hooks/usePortfolio';
 import {
   BacktestConfig,
@@ -28,13 +28,13 @@ interface BacktestTabProps {
   closedPositions: StockPosition[];
 }
 
-const fmtCurrency = (v: number) =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(v);
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+const fmtCurrency = (v: number) => currencyFormatter.format(v);
 
 const fmtR = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}R`;
 const fmtPct = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
@@ -81,6 +81,8 @@ function ConfigSidebar({
           (method) => (
             <button
               key={method}
+              type="button"
+              aria-pressed={config.stop.method === method}
               onClick={() => setStop({ method })}
               className={cn(
                 'w-full text-left rounded px-2 py-1.5 text-xs transition-colors',
@@ -304,17 +306,17 @@ function ResultRow({ entry }: { entry: BacktestEntry }) {
     );
   }
 
-  const r = entry.result!;
+  if (!entry.result) return null;
+  const r = entry.result;
 
   if (!r.hasData) {
     return (
       <tr className="border-t border-border/40">
         <td className="px-3 py-2 font-semibold text-foreground">{r.symbol}</td>
         <td className="px-3 py-2 text-muted-foreground">${r.entryPrice.toFixed(2)}</td>
-        <td colSpan={11} className="px-3 py-2 text-muted-foreground text-xs italic">
+        <td colSpan={COL_HEADERS.length - 2} className="px-3 py-2 text-muted-foreground text-xs italic">
           No price data available
         </td>
-        <td className="px-3 py-2" />
       </tr>
     );
   }
@@ -356,8 +358,6 @@ export function BacktestTab({ closedPositions }: BacktestTabProps) {
     setRunKey((k) => k + 1);
   };
 
-  const summary = useMemo(() => entries, [entries]);
-
   if (closedPositions.length === 0) {
     return (
       <div className="flex items-center justify-center h-48 text-muted-foreground text-sm">
@@ -376,7 +376,7 @@ export function BacktestTab({ closedPositions }: BacktestTabProps) {
       />
 
       <div className="flex-1 min-w-0 space-y-3">
-        <SummaryBar entries={summary} />
+        <SummaryBar entries={entries} />
 
         {entries.length > 0 && (
           <div className="rounded-lg border border-border/60 bg-card overflow-x-auto">
