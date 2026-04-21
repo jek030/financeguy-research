@@ -90,8 +90,9 @@ export interface BacktestTradeResult {
   hasData: boolean;
 }
 
+// Uses SMA of true ranges (not Wilder's smoothed ATR) for simplicity and transparency.
 export function calculateATR(bars: OHLCBar[], period: number): number {
-  if (bars.length < 2) return bars.length === 1 ? bars[0].high - bars[0].low : 0;
+  if (period <= 0 || bars.length < 2) return bars.length === 1 ? bars[0].high - bars[0].low : 0;
   const trueRanges = bars.slice(1).map((bar, i) => {
     const prevClose = bars[i].close;
     return Math.max(
@@ -122,7 +123,8 @@ export function calculateSimStop(
       return entryPrice * (1 - config.straightPercent / 100);
     case 'trailing-ma': {
       const entryMA = stopMAValues.find((m) => m.date === entryBar.date);
-      return entryMA ? entryMA.value : entryPrice * (1 - 0.07);
+      // Fallback to straight-percent stop if MA data missing for entry date
+      return entryMA ? entryMA.value : entryPrice * (1 - config.straightPercent / 100);
     }
   }
 }
@@ -154,11 +156,14 @@ export function runBacktest(
   const trim1Shares = Math.floor(trade.quantity * config.trim.trim1Fraction);
   const trim2Shares = Math.floor(trade.quantity * config.trim.trim2Fraction);
 
+  const stopMAMap = new Map(stopMAValues.map((m) => [m.date, m.value]));
+  const trailMAMap = new Map(trailMAValues.map((m) => [m.date, m.value]));
+
   let trim1Taken = false;
   let trim2Taken = false;
   let simGainDollar = 0;
   let exitPrice = simBars[simBars.length - 1]?.close ?? trade.cost;
-  let simDays = simBars.length - 1;
+  let simDays = 0;
   let outcome: SimOutcome = 'no-exit';
 
   for (let i = 0; i < simBars.length; i++) {
@@ -166,8 +171,8 @@ export function runBacktest(
 
     let currentStop = simStopPrice;
     if (config.stop.method === 'trailing-ma') {
-      const maBar = stopMAValues.find((m) => m.date === bar.date);
-      if (maBar) currentStop = maBar.value;
+      const maVal = stopMAMap.get(bar.date);
+      if (maVal !== undefined) currentStop = maVal;
     }
 
     // 1. Stop check first — conservative, no same-day trim credit
@@ -176,7 +181,7 @@ export function runBacktest(
         trade.quantity - (trim1Taken ? trim1Shares : 0) - (trim2Taken ? trim2Shares : 0);
       simGainDollar += sharesLeft * (currentStop - trade.cost);
       exitPrice = currentStop;
-      simDays = i;
+      simDays = Math.round((new Date(bar.date).getTime() - trade.openDate.getTime()) / (1000 * 60 * 60 * 24));
       outcome = 'stopped';
       break;
     }
@@ -196,12 +201,12 @@ export function runBacktest(
 
     // 4. Trail exit — only after both trims
     if (trim1Taken && trim2Taken) {
-      const trailBar = trailMAValues.find((m) => m.date === bar.date);
-      if (trailBar && bar.close < trailBar.value) {
+      const trailVal = trailMAMap.get(bar.date);
+      if (trailVal !== undefined && bar.close < trailVal) {
         const remainingShares = trade.quantity - trim1Shares - trim2Shares;
         simGainDollar += remainingShares * (bar.close - trade.cost);
         exitPrice = bar.close;
-        simDays = i;
+        simDays = Math.round((new Date(bar.date).getTime() - trade.openDate.getTime()) / (1000 * 60 * 60 * 24));
         outcome = 'trail-exit';
         break;
       }
@@ -213,6 +218,7 @@ export function runBacktest(
         trade.quantity - (trim1Taken ? trim1Shares : 0) - (trim2Taken ? trim2Shares : 0);
       simGainDollar += sharesLeft * (bar.close - trade.cost);
       exitPrice = bar.close;
+      simDays = Math.round((new Date(bar.date).getTime() - trade.openDate.getTime()) / (1000 * 60 * 60 * 24));
     }
   }
 
@@ -225,7 +231,8 @@ export function runBacktest(
   const weightedAvgExit = weightedTotal / trade.quantity;
 
   const costBasis = trade.cost * trade.quantity;
-  const actualR = trade.realizedGain / (trade.quantity * (trade.cost - trade.initialStopLoss));
+  const rawOneR = trade.cost - trade.initialStopLoss;
+  const actualR = rawOneR !== 0 ? trade.realizedGain / (trade.quantity * rawOneR) : 0;
   const simR = (weightedAvgExit - trade.cost) / (trade.cost - simStopPrice);
 
   return {
