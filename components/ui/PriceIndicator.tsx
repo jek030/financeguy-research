@@ -51,8 +51,11 @@ export function PriceIndicator({
   const formatValue = () => {
     let formattedValue = String(value);
     
-    if (showSign && typeof value === 'number') {
-      formattedValue = `${value >= 0 ? '+' : ''}${value}`;
+    if (showSign) {
+      const numericValue = Number(value);
+      if (!Number.isNaN(numericValue)) {
+        formattedValue = `${numericValue >= 0 ? '+' : ''}${formattedValue}`;
+      }
     }
     
     return `${prefix}${formattedValue}${suffix}`;
