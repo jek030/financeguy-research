@@ -37,8 +37,8 @@ export interface SupabasePortfolio {
 }
 
 export interface SupabasePortfolioPosition {
-  portfolio_key: number | string;
-  trade_key: number | string;
+  portfolio_key: number | string; // int8 can be returned as string
+  trade_key: number | string; // int8 can be returned as string
   created_at: string;
   symbol: string;
   type: string;
