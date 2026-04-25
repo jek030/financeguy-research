@@ -26,6 +26,16 @@ const calculateOpenRiskPercentage = (cost: number, stopLoss: number): number => 
   return ((stopLoss - cost) / cost) * 100;
 };
 
+export interface PositionExit {
+  id: string;
+  positionId: string;
+  price: number;
+  shares: number;
+  exitDate: Date | null;
+  notes: string | null;
+  sortOrder: number;
+}
+
 export interface StockPosition {
   id: string;
   symbol: string;
@@ -36,13 +46,8 @@ export interface StockPosition {
   stopLoss: number;
   type: 'Long' | 'Short';
   openDate: Date;
-  closedDate?: Date | null;
-  priceTarget2R: number;
-  priceTarget2RShares: number;
-  priceTarget5R: number;
-  priceTarget5RShares: number;
-  priceTarget21Day: number;
-  remainingShares: number;
+  closedDate: Date | null;
+  exits: PositionExit[];
   realizedGain: number;
   currentPrice?: number;
 }
