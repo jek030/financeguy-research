@@ -414,10 +414,17 @@ export function usePortfolio() {
           .insert(seedRows);
 
         if (exitsError) {
-          await supabase
+          const { error: rollbackError } = await supabase
             .from('tblPortfolioPositions')
             .delete()
             .eq('trade_key', insertedPosition.trade_key);
+          if (rollbackError) {
+            console.error(
+              'Failed to rollback position insert; orphaned row:',
+              insertedPosition.trade_key,
+              rollbackError
+            );
+          }
           throw exitsError;
         }
       }
@@ -444,7 +451,7 @@ export function usePortfolio() {
     quantity: number,
     initialStopLoss: number,
     type: 'Long' | 'Short'
-  ): Promise<string | null> => {
+  ): Promise<void> => {
     const [, tradeKeyStr] = positionId.split('-');
     const tradeKey = parseInt(tradeKeyStr, 10);
 
@@ -477,8 +484,6 @@ export function usePortfolio() {
       .from('tblPortfolioPositions')
       .update({ close_date: newClosedDateStr, realized_gain: realized })
       .eq('trade_key', tradeKey);
-
-    return newClosedDateStr;
   };
 
   const validateFilledShares = (
@@ -919,26 +924,23 @@ export function usePortfolio() {
   return {
     portfolio,
     portfolios,
-    positions,
     selectedPortfolioKey,
-    setSelectedPortfolioKey,
+    positions,
     isLoading,
     error,
     defaultPortfolioKey,
     preferencesLoading: prefsLoading,
     selectPortfolio,
-    addPortfolio,
-    updatePortfolio,
-    deletePortfolio,
     addPosition,
     updatePosition,
     deletePosition,
     updatePortfolioValue,
-    setDefaultPortfolio: setPortfolioAsDefault,
+    updatePortfolio,
+    createPortfolio,
+    setPortfolioAsDefault,
     addExit,
     updateExit,
     deleteExit,
     refetch: fetchPortfolio,
-    createPortfolio,
   };
 }
