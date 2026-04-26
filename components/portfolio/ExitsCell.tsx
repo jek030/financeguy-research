@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ChevronRight, ChevronDown } from 'lucide-react';
-import type { StockPosition, PositionExit } from '@/hooks/usePortfolio';
+import type { StockPosition } from '@/hooks/usePortfolio';
 import {
   formatRMultiple,
   getPerExitR,
@@ -11,9 +11,6 @@ import {
 import { format } from 'date-fns';
 
 function PositionExitsTable({ position }: { position: StockPosition }) {
-  if (position.exits.length === 0) {
-    return null;
-  }
   return (
     <table className="w-full text-xs">
       <thead className="text-muted-foreground">
@@ -87,12 +84,13 @@ export function ExitsCell({ position }: ExitsCellProps) {
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
         className="flex items-center gap-1 text-left hover:text-foreground text-xs"
       >
         {expanded ? (
-          <ChevronDown className="h-3 w-3" />
+          <ChevronDown className="h-3 w-3" aria-hidden="true" />
         ) : (
-          <ChevronRight className="h-3 w-3" />
+          <ChevronRight className="h-3 w-3" aria-hidden="true" />
         )}
         <span>{summary}</span>
       </button>
