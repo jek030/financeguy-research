@@ -78,7 +78,8 @@ export default function AddToPortfolioModal({
     isLoading: portfolioLoading,
     selectPortfolio,
     addPosition,
-    updatePosition,
+    addExit,
+    updateExit,
   } = usePortfolio();
 
   const [mode, setMode] = useState<Mode>('new');
@@ -132,6 +133,16 @@ export default function AddToPortfolioModal({
     return positions.find((p) => p.id === selectedPositionId) || null;
   }, [positions, selectedPositionId]);
 
+  const pt1Exit = useMemo(() => {
+    if (!selectedPosition) return null;
+    return selectedPosition.exits.find((exit) => exit.sortOrder === 0) || null;
+  }, [selectedPosition]);
+
+  const pt2Exit = useMemo(() => {
+    if (!selectedPosition) return null;
+    return selectedPosition.exits.find((exit) => exit.sortOrder === 1) || null;
+  }, [selectedPosition]);
+
   // Auto-select position if there's only one match
   useEffect(() => {
     if (matchingPositions.length === 1 && !selectedPositionId) {
@@ -168,11 +179,11 @@ export default function AddToPortfolioModal({
   const availableSlots = useMemo(() => {
     if (!selectedPosition) return { pt1: false, pt2: false, trail: true };
     return {
-      pt1: selectedPosition.priceTarget2RShares === 0,
-      pt2: selectedPosition.priceTarget5RShares === 0,
+      pt1: !pt1Exit || pt1Exit.exitDate === null,
+      pt2: !pt2Exit || pt2Exit.exitDate === null,
       trail: true,
     };
-  }, [selectedPosition]);
+  }, [pt1Exit, pt2Exit, selectedPosition]);
 
   // Auto-select first available slot when position changes
   useEffect(() => {
@@ -186,10 +197,21 @@ export default function AddToPortfolioModal({
   // For 21 Day Trail, shares are the remaining shares (qty - pt1# - pt2#)
   const trailShares = useMemo(() => {
     if (!selectedPosition) return 0;
-    return selectedPosition.quantity
-      - selectedPosition.priceTarget2RShares
-      - selectedPosition.priceTarget5RShares;
+    const filledShares = selectedPosition.exits
+      .filter((exit) => exit.exitDate !== null)
+      .reduce((sum, exit) => sum + exit.shares, 0);
+    return Math.max(0, selectedPosition.quantity - filledShares);
   }, [selectedPosition]);
+
+  const pt1Shares = useMemo(() => {
+    if (!pt1Exit || pt1Exit.exitDate === null) return 0;
+    return pt1Exit.shares;
+  }, [pt1Exit]);
+
+  const pt2Shares = useMemo(() => {
+    if (!pt2Exit || pt2Exit.exitDate === null) return 0;
+    return pt2Exit.shares;
+  }, [pt2Exit]);
 
   // Computed values for offset
   const offsetPreview = useMemo(() => {
@@ -232,13 +254,7 @@ export default function AddToPortfolioModal({
     try {
       const sl = parseFloat(stopLoss);
       const resolvedStopLoss = !isNaN(sl) && sl > 0 ? sl : 0;
-      const rTargets = calculateRPriceTargets(
-        newPositionPreview.cost,
-        resolvedStopLoss,
-        newPositionPreview.type,
-      );
-
-      const newPosition: Omit<StockPosition, 'id'> = {
+      const newPosition: Omit<StockPosition, 'id' | 'exits' | 'realizedGain'> = {
         symbol: newPositionPreview.symbol,
         cost: newPositionPreview.cost,
         quantity: newPositionPreview.quantity,
@@ -248,13 +264,6 @@ export default function AddToPortfolioModal({
         type: newPositionPreview.type,
         openDate: newPositionPreview.openDate,
         closedDate: null,
-        priceTarget2R: rTargets.priceTarget2R,
-        priceTarget2RShares: 0,
-        priceTarget5R: rTargets.priceTarget5R,
-        priceTarget5RShares: 0,
-        priceTarget21Day: 0,
-        remainingShares: newPositionPreview.quantity,
-        realizedGain: 0,
       };
 
       await addPosition(newPosition);
@@ -274,20 +283,44 @@ export default function AddToPortfolioModal({
     setSubmitError(null);
 
     try {
-      const updates: Partial<StockPosition> = {};
-
       if (offsetPreview.slot === 'pt1') {
-        updates.priceTarget2R = offsetPreview.sellPrice;
-        updates.priceTarget2RShares = offsetPreview.soldQty;
+        if (pt1Exit) {
+          await updateExit(pt1Exit.id, {
+            price: offsetPreview.sellPrice,
+            shares: offsetPreview.soldQty,
+            exitDate: parseTxnDate(transaction.date),
+          });
+        } else {
+          await addExit(selectedPosition.id, {
+            price: offsetPreview.sellPrice,
+            shares: offsetPreview.soldQty,
+            exitDate: parseTxnDate(transaction.date),
+            notes: 'Price Target 1',
+          });
+        }
       } else if (offsetPreview.slot === 'pt2') {
-        updates.priceTarget5R = offsetPreview.sellPrice;
-        updates.priceTarget5RShares = offsetPreview.soldQty;
+        if (pt2Exit) {
+          await updateExit(pt2Exit.id, {
+            price: offsetPreview.sellPrice,
+            shares: offsetPreview.soldQty,
+            exitDate: parseTxnDate(transaction.date),
+          });
+        } else {
+          await addExit(selectedPosition.id, {
+            price: offsetPreview.sellPrice,
+            shares: offsetPreview.soldQty,
+            exitDate: parseTxnDate(transaction.date),
+            notes: 'Price Target 2',
+          });
+        }
       } else {
-        updates.priceTarget21Day = offsetPreview.sellPrice;
-        updates.closedDate = parseTxnDate(transaction.date);
+        await addExit(selectedPosition.id, {
+          price: offsetPreview.sellPrice,
+          shares: offsetPreview.soldQty,
+          exitDate: parseTxnDate(transaction.date),
+          notes: '21 Day Trail',
+        });
       }
-
-      await updatePosition(selectedPosition.id, updates);
       setSubmitSuccess(true);
       setTimeout(() => onOpenChange(false), 1200);
     } catch (err) {
@@ -416,6 +449,9 @@ export default function AddToPortfolioModal({
                 preview={offsetPreview}
                 selectedPosition={selectedPosition}
                 trailShares={trailShares}
+                pt1Shares={pt1Shares}
+                pt2Shares={pt2Shares}
+                remainingShares={trailShares}
                 isOptionTransaction={isOptionTransaction}
               />
             )}
@@ -579,6 +615,9 @@ function OffsetForm({
   preview,
   selectedPosition,
   trailShares,
+  pt1Shares,
+  pt2Shares,
+  remainingShares,
   isOptionTransaction,
 }: {
   transaction: BrokerageTransaction;
@@ -601,6 +640,9 @@ function OffsetForm({
   } | null;
   selectedPosition: StockPosition | null;
   trailShares: number;
+  pt1Shares: number;
+  pt2Shares: number;
+  remainingShares: number;
   isOptionTransaction: boolean;
 }) {
   if (matchingPositions.length === 0) {
@@ -658,15 +700,15 @@ function OffsetForm({
             <div className="grid grid-cols-3 gap-2 text-xs mt-1">
               <div>
                 <span className="text-muted-foreground">PT1 #: </span>
-                <span className="font-mono">{selectedPosition.priceTarget2RShares}</span>
+                <span className="font-mono">{pt1Shares}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">PT2 #: </span>
-                <span className="font-mono">{selectedPosition.priceTarget5RShares}</span>
+                <span className="font-mono">{pt2Shares}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">Remaining: </span>
-                <span className="font-mono">{selectedPosition.remainingShares}</span>
+                <span className="font-mono">{remainingShares}</span>
               </div>
             </div>
           </div>

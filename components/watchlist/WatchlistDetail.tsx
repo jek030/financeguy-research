@@ -252,13 +252,13 @@ function renderCell(
     case 'sector':
       if (isProfileLoading) return <Skeleton className="h-4 w-16" />;
       return profile?.sector ? (
-        <Link href={`/scans/sectors/${encodeURIComponent(profile.sector)}`} className="hover:underline text-blue-600 dark:text-blue-400 text-xs sm:text-sm">{profile.sector}</Link>
+        <Link href={`/screener/sectors/${encodeURIComponent(profile.sector)}`} className="hover:underline text-blue-600 dark:text-blue-400 text-xs sm:text-sm">{profile.sector}</Link>
       ) : <span className="text-xs sm:text-sm">-</span>;
 
     case 'industry':
       if (isProfileLoading) return <Skeleton className="h-4 w-16" />;
       return profile?.sector && profile?.industry ? (
-        <Link href={`/scans/sectors/${encodeURIComponent(profile.sector)}/industry/${encodeURIComponent(profile.industry)}`} className="hover:underline text-blue-600 dark:text-blue-400 text-xs sm:text-sm">{profile.industry}</Link>
+        <Link href={`/screener/sectors/${encodeURIComponent(profile.sector)}/industry/${encodeURIComponent(profile.industry)}`} className="hover:underline text-blue-600 dark:text-blue-400 text-xs sm:text-sm">{profile.industry}</Link>
       ) : <span className="text-xs sm:text-sm">-</span>;
 
     case 'peRatio':

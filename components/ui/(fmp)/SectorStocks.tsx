@@ -1,10 +1,12 @@
 "use client";
 import React from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSectorStocks } from '@/hooks/FMP/useSectorStocks';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/Table";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { Card, CardContent } from "@/components/ui/Card";
+import { Label } from "@/components/ui/Label";
+import { Badge } from "@/components/ui/Badge";
 import {
   Select,
   SelectContent,
@@ -12,6 +14,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/Select";
+import { formatMarketCap, formatNumber } from "@/lib/utils";
+import { CELL_CLS, HEAD_CLS, SortButton, useSortableData } from './screenerTable';
 
 interface SectorStock {
   symbol: string;
@@ -29,30 +33,21 @@ interface SectorStocksProps {
   sector: string;
 }
 
+
 export default function SectorStocks({ sector }: SectorStocksProps) {
   const router = useRouter();
   const { data, isLoading, error } = useSectorStocks(sector);
-  const [sortConfig, setSortConfig] = React.useState<{
-    key: keyof SectorStock;
-    direction: 'asc' | 'desc';
-  } | null>(null);
   const [selectedCountry, setSelectedCountry] = React.useState<string>("US");
-  
-  // Get unique countries from data
+
   const countries = React.useMemo(() => {
     if (!data) return ["US"];
-    
     const countrySet = new Set<string>();
     data.forEach(item => {
-      if (item.country) {
-        countrySet.add(item.country);
-      }
+      if (item.country) countrySet.add(item.country);
     });
-    
     return Array.from(countrySet).sort();
   }, [data]);
 
-  // Set default country to US if available
   React.useEffect(() => {
     if (countries.includes("US")) {
       setSelectedCountry("US");
@@ -61,220 +56,121 @@ export default function SectorStocks({ sector }: SectorStocksProps) {
     }
   }, [countries]);
 
-  const handleSymbolClick = (symbol: string) => {
-    router.push(`/search/${symbol}`);
-  };
-
   const handleIndustryClick = (industry: string) => {
-    sessionStorage.setItem('sectorStocksData', JSON.stringify(data));
-    router.push(`/scans/sectors/${encodeURIComponent(sector)}/industry/${encodeURIComponent(industry)}`);
+    router.push(`/screener/sectors/${encodeURIComponent(sector)}/industry/${encodeURIComponent(industry)}`);
   };
 
-  if (isLoading) {
-    return (
-      <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
-        <CardContent className="pt-6 sm:px-6 px-3">
-          <div className="text-center text-muted-foreground">Loading sector data...</div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const filteredData = React.useMemo(() => {
+    if (selectedCountry === "All") return data || [];
+    return data?.filter(item => item.country === selectedCountry) || [];
+  }, [data, selectedCountry]);
 
-  if (error) {
-    return (
-      <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
-        <CardContent className="pt-6 sm:px-6 px-3">
-          <div className="text-destructive">{error?.message}</div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Filter data by selected country
-  const filteredData = selectedCountry === "All" 
-    ? data 
-    : data?.filter(item => item.country === selectedCountry) || [];
-
-  const sortedData = [...(filteredData || [])].sort((a, b) => {
-    if (!sortConfig) return 0;
-
-    let comparison = 0;
-    if (sortConfig.key === 'symbol' || sortConfig.key === 'companyName' || sortConfig.key === 'industry' || sortConfig.key === 'exchangeShortName' || sortConfig.key === 'country') {
-      const aValue = a[sortConfig.key] || '';
-      const bValue = b[sortConfig.key] || '';
-      comparison = aValue.localeCompare(bValue);
-    } else {
-      const aValue = Number(a[sortConfig.key]) || 0;
-      const bValue = Number(b[sortConfig.key]) || 0;
-      comparison = aValue - bValue;
-    }
-
-    return sortConfig.direction === 'asc' ? comparison : -comparison;
-  });
-
-  const requestSort = (key: keyof SectorStock) => {
-    setSortConfig((currentSort) => {
-      if (!currentSort || currentSort.key !== key) {
-        return { key, direction: 'asc' };
-      }
-      if (currentSort.direction === 'asc') {
-        return { key, direction: 'desc' };
-      }
-      return null;
-    });
-  };
-
-  const formatMarketCap = (value: number | null | undefined) => {
-    if (!value || isNaN(value)) return 'N/A';
-    if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
-    if (value >= 1e9) return `$${(value / 1e9).toFixed(2)}B`;
-    if (value >= 1e6) return `$${(value / 1e6).toFixed(2)}M`;
-    return `$${value.toFixed(2)}`;
-  };
-
-  const formatPrice = (value: number | null | undefined) => {
-    if (!value || isNaN(value)) return 'N/A';
-    return `$${value.toFixed(2)}`;
-  };
+  const { sortConfig, requestSort, sortedData } = useSortableData<SectorStock>(filteredData);
 
   return (
-    <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
-      <CardHeader className="pb-2 space-y-2 sm:px-6 px-3 pt-4 sm:pt-6">
-        <CardTitle className="text-xl font-semibold">{sector} Stocks</CardTitle>
-        <CardDescription>
-          Stocks in the {sector} sector. Click on an industry to see more details
-          {/*https://financialmodelingprep.com/api/v3/stock-screener?sector=*/}
-        </CardDescription>
-        <div className="flex justify-end pt-1">
-          <div className="w-[140px]">
-            <Select
-              value={selectedCountry}
-              onValueChange={setSelectedCountry}
-            >
-              <SelectTrigger className="h-8 text-sm">
-                <SelectValue placeholder="Filter by country" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="All">All Countries</SelectItem>
-                {countries.map((country) => (
-                  <SelectItem key={country} value={country}>
-                    {country}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+    <Card className="border border-border/50 shadow-sm bg-card">
+      <CardContent className="p-0">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b border-border/50">
+          <div className="flex items-center gap-2 min-w-0">
+            <Link href="/screener" className="text-[11px] text-muted-foreground hover:text-foreground">
+              Sectors
+            </Link>
+            <span className="text-[11px] text-muted-foreground">/</span>
+            <h2 className="text-sm font-semibold truncate">{sector}</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="h-5 text-[11px]">{formatNumber(sortedData.length)} rows</Badge>
+            <div className="flex items-center gap-1">
+              <Label className="text-[11px] uppercase tracking-wide text-muted-foreground">Country</Label>
+              <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                <SelectTrigger className="h-7 w-[120px] text-xs">
+                  <SelectValue placeholder="Filter" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="All">All</SelectItem>
+                  {countries.map((country) => (
+                    <SelectItem key={country} value={country}>{country}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
-      </CardHeader>
-      <CardContent className="pt-0 sm:px-6 px-2">
-        <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
-          <Table className="w-full text-sm sm:text-base">
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="sm:w-[100px] w-[70px] sm:p-4 py-2 px-1">
-                  <Button
-                    variant="ghost"
-                    onClick={() => requestSort('symbol')}
-                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
-                  >
-                    Symbol
-                  </Button>
-                </TableHead>
-                <TableHead className="min-w-[120px] sm:min-w-[200px] sm:p-4 py-2 px-1">
-                  <Button
-                    variant="ghost"
-                    onClick={() => requestSort('companyName')}
-                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
-                  >
-                    Name
-                  </Button>
-                </TableHead>
-                <TableHead className="sm:w-[120px] w-[70px] sm:p-4 py-2 px-1">
-                  <Button
-                    variant="ghost"
-                    onClick={() => requestSort('price')}
-                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
-                  >
-                    Price
-                  </Button>
-                </TableHead>
-                <TableHead className="sm:w-[120px] w-[70px] sm:p-4 py-2 px-1">
-                  <Button
-                    variant="ghost"
-                    onClick={() => requestSort('marketCap')}
-                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
-                  >
-                    Mkt Cap
-                  </Button>
-                </TableHead>
-                <TableHead className="sm:w-[150px] w-[100px] sm:p-4 py-2 px-1">
-                  <Button
-                    variant="ghost"
-                    onClick={() => requestSort('industry')}
-                    className="hover:bg-transparent pl-0 pr-1 font-semibold sm:text-base text-sm"
-                  >
-                    Industry
-                  </Button>
-                </TableHead>
-                <TableHead className="sm:w-[100px] w-[70px] hidden sm:table-cell">
-                  <Button
-                    variant="ghost"
-                    onClick={() => requestSort('exchangeShortName')}
-                    className="hover:bg-transparent pl-0 pr-1 font-semibold"
-                  >
-                    Exchange
-                  </Button>
-                </TableHead>
-                <TableHead className="sm:w-[100px] w-[70px] hidden sm:table-cell">
-                  <Button
-                    variant="ghost"
-                    onClick={() => requestSort('country')}
-                    className="hover:bg-transparent pl-0 pr-1 font-semibold"
-                  >
-                    Country
-                  </Button>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sortedData.map((item, index) => (
-                <TableRow 
-                  key={index}
-                  className="hover:bg-muted/50 transition-colors"
-                >
-                  <TableCell 
-                    className="font-medium cursor-pointer text-blue-600 dark:text-blue-400 hover:underline sm:p-4 py-2 px-1 text-sm sm:text-base"
-                    onClick={() => handleSymbolClick(item.symbol || '')}
-                  >
-                    {item.symbol || 'N/A'}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground truncate max-w-[120px] sm:max-w-[200px] md:max-w-none sm:p-4 py-2 px-1 text-xs sm:text-sm">
-                    {item.companyName || 'N/A'}
-                  </TableCell>
-                  <TableCell className="font-medium sm:p-4 py-2 px-1 text-sm sm:text-base">
-                    {formatPrice(item.price)}
-                  </TableCell>
-                  <TableCell className="font-medium sm:p-4 py-2 px-1 text-sm sm:text-base">
-                    {formatMarketCap(item.marketCap)}
-                  </TableCell>
-                  <TableCell 
-                    className="font-medium cursor-pointer text-blue-600 dark:text-blue-400 hover:underline truncate max-w-[100px] sm:max-w-none sm:p-4 py-2 px-1 text-xs sm:text-sm"
-                    onClick={() => handleIndustryClick(item.industry || '')}
-                  >
-                    {item.industry || 'N/A'}
-                  </TableCell>
-                  <TableCell className="font-medium hidden sm:table-cell">
-                    {item.exchangeShortName || 'N/A'}
-                  </TableCell>
-                  <TableCell className="font-medium hidden sm:table-cell">
-                    {item.country || 'N/A'}
-                  </TableCell>
+
+        {isLoading ? (
+          <div className="text-sm text-muted-foreground py-8 text-center">Loading sector data...</div>
+        ) : error ? (
+          <div className="text-sm text-destructive py-8 px-3">{error.message}</div>
+        ) : sortedData.length === 0 ? (
+          <div className="text-sm text-muted-foreground py-8 text-center">No stocks found.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table className="w-full">
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className={`sticky left-0 bg-background min-w-[80px] ${HEAD_CLS}`}>
+                    <SortButton label="Symbol" column="symbol" sortConfig={sortConfig} onSort={requestSort} />
+                  </TableHead>
+                  <TableHead className={`min-w-[180px] ${HEAD_CLS}`}>
+                    <SortButton label="Name" column="companyName" sortConfig={sortConfig} onSort={requestSort} />
+                  </TableHead>
+                  <TableHead className={`text-right ${HEAD_CLS}`}>
+                    <SortButton label="Price" column="price" sortConfig={sortConfig} onSort={requestSort} align="right" />
+                  </TableHead>
+                  <TableHead className={`text-right ${HEAD_CLS}`}>
+                    <SortButton label="Market Cap" column="marketCap" sortConfig={sortConfig} onSort={requestSort} align="right" />
+                  </TableHead>
+                  <TableHead className={HEAD_CLS}>
+                    <SortButton label="Industry" column="industry" sortConfig={sortConfig} onSort={requestSort} />
+                  </TableHead>
+                  <TableHead className={HEAD_CLS}>
+                    <SortButton label="Exchange" column="exchangeShortName" sortConfig={sortConfig} onSort={requestSort} />
+                  </TableHead>
+                  <TableHead className={HEAD_CLS}>
+                    <SortButton label="Country" column="country" sortConfig={sortConfig} onSort={requestSort} />
+                  </TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {sortedData.map((item, index) => (
+                  <TableRow key={index} className="group hover:bg-muted">
+                    <TableCell className={`sticky left-0 bg-background group-hover:bg-muted transition-colors font-medium ${CELL_CLS}`}>
+                      <Link
+                        href={`/search/${encodeURIComponent(item.symbol || '')}`}
+                        className="hover:underline text-blue-600 dark:text-blue-400"
+                      >
+                        {item.symbol || '-'}
+                      </Link>
+                    </TableCell>
+                    <TableCell className={`${CELL_CLS} truncate max-w-[260px]`}>{item.companyName || '-'}</TableCell>
+                    <TableCell className={`${CELL_CLS} text-right tabular-nums`}>
+                      {typeof item.price === 'number' && !isNaN(item.price) ? `$${item.price.toFixed(2)}` : '-'}
+                    </TableCell>
+                    <TableCell className={`${CELL_CLS} text-right tabular-nums`}>
+                      {typeof item.marketCap === 'number' && !isNaN(item.marketCap) ? `$${formatMarketCap(item.marketCap)}` : '-'}
+                    </TableCell>
+                    <TableCell className={CELL_CLS}>
+                      {item.industry ? (
+                        <button
+                          type="button"
+                          onClick={() => handleIndustryClick(item.industry)}
+                          className="hover:underline text-blue-600 dark:text-blue-400"
+                        >
+                          {item.industry}
+                        </button>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                    <TableCell className={CELL_CLS}>{item.exchangeShortName || '-'}</TableCell>
+                    <TableCell className={CELL_CLS}>{item.country || '-'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
-} 
+}

@@ -124,7 +124,7 @@ Brokerage JSON → `localStorage` (`transactions-data` key) → parsed by `utils
 | `/watchlists` | Watchlist editor — requires auth |
 | `/transactions` | Brokerage JSON importer |
 | `/calendar` | Earnings calendar |
-| `/scans` | Sector/market scans with drill-down |
+| `/screener` | Sector/market scans with drill-down |
 | `/crypto` | Crypto prices |
 | `/realized-gains` | Realized gains analysis |
 
