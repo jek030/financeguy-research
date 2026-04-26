@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -79,9 +79,12 @@ export function EditPositionModal({
   const [activeTab, setActiveTab] = useState<'position' | 'exits'>('exits');
   const [saving, setSaving] = useState(false);
 
-  // Sync state from props when the modal opens
+  // Hydrate draft state on closed→open transition only. Re-hydrating on
+  // every `position` prop change would clobber unsaved edits whenever a
+  // background refetch updates the prop.
+  const wasOpenRef = useRef(false);
   useEffect(() => {
-    if (isOpen && position) {
+    if (isOpen && !wasOpenRef.current && position) {
       setCost(position.cost.toString());
       setQuantity(position.quantity.toString());
       setInitialStopLoss(position.initialStopLoss.toString());
@@ -103,6 +106,7 @@ export function EditPositionModal({
       const hasFilled = position.exits.some((e) => e.exitDate !== null);
       setActiveTab(hasFilled ? 'exits' : 'position');
     }
+    wasOpenRef.current = isOpen;
   }, [isOpen, position]);
 
   // Live validation: filled-only strict
