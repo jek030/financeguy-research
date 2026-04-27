@@ -367,7 +367,7 @@ export function CompanyInfoSection({
       label: 'Sector',
       value: (
         <Link
-          href={`/scans/sectors/${encodeURIComponent(sector)}`}
+          href={`/screener/sectors/${encodeURIComponent(sector)}`}
           className="text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 hover:underline underline-offset-2 transition-colors"
         >
           {sector}
@@ -383,7 +383,7 @@ export function CompanyInfoSection({
       label: 'Industry',
       value: (
         <Link
-          href={`/scans/sectors/${encodeURIComponent(sector || '')}/industry/${encodeURIComponent(industry)}`}
+          href={`/screener/sectors/${encodeURIComponent(sector || '')}/industry/${encodeURIComponent(industry)}`}
           className="text-sm font-medium text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 hover:underline underline-offset-2 transition-colors line-clamp-2"
         >
           {industry}

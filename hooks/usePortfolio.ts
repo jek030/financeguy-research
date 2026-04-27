@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase, SupabasePortfolio, SupabasePortfolioPosition } from '@/lib/supabase';
+import { supabase, SupabasePortfolio, SupabasePortfolioPosition, SupabasePositionExit } from '@/lib/supabase';
 import { useAuth } from '@/lib/context/auth-context';
 import { useUserPreferences } from './useUserPreferences';
+import {
+  calculateRPriceTargets,
+  getRealizedGain,
+  isFullyClosed,
+} from '@/utils/portfolioCalculations';
 
 const SELECTED_PORTFOLIO_STORAGE_KEY = 'financeguy-selected-portfolio';
 
@@ -26,6 +31,16 @@ const calculateOpenRiskPercentage = (cost: number, stopLoss: number): number => 
   return ((stopLoss - cost) / cost) * 100;
 };
 
+export interface PositionExit {
+  id: string;
+  positionId: string;
+  price: number;
+  shares: number;
+  exitDate: Date | null;
+  notes: string | null;
+  sortOrder: number;
+}
+
 export interface StockPosition {
   id: string;
   symbol: string;
@@ -36,13 +51,8 @@ export interface StockPosition {
   stopLoss: number;
   type: 'Long' | 'Short';
   openDate: Date;
-  closedDate?: Date | null;
-  priceTarget2R: number;
-  priceTarget2RShares: number;
-  priceTarget5R: number;
-  priceTarget5RShares: number;
-  priceTarget21Day: number;
-  remainingShares: number;
+  closedDate: Date | null;
+  exits: PositionExit[];
   realizedGain: number;
   currentPrice?: number;
 }
@@ -73,91 +83,86 @@ export function usePortfolio() {
     return new Date(year, month - 1, day);
   };
 
-  // Helper function to calculate realized gain for a position
-  const calculateRealizedGainForPosition = (position: Omit<StockPosition, 'id' | 'currentPrice'>): number => {
-    let positionGain = 0;
+  const mapSupabaseExitToPositionExit = (
+    data: SupabasePositionExit,
+    positionId: string
+  ): PositionExit => ({
+    id: data.id,
+    positionId,
+    price: data.price,
+    shares: data.shares,
+    exitDate: data.exit_date ? parseLocalDate(data.exit_date) : null,
+    notes: data.notes,
+    sortOrder: data.sort_order,
+  });
 
-    // PT1 trim gain
-    if (position.priceTarget2RShares > 0 && position.priceTarget2R > 0) {
-      // For short positions: gain = (entry - exit) * shares (positive when exit < entry)
-      // For long positions: gain = (exit - entry) * shares (positive when exit > entry)
-      const pt1Gain = position.type === 'Long'
-        ? (position.priceTarget2R - position.cost) * position.priceTarget2RShares
-        : (position.cost - position.priceTarget2R) * position.priceTarget2RShares;
-      positionGain += pt1Gain;
-    }
-
-    // PT2 trim gain
-    if (position.priceTarget5RShares > 0 && position.priceTarget5R > 0) {
-      const pt2Gain = position.type === 'Long'
-        ? (position.priceTarget5R - position.cost) * position.priceTarget5RShares
-        : (position.cost - position.priceTarget5R) * position.priceTarget5RShares;
-      positionGain += pt2Gain;
-    }
-
-    // Final exit gain (21 Day Trail or remaining shares)
-    if (position.priceTarget21Day > 0) {
-      const remainingShares = position.quantity - position.priceTarget2RShares - position.priceTarget5RShares;
-      const finalGain = position.type === 'Long'
-        ? (position.priceTarget21Day - position.cost) * remainingShares
-        : (position.cost - position.priceTarget21Day) * remainingShares;
-      positionGain += finalGain;
-    }
-
-    return positionGain;
+  const sortExitsForDisplay = (exits: PositionExit[]): PositionExit[] => {
+    const filled = exits
+      .filter((e) => e.exitDate !== null)
+      .sort((a, b) => a.exitDate!.getTime() - b.exitDate!.getTime());
+    const planned = exits
+      .filter((e) => e.exitDate === null)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    return [...filled, ...planned];
   };
 
-  // Convert Supabase position to our app's format
-  const mapSupabaseToPosition = (data: SupabasePortfolioPosition): StockPosition => {
-    // The open_risk column stores the percentage value that should be displayed in "Open Risk %" column
-    // We need to convert this percentage back to the actual stop loss value for the stopLoss field
-    // Formula: stopLoss = cost + (open_risk / 100) * cost = cost * (1 + open_risk / 100)
+  type SupabasePositionWithExits = SupabasePortfolioPosition & {
+    tblPositionExits?: SupabasePositionExit[] | null;
+  };
+
+  const mapSupabaseToPosition = (data: SupabasePositionWithExits): StockPosition => {
     const stopLossValue =
       data.initial_stop_loss <= 0
         ? 0
         : data.cost * (1 + data.open_risk / 100);
 
+    const positionId = `${data.portfolio_key}-${data.trade_key}`;
+    const rawExits = (data.tblPositionExits ?? []).map((e) =>
+      mapSupabaseExitToPositionExit(e, positionId)
+    );
+    const exits = sortExitsForDisplay(rawExits);
+    const type = data.type as 'Long' | 'Short';
+
+    const realizedGain = getRealizedGain({
+      cost: data.cost,
+      quantity: data.quantity,
+      initialStopLoss: data.initial_stop_loss,
+      type,
+      exits,
+    });
+
     return {
-      id: `${data.portfolio_key}-${data.trade_key}`,
+      id: positionId,
       symbol: data.symbol,
       cost: data.cost,
       quantity: data.quantity,
       netCost: data.net_cost,
       initialStopLoss: data.initial_stop_loss,
-      stopLoss: stopLossValue, // Convert the stored percentage back to stop loss value
-      type: data.type as 'Long' | 'Short',
+      stopLoss: stopLossValue,
+      type,
       openDate: parseLocalDate(data.open_date),
       closedDate: data.close_date ? parseLocalDate(data.close_date) : null,
-      priceTarget2R: data.price_target_1,
-      priceTarget2RShares: data.price_target_1_quantity,
-      priceTarget5R: data.price_target_2,
-      priceTarget5RShares: data.price_target_2_quantity,
-      priceTarget21Day: data.price_target_3,
-      remainingShares: data.remaining_shares,
-      realizedGain: data.realized_gain || 0,
+      exits,
+      realizedGain,
     };
   };
 
   // Convert our app's position to Supabase format
-  const mapPositionToSupabase = (position: Omit<StockPosition, 'id'>, portfolioKey: number | string, tradeKey?: number | string) => {
+  const mapPositionToSupabase = (
+    position: Omit<StockPosition, 'id' | 'exits' | 'realizedGain'>,
+    portfolioKey: number | string,
+    tradeKey?: number | string
+  ) => {
     const now = new Date();
     const endDate = position.closedDate || now;
     const diffTime = Math.abs(endDate.getTime() - position.openDate.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    // Calculate the Open Risk % percentage: (stopLoss - cost) / cost * 100
-    // This is the value that should be stored in the open_risk column
     const openRiskPercentage = calculateOpenRiskPercentage(position.cost, position.stopLoss);
 
-    // Calculate the % Portfolio percentage: (equity / portfolio_value) * 100
-    // This is the value that should be stored in the percent_of_portfolio column
     const portfolioValue = portfolio?.portfolio_value || 0;
-    const remainingShares = position.quantity - position.priceTarget2RShares - position.priceTarget5RShares;
-    const equity = position.cost * remainingShares; // Calculate equity based on remaining shares
+    const equity = position.cost * position.quantity;
     const portfolioPercent = portfolioValue > 0 ? (equity / portfolioValue) * 100 : 0;
-
-    // Calculate realized gain based on PT1, PT2, and 21 Day Trail shares
-    const realizedGain = calculateRealizedGainForPosition(position);
 
     const baseData = {
       portfolio_key: portfolioKey,
@@ -166,25 +171,17 @@ export function usePortfolio() {
       cost: position.cost,
       quantity: position.quantity,
       net_cost: position.netCost,
-      equity: equity, // Will be updated with live price
-      percent_of_portfolio: portfolioPercent, // Store the % Portfolio percentage value
+      equity,
+      percent_of_portfolio: portfolioPercent,
       initial_stop_loss: position.initialStopLoss,
-      open_risk: openRiskPercentage, // Store the Open Risk % percentage value
-      open_heat: 0, // Will be calculated
-      price_target_1: position.priceTarget2R,
-      price_target_1_quantity: position.priceTarget2RShares,
-      price_target_2: position.priceTarget5R,
-      price_target_2_quantity: position.priceTarget5RShares,
-      price_target_3: position.priceTarget21Day,
-      remaining_shares: remainingShares, // Store the calculated remaining shares
-      realized_gain: realizedGain, // Store the calculated realized gain
-      open_date: formatDateForDb(position.openDate), // Local YYYY-MM-DD format
+      open_risk: openRiskPercentage,
+      open_heat: 0,
+      realized_gain: 0,
+      open_date: formatDateForDb(position.openDate),
       close_date: position.closedDate ? formatDateForDb(position.closedDate) : null,
       days_in_trade: diffDays,
     };
 
-    // Only include trade_key if it's explicitly provided (for updates)
-    // For inserts, omit trade_key so the database auto-generates it
     if (tradeKey !== undefined) {
       return { ...baseData, trade_key: tradeKey };
     }
@@ -197,7 +194,7 @@ export function usePortfolio() {
 
     const { data: positionsData, error: positionsError } = await supabase
       .from('tblPortfolioPositions')
-      .select('*')
+      .select('*, tblPositionExits (*)')
       .eq('portfolio_key', portfolioKey)
       .order('trade_key', { ascending: true });
 
@@ -370,152 +367,319 @@ export function usePortfolio() {
   };
 
   // Add a new position
-  const addPosition = async (position: Omit<StockPosition, 'id'>) => {
-    console.log('addPosition called with:', position);
-    
+  const addPosition = async (position: Omit<StockPosition, 'id' | 'exits' | 'realizedGain'>) => {
     if (!portfolio) {
-      console.error('No portfolio found');
       throw new Error('No portfolio found');
     }
 
-    console.log('Current portfolio:', portfolio);
-
     try {
       const supabasePosition = mapPositionToSupabase(position, portfolio.portfolio_key);
-      console.log('Mapped to Supabase position:', supabasePosition);
-      
-      const { data, error } = await supabase
+
+      const { data: insertedPosition, error: positionError } = await supabase
         .from('tblPortfolioPositions')
         .insert(supabasePosition)
         .select()
         .single();
 
-      if (error) {
-        console.error('Supabase insert error:', error);
-        throw error;
+      if (positionError) throw positionError;
+
+      const rTargets = calculateRPriceTargets(
+        position.cost,
+        position.initialStopLoss,
+        position.type
+      );
+
+      if (rTargets.priceTarget2R > 0 && rTargets.priceTarget5R > 0) {
+        const seedRows = [
+          {
+            position_id: insertedPosition.trade_key,
+            price: rTargets.priceTarget2R,
+            shares: 0,
+            exit_date: null,
+            notes: null,
+            sort_order: 0,
+          },
+          {
+            position_id: insertedPosition.trade_key,
+            price: rTargets.priceTarget5R,
+            shares: 0,
+            exit_date: null,
+            notes: null,
+            sort_order: 1,
+          },
+        ];
+
+        const { error: exitsError } = await supabase
+          .from('tblPositionExits')
+          .insert(seedRows);
+
+        if (exitsError) {
+          const { error: rollbackError } = await supabase
+            .from('tblPortfolioPositions')
+            .delete()
+            .eq('trade_key', insertedPosition.trade_key);
+          if (rollbackError) {
+            console.error(
+              'Failed to rollback position insert; orphaned row:',
+              insertedPosition.trade_key,
+              rollbackError
+            );
+          }
+          throw exitsError;
+        }
       }
 
-      console.log('Insert successful, data returned:', data);
-      const newPosition = mapSupabaseToPosition(data);
-      console.log('Mapped back to position:', newPosition);
-      
-      setPositions(prev => [...prev, newPosition]);
-      console.log('Position added to state');
+      const { data: refetched, error: refetchError } = await supabase
+        .from('tblPortfolioPositions')
+        .select('*, tblPositionExits (*)')
+        .eq('trade_key', insertedPosition.trade_key)
+        .single();
+
+      if (refetchError) throw refetchError;
+
+      const newPosition = mapSupabaseToPosition(refetched);
+      setPositions((prev) => [...prev, newPosition]);
     } catch (err) {
       console.error('Error adding position:', err);
       throw err;
     }
   };
 
+  const recomputeClosedDate = async (
+    positionId: string,
+    cost: number,
+    quantity: number,
+    initialStopLoss: number,
+    type: 'Long' | 'Short'
+  ): Promise<void> => {
+    const [, tradeKeyStr] = positionId.split('-');
+    const tradeKey = parseInt(tradeKeyStr, 10);
+
+    const { data: exitsData, error: exitsErr } = await supabase
+      .from('tblPositionExits')
+      .select('*')
+      .eq('position_id', tradeKey);
+
+    if (exitsErr) throw exitsErr;
+
+    const exits = (exitsData ?? []).map((e) =>
+      mapSupabaseExitToPositionExit(e, positionId)
+    );
+
+    const closed = isFullyClosed({ cost, quantity, initialStopLoss, type, exits });
+    const newClosedDate = closed
+      ? exits
+          .filter((e) => e.exitDate !== null)
+          .reduce<Date | null>(
+            (max, e) => (max === null || e.exitDate! > max ? e.exitDate : max),
+            null
+          )
+      : null;
+
+    const newClosedDateStr = newClosedDate ? formatDateForDb(newClosedDate) : null;
+
+    const realized = getRealizedGain({ cost, quantity, initialStopLoss, type, exits });
+
+    await supabase
+      .from('tblPortfolioPositions')
+      .update({ close_date: newClosedDateStr, realized_gain: realized })
+      .eq('trade_key', tradeKey);
+  };
+
+  const validateFilledShares = (
+    positionId: string,
+    candidateExits: PositionExit[],
+    quantity: number
+  ): void => {
+    const filled = candidateExits
+      .filter((e) => e.exitDate !== null)
+      .reduce((sum, e) => sum + e.shares, 0);
+    if (filled > quantity) {
+      throw new Error(
+        `Filled exits exceed position size (${filled} / ${quantity} shares)`
+      );
+    }
+  };
+
+  const addExit = async (
+    positionId: string,
+    exit: Omit<PositionExit, 'id' | 'positionId' | 'sortOrder'>
+  ): Promise<void> => {
+    const position = positions.find((p) => p.id === positionId);
+    if (!position) throw new Error('Position not found');
+
+    validateFilledShares(
+      positionId,
+      [...position.exits, { ...exit, id: 'temp', positionId, sortOrder: 0 }],
+      position.quantity
+    );
+
+    const [, tradeKeyStr] = positionId.split('-');
+    const tradeKey = parseInt(tradeKeyStr, 10);
+
+    const nextSortOrder =
+      position.exits.length > 0
+        ? Math.max(...position.exits.map((e) => e.sortOrder)) + 1
+        : 0;
+
+    const { error } = await supabase.from('tblPositionExits').insert({
+      position_id: tradeKey,
+      price: exit.price,
+      shares: exit.shares,
+      exit_date: exit.exitDate ? formatDateForDb(exit.exitDate) : null,
+      notes: exit.notes,
+      sort_order: nextSortOrder,
+    });
+
+    if (error) throw error;
+
+    await recomputeClosedDate(
+      positionId,
+      position.cost,
+      position.quantity,
+      position.initialStopLoss,
+      position.type
+    );
+
+    await fetchPositionsForPortfolio(parseInt(positionId.split('-')[0], 10));
+  };
+
+  const updateExit = async (
+    exitId: string,
+    updates: Partial<Omit<PositionExit, 'id' | 'positionId'>>
+  ): Promise<void> => {
+    const position = positions.find((p) => p.exits.some((e) => e.id === exitId));
+    if (!position) throw new Error('Exit not found');
+
+    const original = position.exits.find((e) => e.id === exitId)!;
+    const candidate: PositionExit = {
+      ...original,
+      ...updates,
+    };
+
+    validateFilledShares(
+      position.id,
+      position.exits.map((e) => (e.id === exitId ? candidate : e)),
+      position.quantity
+    );
+
+    const supabaseUpdates: Partial<SupabasePositionExit> = {};
+    if (updates.price !== undefined) supabaseUpdates.price = updates.price;
+    if (updates.shares !== undefined) supabaseUpdates.shares = updates.shares;
+    if (updates.exitDate !== undefined) {
+      supabaseUpdates.exit_date = updates.exitDate ? formatDateForDb(updates.exitDate) : null;
+    }
+    if (updates.notes !== undefined) supabaseUpdates.notes = updates.notes;
+    if (updates.sortOrder !== undefined) supabaseUpdates.sort_order = updates.sortOrder;
+
+    const { error } = await supabase
+      .from('tblPositionExits')
+      .update(supabaseUpdates)
+      .eq('id', exitId);
+
+    if (error) throw error;
+
+    await recomputeClosedDate(
+      position.id,
+      position.cost,
+      position.quantity,
+      position.initialStopLoss,
+      position.type
+    );
+
+    await fetchPositionsForPortfolio(parseInt(position.id.split('-')[0], 10));
+  };
+
+  const deleteExit = async (exitId: string): Promise<void> => {
+    const position = positions.find((p) => p.exits.some((e) => e.id === exitId));
+    if (!position) throw new Error('Exit not found');
+
+    const { error } = await supabase.from('tblPositionExits').delete().eq('id', exitId);
+    if (error) throw error;
+
+    await recomputeClosedDate(
+      position.id,
+      position.cost,
+      position.quantity,
+      position.initialStopLoss,
+      position.type
+    );
+
+    await fetchPositionsForPortfolio(parseInt(position.id.split('-')[0], 10));
+  };
+
   // Update an existing position
-  const updatePosition = async (positionId: string, updates: Partial<StockPosition>) => {
+  const updatePosition = async (
+    positionId: string,
+    updates: Partial<
+      Omit<StockPosition, 'id' | 'exits' | 'realizedGain' | 'currentPrice'>
+    >
+  ) => {
     if (!portfolio) {
       throw new Error('No portfolio found');
     }
 
-    try {
-      const currentPosition = positions.find((p) => p.id === positionId);
-      if (!currentPosition) {
-        throw new Error('Position not found');
-      }
-
-      const [portfolioKeyStr, tradeKeyStr] = positionId.split('-');
-      const portfolioKey = parseInt(portfolioKeyStr, 10);
-      const tradeKey = parseInt(tradeKeyStr, 10);
-      
-      const supabaseUpdates: Partial<SupabasePortfolioPosition> = {};
-      
-      if (updates.symbol !== undefined) supabaseUpdates.symbol = updates.symbol;
-      if (updates.cost !== undefined) supabaseUpdates.cost = updates.cost;
-      if (updates.quantity !== undefined) supabaseUpdates.quantity = updates.quantity;
-      if (updates.netCost !== undefined) supabaseUpdates.net_cost = updates.netCost;
-      if (updates.stopLoss !== undefined) {
-        // Calculate the Open Risk % percentage: (stopLoss - cost) / cost * 100
-        // This is the value that should be stored in the open_risk column
-        const cost = updates.cost !== undefined ? updates.cost : currentPosition.cost;
-        const openRiskPercentage = calculateOpenRiskPercentage(cost, updates.stopLoss);
-        supabaseUpdates.open_risk = openRiskPercentage;
-      }
-      if (updates.type !== undefined) supabaseUpdates.type = updates.type;
-      if (updates.openDate !== undefined) supabaseUpdates.open_date = formatDateForDb(updates.openDate);
-      if (updates.closedDate !== undefined) supabaseUpdates.close_date = updates.closedDate ? formatDateForDb(updates.closedDate) : null;
-      if (updates.priceTarget2R !== undefined) supabaseUpdates.price_target_1 = updates.priceTarget2R;
-      if (updates.priceTarget2RShares !== undefined) supabaseUpdates.price_target_1_quantity = updates.priceTarget2RShares;
-      if (updates.priceTarget5R !== undefined) supabaseUpdates.price_target_2 = updates.priceTarget5R;
-      if (updates.priceTarget5RShares !== undefined) supabaseUpdates.price_target_2_quantity = updates.priceTarget5RShares;
-      if (updates.priceTarget21Day !== undefined) supabaseUpdates.price_target_3 = updates.priceTarget21Day;
-      if (updates.realizedGain !== undefined) supabaseUpdates.realized_gain = updates.realizedGain;
-      if (updates.remainingShares !== undefined) supabaseUpdates.remaining_shares = updates.remainingShares;
-
-      // Recalculate remaining shares if quantity, PT 1 #, or PT 2 # change
-      if (updates.quantity !== undefined || updates.priceTarget2RShares !== undefined || updates.priceTarget5RShares !== undefined) {
-        const quantity = updates.quantity !== undefined ? updates.quantity : currentPosition.quantity;
-        const pt1Shares = updates.priceTarget2RShares !== undefined ? updates.priceTarget2RShares : currentPosition.priceTarget2RShares;
-        const pt2Shares = updates.priceTarget5RShares !== undefined ? updates.priceTarget5RShares : currentPosition.priceTarget5RShares;
-        const remainingShares = quantity - pt1Shares - pt2Shares;
-        supabaseUpdates.remaining_shares = remainingShares;
-      }
-
-      // Recalculate realized gain if PT1, PT2, or 21 Day Trail values change
-      if (updates.priceTarget2R !== undefined || updates.priceTarget2RShares !== undefined ||
-          updates.priceTarget5R !== undefined || updates.priceTarget5RShares !== undefined ||
-          updates.priceTarget21Day !== undefined || updates.cost !== undefined || updates.type !== undefined) {
-        const updatedPosition: Omit<StockPosition, 'id' | 'currentPrice'> = {
-          ...currentPosition,
-          ...updates,
-          cost: updates.cost !== undefined ? updates.cost : currentPosition.cost,
-          type: updates.type !== undefined ? updates.type : currentPosition.type,
-          priceTarget2R: updates.priceTarget2R !== undefined ? updates.priceTarget2R : currentPosition.priceTarget2R,
-          priceTarget2RShares: updates.priceTarget2RShares !== undefined ? updates.priceTarget2RShares : currentPosition.priceTarget2RShares,
-          priceTarget5R: updates.priceTarget5R !== undefined ? updates.priceTarget5R : currentPosition.priceTarget5R,
-          priceTarget5RShares: updates.priceTarget5RShares !== undefined ? updates.priceTarget5RShares : currentPosition.priceTarget5RShares,
-          priceTarget21Day: updates.priceTarget21Day !== undefined ? updates.priceTarget21Day : currentPosition.priceTarget21Day,
-          quantity: updates.quantity !== undefined ? updates.quantity : currentPosition.quantity,
-        };
-        const realizedGain = calculateRealizedGainForPosition(updatedPosition);
-        supabaseUpdates.realized_gain = realizedGain;
-      }
-
-      // Recalculate % Portfolio if cost, quantity, or portfolio value changes
-      if (updates.cost !== undefined || updates.quantity !== undefined) {
-        const cost = updates.cost !== undefined ? updates.cost : currentPosition.cost;
-        const quantity = updates.quantity !== undefined ? updates.quantity : currentPosition.quantity;
-        const pt1Shares = updates.priceTarget2RShares !== undefined ? updates.priceTarget2RShares : currentPosition.priceTarget2RShares;
-        const pt2Shares = updates.priceTarget5RShares !== undefined ? updates.priceTarget5RShares : currentPosition.priceTarget5RShares;
-        const remainingShares = quantity - pt1Shares - pt2Shares;
-        const equity = cost * remainingShares; // Calculate equity based on remaining shares
-        const portfolioPercent = portfolio && portfolio.portfolio_value > 0 ? (equity / portfolio.portfolio_value) * 100 : 0;
-        supabaseUpdates.percent_of_portfolio = portfolioPercent;
-        supabaseUpdates.equity = equity;
-      }
-
-      // Recalculate days_in_trade if dates changed
-      if (updates.openDate !== undefined || updates.closedDate !== undefined) {
-        const openDate = updates.openDate || currentPosition.openDate;
-        const endDate = updates.closedDate || new Date();
-        const diffTime = Math.abs(endDate.getTime() - openDate.getTime());
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        supabaseUpdates.days_in_trade = diffDays;
-      }
-
-      const { data, error } = await supabase
-        .from('tblPortfolioPositions')
-        .update(supabaseUpdates)
-        .eq('portfolio_key', portfolioKey)
-        .eq('trade_key', tradeKey)
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      const updatedPosition = mapSupabaseToPosition(data);
-      setPositions(prev => prev.map(p => p.id === positionId ? updatedPosition : p));
-    } catch (err) {
-      console.error('Error updating position:', err);
-      throw err;
+    const currentPosition = positions.find((p) => p.id === positionId);
+    if (!currentPosition) {
+      throw new Error('Position not found');
     }
+
+    const [portfolioKeyStr, tradeKeyStr] = positionId.split('-');
+    const portfolioKey = parseInt(portfolioKeyStr, 10);
+    const tradeKey = parseInt(tradeKeyStr, 10);
+
+    const supabaseUpdates: Partial<SupabasePortfolioPosition> = {};
+
+    if (updates.symbol !== undefined) supabaseUpdates.symbol = updates.symbol;
+    if (updates.cost !== undefined) supabaseUpdates.cost = updates.cost;
+    if (updates.quantity !== undefined) supabaseUpdates.quantity = updates.quantity;
+    if (updates.netCost !== undefined) supabaseUpdates.net_cost = updates.netCost;
+    if (updates.stopLoss !== undefined) {
+      const cost = updates.cost !== undefined ? updates.cost : currentPosition.cost;
+      supabaseUpdates.open_risk = calculateOpenRiskPercentage(cost, updates.stopLoss);
+    }
+    if (updates.type !== undefined) supabaseUpdates.type = updates.type;
+    if (updates.openDate !== undefined) supabaseUpdates.open_date = formatDateForDb(updates.openDate);
+    if (updates.closedDate !== undefined) {
+      supabaseUpdates.close_date = updates.closedDate ? formatDateForDb(updates.closedDate) : null;
+    }
+    if (updates.initialStopLoss !== undefined) {
+      supabaseUpdates.initial_stop_loss = updates.initialStopLoss;
+    }
+
+    if (updates.cost !== undefined || updates.quantity !== undefined) {
+      const cost = updates.cost ?? currentPosition.cost;
+      const quantity = updates.quantity ?? currentPosition.quantity;
+      const filledShares = currentPosition.exits
+        .filter((e) => e.exitDate !== null)
+        .reduce((sum, e) => sum + e.shares, 0);
+      const remaining = quantity - filledShares;
+      const equity = cost * remaining;
+      const portfolioValue = portfolio.portfolio_value || 0;
+      supabaseUpdates.equity = equity;
+      supabaseUpdates.percent_of_portfolio = portfolioValue > 0 ? (equity / portfolioValue) * 100 : 0;
+    }
+
+    if (updates.openDate !== undefined || updates.closedDate !== undefined) {
+      const openDate = updates.openDate || currentPosition.openDate;
+      const endDate = updates.closedDate || new Date();
+      const diffTime = Math.abs(endDate.getTime() - openDate.getTime());
+      supabaseUpdates.days_in_trade = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    }
+
+    if (Object.keys(supabaseUpdates).length === 0) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from('tblPortfolioPositions')
+      .update(supabaseUpdates)
+      .eq('portfolio_key', portfolioKey)
+      .eq('trade_key', tradeKey);
+
+    if (error) throw error;
+
+    await fetchPositionsForPortfolio(portfolioKey);
   };
 
   // Delete a position
@@ -528,7 +692,7 @@ export function usePortfolio() {
       const [portfolioKeyStr, tradeKeyStr] = positionId.split('-');
       const portfolioKey = parseInt(portfolioKeyStr, 10);
       const tradeKey = parseInt(tradeKeyStr, 10);
-      
+
       const { error } = await supabase
         .from('tblPortfolioPositions')
         .delete()
@@ -575,8 +739,11 @@ export function usePortfolio() {
       // Recalculate percent_of_portfolio for all positions
       if (value > 0) {
         const updateRequests = positions.map((position) => {
-          const remainingShares = position.quantity - position.priceTarget2RShares - position.priceTarget5RShares;
-          const equity = position.cost * remainingShares; // Calculate equity based on remaining shares
+          const filledShares = position.exits
+            .filter((e) => e.exitDate !== null)
+            .reduce((sum, e) => sum + e.shares, 0);
+          const remaining = position.quantity - filledShares;
+          const equity = position.cost * remaining;
           const portfolioPercent = (equity / value) * 100;
 
           const [portfolioKeyStr, tradeKeyStr] = position.id.split('-');
@@ -614,9 +781,9 @@ export function usePortfolio() {
 
       const { error } = await supabase
         .from('tblPortfolio')
-        .update({ 
+        .update({
           portfolio_name: name,
-          portfolio_value: value 
+          portfolio_value: value
         })
         .eq('portfolio_key', portfolio.portfolio_key);
 
@@ -627,10 +794,10 @@ export function usePortfolio() {
 
       console.log('Portfolio updated successfully');
 
-      setPortfolio(prev => prev ? { 
-        ...prev, 
+      setPortfolio(prev => prev ? {
+        ...prev,
         portfolio_name: name,
-        portfolio_value: value 
+        portfolio_value: value
       } : null);
       setPortfolios(prev => prev.map(item => {
         if (normalizePortfolioKey(item.portfolio_key) === currentKey) {
@@ -680,7 +847,7 @@ export function usePortfolio() {
 
       // Add to portfolios list and select it
       setPortfolios(prev => [...prev, normalizedCreated]);
-      
+
       // Switch to the newly created portfolio
       await selectPortfolio(normalizePortfolioKey(normalizedCreated.portfolio_key));
 
@@ -691,8 +858,48 @@ export function usePortfolio() {
     }
   };
 
+  // Delete a portfolio
+  const deletePortfolio = async (portfolioKey: number) => {
+    if (!user) {
+      throw new Error('No user found');
+    }
+
+    try {
+      const normalizedKey = normalizePortfolioKey(portfolioKey);
+
+      const { error } = await supabase
+        .from('tblPortfolio')
+        .delete()
+        .eq('portfolio_key', normalizedKey)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      const remaining = portfolios.filter(
+        (p) => normalizePortfolioKey(p.portfolio_key) !== normalizedKey
+      );
+      setPortfolios(remaining);
+
+      if (selectedPortfolioKey === normalizedKey) {
+        if (remaining.length > 0) {
+          await selectPortfolio(normalizePortfolioKey(remaining[0].portfolio_key));
+        } else {
+          setPortfolio(null);
+          setSelectedPortfolioKey(null);
+          setPositions([]);
+        }
+      }
+    } catch (err) {
+      console.error('Error deleting portfolio:', err);
+      throw err;
+    }
+  };
+
+  // Add a new portfolio (alias for createPortfolio to match return shape)
+  const addPortfolio = createPortfolio;
+
   // Fetch portfolio on mount (wait for preferences to load)
-  // Note: We intentionally don't include defaultPortfolioKey in deps 
+  // Note: We intentionally don't include defaultPortfolioKey in deps
   // to prevent re-fetching when user sets a new default
   useEffect(() => {
     if (!prefsLoading) {
@@ -704,8 +911,8 @@ export function usePortfolio() {
   // Set a portfolio as the default
   const setPortfolioAsDefault = async (portfolioKey: number | null) => {
     try {
-      const portfolioName = portfolioKey 
-        ? portfolios.find(p => normalizePortfolioKey(p.portfolio_key) === portfolioKey)?.portfolio_name 
+      const portfolioName = portfolioKey
+        ? portfolios.find(p => normalizePortfolioKey(p.portfolio_key) === portfolioKey)?.portfolio_name
         : undefined;
       await setDefaultPortfolio(portfolioKey, portfolioName);
     } catch (err) {
@@ -731,6 +938,9 @@ export function usePortfolio() {
     updatePortfolio,
     createPortfolio,
     setPortfolioAsDefault,
+    addExit,
+    updateExit,
+    deleteExit,
     refetch: fetchPortfolio,
   };
 }

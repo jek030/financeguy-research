@@ -13,7 +13,17 @@
       "Bash(git commit -m ' *)",
       "Bash(git commit *)",
       "Bash(npx tsc *)",
-      "Bash(node_modules/.bin/tsc --noEmit)"
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(bash *)",
+      "Bash(supabase --version)",
+      "PowerShell(Get-Command *)",
+      "Bash(git checkout *)",
+      "Bash(npx supabase *)",
+      "Bash(echo \"exit code: $?\")",
+      "Read(//tmp/**)",
+      "Bash(git *)",
+      "Bash(awk '/^  return \\\\{/,/^  \\\\};/')",
+      "Bash(curl *)"
     ]
   }
 }

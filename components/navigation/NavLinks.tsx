@@ -36,8 +36,8 @@ const mainLinks = [
     icon: EyeIcon,
   },
   {
-    name: 'Market Scans',
-    href: '/scans',
+    name: 'Screener',
+    href: '/screener',
     icon: MapIcon,
   },
   {

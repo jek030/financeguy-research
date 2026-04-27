@@ -50,16 +50,21 @@ export interface SupabasePortfolioPosition {
   initial_stop_loss: number;
   open_risk: number;
   open_heat: number;
-  price_target_1: number;
-  price_target_1_quantity: number;
-  price_target_2: number;
-  price_target_2_quantity: number;
-  price_target_3: number;
-  remaining_shares: number;
   realized_gain: number;
   open_date: string;
   close_date: string | null;
   days_in_trade: number;
+}
+
+export interface SupabasePositionExit {
+  id: string;
+  position_id: number | string;
+  price: number;
+  shares: number;
+  exit_date: string | null;
+  notes: string | null;
+  sort_order: number;
+  created_at: string;
 }
 
 export type TableSettings = Record<string, { hiddenColumns: string[]; columnOrder?: string[] }>;

@@ -32,12 +32,13 @@ import {
 } from 'recharts';
 import { format, differenceInCalendarDays } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { PercentageChange } from '@/components/ui/PriceIndicator';
 import { quoteQueryOptions, useQuote } from '@/hooks/FMP/useQuote';
 import { usePortfolio, type StockPosition } from '@/hooks/usePortfolio';
 import { BacktestTab } from '@/components/ui/BacktestTab';
 import { useAuth } from '@/lib/context/auth-context';
-import { calculateRPriceTargets } from '@/utils/portfolioCalculations';
+import { getRemainingShares, getRealizedGain, isFullyClosed } from '@/utils/portfolioCalculations';
+import { ExitsCell } from '@/components/portfolio/ExitsCell';
+import { EditPositionModal } from '@/components/portfolio/EditPositionModal';
 import Link from 'next/link';
 import type { TableColumnDef } from '@/lib/table-types';
 
@@ -209,11 +210,7 @@ const PORTFOLIO_COLUMNS: TableColumnDef[] = [
   { id: 'stopLoss', label: 'Stop Loss' },
   { id: 'openRisk', label: 'Open Risk %', tooltip: '% change from cost to stop loss' },
   { id: 'openHeat', label: 'Open Heat %', tooltip: '% of portfolio risked if stop loss is hit' },
-  { id: 'priceTarget2R', label: 'PT 1', tooltip: '2R Price Target' },
-  { id: 'priceTarget2RShares', label: 'PT 1 #', tooltip: 'Shares sold at PT 1' },
-  { id: 'priceTarget5R', label: 'PT 2', tooltip: '5R Price Target' },
-  { id: 'priceTarget5RShares', label: 'PT 2 #', tooltip: 'Shares sold at PT 2' },
-  { id: 'priceTarget21Day', label: '21 Day Trail' },
+  { id: 'exits', label: 'Exits', tooltip: 'Click to expand exit rows' },
   { id: 'openDate', label: 'Open Date' },
   { id: 'closedDate', label: 'Closed Date' },
   { id: 'daysInTrade', label: 'Days' },
@@ -434,36 +431,7 @@ const roundToTwoDecimals = (value: number) => Math.round(value * 100) / 100;
 
 // Helper function to calculate realized gain for a position
 const calculateRealizedGainForPosition = (position: StockPosition): number => {
-  let positionGain = 0;
-
-  // PT1 trim gain
-  if (position.priceTarget2RShares > 0 && position.priceTarget2R > 0) {
-    // For short positions: gain = (entry - exit) * shares (positive when exit < entry)
-    // For long positions: gain = (exit - entry) * shares (positive when exit > entry)
-    const pt1Gain = position.type === 'Long'
-      ? (position.priceTarget2R - position.cost) * position.priceTarget2RShares
-      : (position.cost - position.priceTarget2R) * position.priceTarget2RShares;
-    positionGain += pt1Gain;
-  }
-
-  // PT2 trim gain
-  if (position.priceTarget5RShares > 0 && position.priceTarget5R > 0) {
-    const pt2Gain = position.type === 'Long'
-      ? (position.priceTarget5R - position.cost) * position.priceTarget5RShares
-      : (position.cost - position.priceTarget5R) * position.priceTarget5RShares;
-    positionGain += pt2Gain;
-  }
-
-  // Final exit gain (21 Day Trail or remaining shares)
-  if (position.priceTarget21Day > 0) {
-    const remainingShares = position.quantity - position.priceTarget2RShares - position.priceTarget5RShares;
-    const finalGain = position.type === 'Long'
-      ? (position.priceTarget21Day - position.cost) * remainingShares
-      : (position.cost - position.priceTarget21Day) * remainingShares;
-    positionGain += finalGain;
-  }
-
-  return positionGain;
+  return getRealizedGain(position);
 };
 
 const calculateInitialRiskForPosition = (position: StockPosition): number => {
@@ -475,12 +443,13 @@ const calculateInitialRiskForPosition = (position: StockPosition): number => {
 
 const calculateProjectedGainForPosition = (position: StockPosition, currentPrice?: number): number => {
   const realizedGain = calculateRealizedGainForPosition(position);
-  if (isPositionFullyClosed(position) || position.remainingShares <= 0) {
+  const remaining = getRemainingShares(position);
+  if (isPositionFullyClosed(position) || remaining <= 0) {
     return realizedGain;
   }
 
   const markPrice = typeof currentPrice === 'number' ? currentPrice : position.cost;
-  const unrealizedGain = calculateGainLoss(markPrice, position.cost, position.remainingShares, position.type);
+  const unrealizedGain = calculateGainLoss(markPrice, position.cost, remaining, position.type);
   return realizedGain + unrealizedGain;
 };
 
@@ -498,11 +467,7 @@ const calculateDisplayedRMultipleForPosition = (position: StockPosition, current
 };
 
 const isPositionFullyClosed = (position: StockPosition) => {
-  return (
-    position.priceTarget21Day > 0 ||
-    position.remainingShares <= 0 ||
-    Boolean(position.closedDate && (position.priceTarget2RShares > 0 || position.priceTarget5RShares > 0))
-  );
+  return Boolean(position.closedDate) || isFullyClosed(position);
 };
 
 // Component to fetch and display current price
@@ -612,10 +577,10 @@ function SummaryGainLossCell({
   }
 
   const gainLoss = positions.reduce(
-    (sum, position) => sum + calculateGainLoss(quote.price, position.cost, position.remainingShares, position.type),
+    (sum, position) => sum + calculateGainLoss(quote.price, position.cost, getRemainingShares(position), position.type),
     0,
   );
-  const totalCostBasis = positions.reduce((sum, position) => sum + (position.cost * position.remainingShares), 0);
+  const totalCostBasis = positions.reduce((sum, position) => sum + (position.cost * getRemainingShares(position)), 0);
   const gainLossPercent = totalCostBasis > 0 ? (gainLoss / totalCostBasis) * 100 : 0;
 
   return (
@@ -711,14 +676,14 @@ function MetricCard({
 // Clamped at 0 — unfavorable-to-stop placement cannot yield negative “risk”.
 function calculateTotalOpenRisk(positions: StockPosition[]): number {
   const raw = positions
-    .filter((pos) => !pos.closedDate && pos.remainingShares > 0)
+    .filter((pos) => !pos.closedDate && getRemainingShares(pos) > 0)
     .reduce((total, pos) => {
       if (!hasConfiguredStopLoss(pos.cost, pos.stopLoss)) {
         return total;
       }
       const perShare =
         pos.type === 'Short' ? pos.stopLoss - pos.cost : pos.cost - pos.stopLoss;
-      return total + perShare * pos.remainingShares;
+      return total + perShare * getRemainingShares(pos);
     }, 0);
   return Math.max(0, raw);
 }
@@ -994,7 +959,7 @@ function PortfolioHero({
   const totalOpenRisk = useMemo(() => calculateTotalOpenRisk(positions), [positions]);
   const riskPercent = portfolioValue > 0 ? (totalOpenRisk / portfolioValue) * 100 : 0;
   const openPositionsForPnl = useMemo(
-    () => positions.filter((position) => !isPositionFullyClosed(position) && position.remainingShares > 0),
+    () => positions.filter((position) => !isPositionFullyClosed(position) && getRemainingShares(position) > 0),
     [positions],
   );
   const pnlQuoteQueries = useQueries({
@@ -1008,7 +973,7 @@ function PortfolioHero({
       if (typeof currentPrice !== 'number') {
         return total;
       }
-      return total + calculateGainLoss(currentPrice, position.cost, position.remainingShares, position.type);
+      return total + calculateGainLoss(currentPrice, position.cost, getRemainingShares(position), position.type);
     }, 0);
   }, [openPositionsForPnl, pnlQuoteQueries]);
 
@@ -1018,21 +983,12 @@ function PortfolioHero({
       if (typeof currentPrice !== 'number') {
         return total;
       }
-      return total + (currentPrice * position.remainingShares);
+      return total + (currentPrice * getRemainingShares(position));
     }, 0);
   }, [openPositionsForPnl, pnlQuoteQueries]);
 
   const realizedGain = useMemo(() => {
     const total = positions.reduce((sum, position) => {
-      const hasRealizedShares =
-        (position.priceTarget2RShares > 0 && position.priceTarget2R > 0) ||
-        (position.priceTarget5RShares > 0 && position.priceTarget5R > 0) ||
-        position.priceTarget21Day > 0;
-
-      if (!hasRealizedShares) {
-        return sum;
-      }
-
       return sum + calculateRealizedGainForPosition(position);
     }, 0);
 
@@ -2199,7 +2155,7 @@ function SummaryTotalsRow({
   );
 
   const openPositions = useMemo(
-    () => positions.filter((position) => !isPositionFullyClosed(position) && position.remainingShares > 0),
+    () => positions.filter((position) => !isPositionFullyClosed(position) && getRemainingShares(position) > 0),
     [positions],
   );
 
@@ -2228,9 +2184,10 @@ function SummaryTotalsRow({
       const position = openPositions[index];
       const currentPrice = quoteQueries[index]?.data?.price;
       const markPrice = typeof currentPrice === 'number' ? currentPrice : position.cost;
+      const remaining = getRemainingShares(position);
 
-      equity += markPrice * position.remainingShares;
-      gainLoss += calculateGainLoss(markPrice, position.cost, position.remainingShares, position.type);
+      equity += markPrice * remaining;
+      gainLoss += calculateGainLoss(markPrice, position.cost, remaining, position.type);
       const projectedGain = calculateProjectedGainForPosition(position, markPrice);
       portfolioGainDollar += projectedGain;
       totalDisplayedGain += projectedGain;
@@ -2261,7 +2218,7 @@ function SummaryTotalsRow({
           return <TableCell key={col.id} className={baseClass}>{summaryTotals.quantity}</TableCell>;
         }
         if (col.id === 'remainingShares') {
-          return <TableCell key={col.id} className={cn(baseClass, "text-center")}>{summaryTotals.remainingShares}</TableCell>;
+          return <TableCell key={col.id} className={cn(baseClass, "text-center")}>{summaryTotals.remainingShares ?? 0}</TableCell>;
         }
         if (col.id === 'netCost') {
           return <TableCell key={col.id} className={cn(baseClass, "font-medium")}>{formatCurrency(summaryTotals.netCost)}</TableCell>;
@@ -2388,7 +2345,7 @@ function PortfolioGainCell({
   portfolioValue: number;
 }) {
   const { data: quote, isLoading } = useQuote(symbol);
-  const isOpen = positions.some((position) => !isPositionFullyClosed(position) && position.remainingShares > 0);
+  const isOpen = positions.some((position) => !isPositionFullyClosed(position) && getRemainingShares(position) > 0);
 
   const totalGain = useMemo(() => {
     return positions.reduce((sum, position) => {
@@ -2421,7 +2378,7 @@ function RMultipleCell({
   positions: StockPosition[];
 }) {
   const { data: quote, isLoading } = useQuote(symbol);
-  const isOpen = positions.some((position) => !isPositionFullyClosed(position) && position.remainingShares > 0);
+  const isOpen = positions.some((position) => !isPositionFullyClosed(position) && getRemainingShares(position) > 0);
 
   const rValue = useMemo(() => {
     const totalInitialRisk = positions.reduce((sum, position) => sum + calculateInitialRiskForPosition(position), 0);
@@ -2448,542 +2405,6 @@ function RMultipleCell({
   );
 }
 
-// Edit Position Modal Component
-function EditPositionModal({
-  position,
-  isOpen,
-  onClose,
-  onSave,
-  calculateRPriceTargets,
-}: {
-  position: StockPosition | null;
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (updates: Partial<StockPosition>) => Promise<void>;
-  calculateRPriceTargets: (cost: number, stopLoss: number, type: 'Long' | 'Short') => { priceTarget2R: number; priceTarget5R: number };
-}) {
-  const [editSymbol, setEditSymbol] = useState<string>('');
-  const [editCost, setEditCost] = useState<string>('');
-  const [editQuantity, setEditQuantity] = useState<string>('');
-  const [editStopLoss, setEditStopLoss] = useState<string>('');
-  const [editType, setEditType] = useState<'Long' | 'Short'>('Long');
-  const [editOpenDate, setEditOpenDate] = useState<Date>(new Date());
-  const [editClosedDate, setEditClosedDate] = useState<Date | undefined>(undefined);
-  const [editPriceTarget2R, setEditPriceTarget2R] = useState<string>('');
-  const [editPriceTarget2RShares, setEditPriceTarget2RShares] = useState<string>('');
-  const [editPriceTarget5R, setEditPriceTarget5R] = useState<string>('');
-  const [editPriceTarget5RShares, setEditPriceTarget5RShares] = useState<string>('');
-  const [editPriceTarget21Day, setEditPriceTarget21Day] = useState<string>('');
-
-  // Initialize form values when position changes
-  useEffect(() => {
-    if (position) {
-      setEditSymbol(position.symbol);
-      setEditCost(position.cost.toString());
-      setEditQuantity(position.quantity.toString());
-      setEditStopLoss(position.stopLoss.toString());
-      setEditType(position.type);
-      setEditOpenDate(position.openDate);
-      setEditClosedDate(position.closedDate || undefined);
-      setEditPriceTarget2R(position.priceTarget2R.toString());
-      setEditPriceTarget2RShares(position.priceTarget2RShares.toString());
-      setEditPriceTarget5R(position.priceTarget5R.toString());
-      setEditPriceTarget5RShares(position.priceTarget5RShares.toString());
-      setEditPriceTarget21Day(position.priceTarget21Day.toString());
-    }
-  }, [position]);
-
-  const handleSave = async () => {
-    if (!position || !editSymbol.trim() || !editCost.trim() || !editQuantity.trim()) {
-      return;
-    }
-
-    const costValue = parseFloat(editCost);
-    const quantityValue = parseFloat(editQuantity);
-    const netCost = costValue * quantityValue;
-    const stopLossValue = parseFloat(editStopLoss) || position.stopLoss;
-    
-    const priceTarget2RValue = parseFloat(editPriceTarget2R) || 0;
-    const priceTarget2RSharesValue = parseFloat(editPriceTarget2RShares) || 0;
-    const priceTarget5RValue = parseFloat(editPriceTarget5R) || 0;
-    const priceTarget5RSharesValue = parseFloat(editPriceTarget5RShares) || 0;
-    const priceTarget21DayValue = parseFloat(editPriceTarget21Day) || 0;
-
-    const updates: Partial<StockPosition> = {
-      symbol: editSymbol.trim().toUpperCase(),
-      cost: costValue,
-      quantity: quantityValue,
-      netCost: netCost,
-      stopLoss: stopLossValue,
-      type: editType,
-      openDate: editOpenDate,
-      closedDate: editClosedDate || null,
-      priceTarget2R: priceTarget2RValue,
-      priceTarget2RShares: priceTarget2RSharesValue,
-      priceTarget5R: priceTarget5RValue,
-      priceTarget5RShares: priceTarget5RSharesValue,
-      priceTarget21Day: priceTarget21DayValue,
-    };
-
-    try {
-      await onSave(updates);
-      onClose();
-    } catch (error) {
-      console.error('Failed to update position:', error);
-    }
-  };
-
-  const handleTypeChange = (value: 'Long' | 'Short') => {
-    setEditType(value);
-    if (position) {
-      const costValue = parseFloat(editCost) || position.cost;
-      const rTargets = calculateRPriceTargets(costValue, position.initialStopLoss, value);
-      setEditPriceTarget2R(rTargets.priceTarget2R.toString());
-      setEditPriceTarget5R(rTargets.priceTarget5R.toString());
-    }
-  };
-
-  const handleCostChange = (value: string) => {
-    const numericValue = value.replace(/[^0-9.]/g, '');
-    const parts = numericValue.split('.');
-    const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : numericValue;
-    setEditCost(formattedValue);
-    
-    if (position && formattedValue) {
-      const costValue = parseFloat(formattedValue);
-      if (!isNaN(costValue)) {
-        const rTargets = calculateRPriceTargets(costValue, position.initialStopLoss, editType);
-        setEditPriceTarget2R(rTargets.priceTarget2R.toFixed(2));
-        setEditPriceTarget5R(rTargets.priceTarget5R.toFixed(2));
-      }
-    }
-  };
-
-  const remainingShares = parseFloat(editQuantity) - parseFloat(editPriceTarget2RShares) - parseFloat(editPriceTarget5RShares);
-  const netCostValue = parseFloat(editCost) * parseFloat(editQuantity);
-  const editPosition = position ? {
-    ...position,
-    symbol: editSymbol,
-    cost: parseFloat(editCost) || position.cost,
-    quantity: parseFloat(editQuantity) || position.quantity,
-    type: editType,
-    priceTarget2R: parseFloat(editPriceTarget2R) || 0,
-    priceTarget2RShares: parseFloat(editPriceTarget2RShares) || 0,
-    priceTarget5R: parseFloat(editPriceTarget5R) || 0,
-    priceTarget5RShares: parseFloat(editPriceTarget5RShares) || 0,
-    priceTarget21Day: parseFloat(editPriceTarget21Day) || 0,
-  } as StockPosition : null;
-
-  const realizedGain = editPosition ? calculateRealizedGainForPosition(editPosition) : 0;
-
-  // if (!position) return null;
-
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      if (!open) onClose();
-    }}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Edit Position - {position?.symbol}</DialogTitle>
-          <DialogDescription>
-            Update the position details. Changes will be saved when you click Save.
-          </DialogDescription>
-        </DialogHeader>
-        
-        {position && (
-        <div className="space-y-6 py-4">
-          {/* Position Information */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-foreground border-b pb-2">Position Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Symbol</label>
-                <Input
-                  value={editSymbol}
-                  disabled
-                  className="bg-muted cursor-not-allowed font-semibold"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Type</label>
-                <Select value={editType} onValueChange={handleTypeChange}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Long">Long</SelectItem>
-                    <SelectItem value="Short">Short</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Open Date</label>
-                <Popover modal={true}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal">
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {format(editOpenDate, "MM/dd/yyyy")}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 z-[60]" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={editOpenDate}
-                      onSelect={(date) => date && setEditOpenDate(date)}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Closed Date</label>
-                <Popover modal={true}>
-                  <PopoverTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !editClosedDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {editClosedDate ? format(editClosedDate, "MM/dd/yyyy") : "Select date..."}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 z-[60]" align="start">
-                    <div className="p-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full mb-2"
-                        onClick={() => {
-                          setEditClosedDate(undefined);
-                        }}
-                      >
-                        Clear Date
-                      </Button>
-                    </div>
-                    <Calendar
-                      mode="single"
-                      selected={editClosedDate}
-                      onSelect={(date) => {
-                        setEditClosedDate(date);
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-          </div>
-
-          {/* Entry Details */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-foreground border-b pb-2">Entry Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Cost (Entry Price)</label>
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  value={editCost}
-                  onChange={(e) => handleCostChange(e.target.value)}
-                  onBlur={(e) => {
-                    const numValue = parseFloat(e.target.value);
-                    if (!isNaN(numValue)) {
-                      setEditCost(numValue.toString());
-                    }
-                  }}
-                  placeholder="0.00"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Quantity (Shares)</label>
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  value={editQuantity}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9.]/g, '');
-                    const parts = value.split('.');
-                    const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
-                    setEditQuantity(formattedValue);
-                  }}
-                  onBlur={(e) => {
-                    const numValue = parseFloat(e.target.value);
-                    if (!isNaN(numValue)) {
-                      setEditQuantity(numValue.toString());
-                    }
-                  }}
-                  placeholder="0.00"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Stop Loss (Current)</label>
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  value={editStopLoss}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9.]/g, '');
-                    const parts = value.split('.');
-                    const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
-                    setEditStopLoss(formattedValue);
-                  }}
-                  onBlur={(e) => {
-                    const numValue = parseFloat(e.target.value);
-                    if (!isNaN(numValue)) {
-                      setEditStopLoss(numValue.toString());
-                    }
-                  }}
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Calculated Values */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-foreground border-b pb-2">Calculated Values</h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Net Cost</label>
-                <Input
-                  value={formatCurrency(netCostValue)}
-                  disabled
-                  className="bg-muted/50 border-muted"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Remaining Shares</label>
-                <Input
-                  value={remainingShares >= 0 ? remainingShares.toString() : '0'}
-                  disabled
-                  className="bg-muted/50 border-muted"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Days in Trade</label>
-                <Input
-                  value={`${calculateDaysInTrade(editOpenDate, editClosedDate)} days`}
-                  disabled
-                  className="bg-muted/50 border-muted"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Initial Stop Loss</label>
-                <Input
-                  value={formatCurrency(position.initialStopLoss)}
-                  disabled
-                  className="bg-muted/50 border-muted"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Realized Gain</label>
-                <Input
-                  value={formatCurrency(realizedGain)}
-                  disabled
-                  className={cn(
-                    "bg-muted/50 border-muted font-semibold",
-                    realizedGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                  )}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Price Targets */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-foreground border-b pb-2">Price Targets & Exit Strategy</h3>
-            
-            {/* PT 1 */}
-            <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
-              <h4 className="text-sm font-medium text-foreground">Price Target 1 (2R)</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">PT 1 Price</label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      value={editPriceTarget2R}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/[^0-9.]/g, '');
-                        const parts = value.split('.');
-                        const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
-                        setEditPriceTarget2R(formattedValue);
-                      }}
-                      onBlur={(e) => {
-                        const numValue = parseFloat(e.target.value);
-                        if (!isNaN(numValue)) {
-                          setEditPriceTarget2R(numValue.toString());
-                        }
-                      }}
-                      placeholder="0.00"
-                    />
-                    {parseFloat(editPriceTarget2R) > 0 && (
-                      <PercentageChange 
-                        value={calculatePercentageChange(parseFloat(editPriceTarget2R), parseFloat(editCost) || position.cost)} 
-                        size="sm"
-                      />
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Shares Sold at PT 1</label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={editPriceTarget2RShares}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9.]/g, '');
-                      const parts = value.split('.');
-                      const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
-                      setEditPriceTarget2RShares(formattedValue);
-                    }}
-                    onBlur={(e) => {
-                      const numValue = parseFloat(e.target.value);
-                      if (!isNaN(numValue)) {
-                        setEditPriceTarget2RShares(numValue.toString());
-                      } else {
-                        setEditPriceTarget2RShares('0');
-                      }
-                    }}
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* PT 2 */}
-            <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
-              <h4 className="text-sm font-medium text-foreground">Price Target 2 (5R)</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">PT 2 Price</label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      value={editPriceTarget5R}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/[^0-9.]/g, '');
-                        const parts = value.split('.');
-                        const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
-                        setEditPriceTarget5R(formattedValue);
-                      }}
-                      onBlur={(e) => {
-                        const numValue = parseFloat(e.target.value);
-                        if (!isNaN(numValue)) {
-                          setEditPriceTarget5R(numValue.toString());
-                        }
-                      }}
-                      placeholder="0.00"
-                    />
-                    {parseFloat(editPriceTarget5R) > 0 && (
-                      <PercentageChange 
-                        value={calculatePercentageChange(parseFloat(editPriceTarget5R), parseFloat(editCost) || position.cost)} 
-                        size="sm"
-                      />
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Shares Sold at PT 2</label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={editPriceTarget5RShares}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9.]/g, '');
-                      const parts = value.split('.');
-                      const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
-                      setEditPriceTarget5RShares(formattedValue);
-                    }}
-                    onBlur={(e) => {
-                      const numValue = parseFloat(e.target.value);
-                      if (!isNaN(numValue)) {
-                        setEditPriceTarget5RShares(numValue.toString());
-                      } else {
-                        setEditPriceTarget5RShares('0');
-                      }
-                    }}
-                    placeholder="0.00"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* 21 Day Trail */}
-            <div className="space-y-3 p-4 bg-muted/30 rounded-lg">
-              <h4 className="text-sm font-medium text-foreground">21 Day Trailing Stop Exit</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Final Exit Price</label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="text"
-                      inputMode="decimal"
-                      value={editPriceTarget21Day}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/[^0-9.]/g, '');
-                        const parts = value.split('.');
-                        const formattedValue = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : value;
-                        setEditPriceTarget21Day(formattedValue);
-                      }}
-                      onBlur={(e) => {
-                        const numValue = parseFloat(e.target.value);
-                        if (!isNaN(numValue)) {
-                          setEditPriceTarget21Day(numValue.toString());
-                        }
-                      }}
-                      placeholder="0.00"
-                    />
-                    {parseFloat(editPriceTarget21Day) > 0 && (
-                      <PercentageChange 
-                        value={calculatePercentageChange(parseFloat(editPriceTarget21Day), parseFloat(editCost) || position.cost)} 
-                        size="sm"
-                      />
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-end">
-                  <p className="text-xs text-muted-foreground pb-2">
-                    Exit price for remaining shares after PT1 and PT2
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        )}
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave}>
-            Save Changes
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export default function Portfolio() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const {
@@ -3001,6 +2422,9 @@ export default function Portfolio() {
     updatePortfolio,
     createPortfolio,
     setPortfolioAsDefault,
+    addExit,
+    updateExit,
+    deleteExit,
   } = usePortfolio();
 
   const [portfolioValue, setPortfolioValue] = useState<string>('');
@@ -3109,26 +2533,16 @@ export default function Portfolio() {
     }
     const netCost = costValue * quantityValue;
 
-    // Calculate R-based price targets
-    const rTargets = calculateRPriceTargets(costValue, stopLossValue, type);
-
-    const newPosition: Omit<StockPosition, 'id'> = {
+    const newPosition: Omit<StockPosition, 'id' | 'exits' | 'realizedGain'> = {
       symbol: symbol.trim().toUpperCase(),
       cost: costValue,
       quantity: quantityValue,
       netCost: netCost,
       initialStopLoss: stopLossValue,
-      stopLoss: stopLossValue, // Initialize stopLoss to same value as initialStopLoss
+      stopLoss: stopLossValue,
       type: type,
       openDate: openDate,
-      closedDate: null, // Initialize as null (position is open)
-      priceTarget2R: rTargets.priceTarget2R,
-      priceTarget2RShares: 0, // Initialize to 0
-      priceTarget5R: rTargets.priceTarget5R,
-      priceTarget5RShares: 0, // Initialize to 0
-      priceTarget21Day: 0,
-      remainingShares: quantityValue, // Initialize to full quantity (no shares trimmed yet)
-      realizedGain: 0, // Initialize to 0 (no realized shares yet)
+      closedDate: null,
     };
 
     try {
@@ -3162,21 +2576,6 @@ export default function Portfolio() {
     console.log('Opening edit modal for:', position.symbol);
     setEditingPosition(position);
     setShowEditModal(true);
-  };
-
-  const handleSaveEdit = async (updates: Partial<StockPosition>) => {
-    if (!editingPosition) {
-      return;
-    }
-
-    try {
-      await updatePosition(editingPosition.id, updates);
-      setEditingPosition(null);
-      setShowEditModal(false);
-    } catch (error) {
-      console.error('Failed to update position:', error);
-      throw error; // Re-throw so modal can handle it
-    }
   };
 
   const handleCancelEdit = () => {
@@ -3341,20 +2740,20 @@ export default function Portfolio() {
           bValue = b.quantity;
           break;
         case 'remainingShares':
-          aValue = a.remainingShares;
-          bValue = b.remainingShares;
+          aValue = getRemainingShares(a);
+          bValue = getRemainingShares(b);
           break;
         case 'netCost':
           aValue = a.netCost;
           bValue = b.netCost;
           break;
         case 'equity':
-          aValue = (a.currentPrice || a.cost) * a.remainingShares;
-          bValue = (b.currentPrice || b.cost) * b.remainingShares;
+          aValue = (a.currentPrice || a.cost) * getRemainingShares(a);
+          bValue = (b.currentPrice || b.cost) * getRemainingShares(b);
           break;
         case 'gainLoss':
-          aValue = calculateGainLoss(a.currentPrice || a.cost, a.cost, a.remainingShares, a.type);
-          bValue = calculateGainLoss(b.currentPrice || b.cost, b.cost, b.remainingShares, b.type);
+          aValue = calculateGainLoss(a.currentPrice || a.cost, a.cost, getRemainingShares(a), a.type);
+          bValue = calculateGainLoss(b.currentPrice || b.cost, b.cost, getRemainingShares(b), b.type);
           break;
         case 'portfolioGain':
           aValue = currentPortfolioValue > 0
@@ -3373,8 +2772,8 @@ export default function Portfolio() {
           bValue = calculateDisplayedRMultipleForPosition(b, b.currentPrice);
           break;
         case 'portfolioPercent':
-          const aEquity = (a.currentPrice || a.cost) * a.remainingShares;
-          const bEquity = (b.currentPrice || b.cost) * b.remainingShares;
+          const aEquity = (a.currentPrice || a.cost) * getRemainingShares(a);
+          const bEquity = (b.currentPrice || b.cost) * getRemainingShares(b);
           const totalValue = portfolio?.portfolio_value || 1;
           aValue = (aEquity / totalValue) * 100;
           bValue = (bEquity / totalValue) * 100;
@@ -3402,30 +2801,10 @@ export default function Portfolio() {
           const bRisk = hasConfiguredStopLoss(b.cost, b.stopLoss)
             ? ((b.stopLoss - b.cost) / b.cost) * 100
             : 0;
-          const aPortPercent = ((a.currentPrice || a.cost) * a.remainingShares / (portfolio?.portfolio_value || 1)) * 100;
-          const bPortPercent = ((b.currentPrice || b.cost) * b.remainingShares / (portfolio?.portfolio_value || 1)) * 100;
+          const aPortPercent = ((a.currentPrice || a.cost) * getRemainingShares(a) / (portfolio?.portfolio_value || 1)) * 100;
+          const bPortPercent = ((b.currentPrice || b.cost) * getRemainingShares(b) / (portfolio?.portfolio_value || 1)) * 100;
           aValue = (aRisk * aPortPercent) / 100;
           bValue = (bRisk * bPortPercent) / 100;
-          break;
-        case 'priceTarget2R':
-          aValue = a.priceTarget2R;
-          bValue = b.priceTarget2R;
-          break;
-        case 'priceTarget2RShares':
-          aValue = a.priceTarget2RShares;
-          bValue = b.priceTarget2RShares;
-          break;
-        case 'priceTarget5R':
-          aValue = a.priceTarget5R;
-          bValue = b.priceTarget5R;
-          break;
-        case 'priceTarget5RShares':
-          aValue = a.priceTarget5RShares;
-          bValue = b.priceTarget5RShares;
-          break;
-        case 'priceTarget21Day':
-          aValue = a.priceTarget21Day;
-          bValue = b.priceTarget21Day;
           break;
         case 'openDate':
           aValue = a.openDate.getTime();
@@ -3461,7 +2840,7 @@ export default function Portfolio() {
   const closedPositions = useMemo(() => positions.filter(pos => pos.closedDate), [positions]);
 
   const openPositionsForAllocation = useMemo(
-    () => positions.filter((p) => !isPositionFullyClosed(p) && p.remainingShares > 0),
+    () => positions.filter((p) => !isPositionFullyClosed(p) && getRemainingShares(p) > 0),
     [positions],
   );
 
@@ -3512,7 +2891,7 @@ export default function Portfolio() {
       }
 
       const quantity = grouped.reduce((sum, p) => sum + p.quantity, 0);
-      const remainingShares = grouped.reduce((sum, p) => sum + p.remainingShares, 0);
+      const remainingShares = grouped.reduce((sum, p) => sum + getRemainingShares(p), 0);
       const netCost = grouped.reduce((sum, p) => sum + p.netCost, 0);
       const weightedCost = quantity > 0 ? netCost / quantity : 0;
       const realizedGain = grouped.reduce((sum, p) => sum + calculateRealizedGainForPosition(p), 0);
@@ -3544,7 +2923,7 @@ export default function Portfolio() {
 
     displayedPositions.forEach(position => {
       totalQuantity += position.quantity;
-      totalRemainingShares += position.remainingShares;
+      totalRemainingShares += getRemainingShares(position);
       totalNetCost += position.netCost;
       totalRealizedGain += calculateRealizedGainForPosition(position);
     });
@@ -3653,7 +3032,7 @@ export default function Portfolio() {
       const position = openPositionsForAllocation[i];
       const quotePrice = allocationQuoteQueries[i]?.data?.price;
       const markPrice = typeof quotePrice === 'number' ? quotePrice : position.cost;
-      const equity = markPrice * position.remainingShares;
+      const equity = markPrice * getRemainingShares(position);
       if (equity <= 0) {
         continue;
       }
@@ -3959,7 +3338,7 @@ export default function Portfolio() {
                                   <div className="text-center font-medium font-mono">
                                     {isSummaryRow
                                       ? row.remainingShares
-                                      : (position.priceTarget21Day > 0 ? '0' : position.remainingShares)}
+                                      : getRemainingShares(position)}
                                   </div>
                                 </TableCell>
                               );
@@ -3970,7 +3349,7 @@ export default function Portfolio() {
                                 <TableCell key={col.id} className={baseCellClass}>
                                   <EquityCell
                                     symbol={position.symbol}
-                                    quantity={isSummaryRow ? row.remainingShares : (position.priceTarget21Day > 0 ? 0 : position.remainingShares)}
+                                    quantity={isSummaryRow ? row.remainingShares : getRemainingShares(position)}
                                   />
                                 </TableCell>
                               );
@@ -3987,7 +3366,7 @@ export default function Portfolio() {
                                     <GainLossCell
                                       symbol={position.symbol}
                                       cost={position.cost}
-                                      quantity={position.remainingShares}
+                                      quantity={getRemainingShares(position)}
                                       type={position.type}
                                     />
                                   )}
@@ -4025,7 +3404,7 @@ export default function Portfolio() {
                                 <TableCell key={col.id} className={baseCellClass}>
                                   <PortfolioPercentCell
                                     symbol={position.symbol}
-                                    quantity={isSummaryRow ? row.remainingShares : (position.priceTarget21Day > 0 ? 0 : position.remainingShares)}
+                                    quantity={isSummaryRow ? row.remainingShares : getRemainingShares(position)}
                                     portfolioValue={portfolioValueNumber}
                                   />
                                 </TableCell>
@@ -4050,62 +3429,10 @@ export default function Portfolio() {
                                   )}
                                 </TableCell>
                               );
-                            case 'priceTarget2R':
+                            case 'exits':
                               return (
                                 <TableCell key={col.id} className={baseCellClass}>
-                                  {isSummaryRow ? '-' : (
-                                    <div className="flex flex-col gap-0.5">
-                                      <span>{position.priceTarget2R > 0 ? formatCurrency(position.priceTarget2R) : '-'}</span>
-                                      {position.priceTarget2R > 0 && (
-                                        <span className={cn(
-                                          "text-xs font-medium",
-                                          getSignedPercentColorClass(calculatePercentageChange(position.priceTarget2R, position.cost))
-                                        )}>
-                                          {formatSignedPercent(calculatePercentageChange(position.priceTarget2R, position.cost))}
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-                                </TableCell>
-                              );
-                            case 'priceTarget2RShares':
-                              return <TableCell key={col.id} className={baseCellClass}>{isSummaryRow ? '-' : <span className="font-medium">{position.priceTarget2RShares || 0}</span>}</TableCell>;
-                            case 'priceTarget5R':
-                              return (
-                                <TableCell key={col.id} className={baseCellClass}>
-                                  {isSummaryRow ? '-' : (
-                                    <div className="flex flex-col gap-0.5">
-                                      <span>{position.priceTarget5R > 0 ? formatCurrency(position.priceTarget5R) : '-'}</span>
-                                      {position.priceTarget5R > 0 && (
-                                        <span className={cn(
-                                          "text-xs font-medium",
-                                          getSignedPercentColorClass(calculatePercentageChange(position.priceTarget5R, position.cost))
-                                        )}>
-                                          {formatSignedPercent(calculatePercentageChange(position.priceTarget5R, position.cost))}
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-                                </TableCell>
-                              );
-                            case 'priceTarget5RShares':
-                              return <TableCell key={col.id} className={baseCellClass}>{isSummaryRow ? '-' : <span className="font-medium">{position.priceTarget5RShares || 0}</span>}</TableCell>;
-                            case 'priceTarget21Day':
-                              return (
-                                <TableCell key={col.id} className={baseCellClass}>
-                                  {isSummaryRow ? '-' : (
-                                    <div className="flex flex-col gap-0.5">
-                                      <span>{position.priceTarget21Day > 0 ? formatCurrency(position.priceTarget21Day) : '-'}</span>
-                                      {position.priceTarget21Day > 0 && (
-                                        <span className={cn(
-                                          "text-xs font-medium",
-                                          getSignedPercentColorClass(calculatePercentageChange(position.priceTarget21Day, position.cost))
-                                        )}>
-                                          {formatSignedPercent(calculatePercentageChange(position.priceTarget21Day, position.cost))}
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
+                                  {isSummaryRow ? '-' : <ExitsCell position={position} />}
                                 </TableCell>
                               );
                             case 'openDate':
@@ -4466,8 +3793,10 @@ export default function Portfolio() {
         position={editingPosition}
         isOpen={showEditModal}
         onClose={handleCancelEdit}
-        onSave={handleSaveEdit}
-        calculateRPriceTargets={calculateRPriceTargets}
+        onSavePosition={updatePosition}
+        onAddExit={addExit}
+        onUpdateExit={updateExit}
+        onDeleteExit={deleteExit}
       />
 
       {/* Delete Confirmation Dialog */}

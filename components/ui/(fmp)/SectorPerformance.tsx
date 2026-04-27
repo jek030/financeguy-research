@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Button } from "@/components/ui/Button";
 import Link from 'next/link';
 import { ArrowUpDown } from 'lucide-react';
+import { cn } from "@/lib/utils";
 interface SectorPerformance {
   sector: string;
   changesPercentage: string;
@@ -20,7 +21,7 @@ export default function SectorPerformance() {
 
   if (isLoading) {
     return (
-      <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
+      <Card className="border border-border/50 shadow-sm w-full bg-card sm:rounded-lg rounded-none sm:border border-x-0">
         <CardContent className="pt-6 sm:px-6 px-3">
           <div className="text-center text-muted-foreground">Loading sector data...</div>
         </CardContent>
@@ -30,7 +31,7 @@ export default function SectorPerformance() {
 
   if (error) {
     return (
-      <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
+      <Card className="border border-border/50 shadow-sm w-full bg-card sm:rounded-lg rounded-none sm:border border-x-0">
         <CardContent className="pt-6 sm:px-6 px-3">
           <div className="text-destructive">{error?.message}</div>
         </CardContent>
@@ -64,7 +65,7 @@ export default function SectorPerformance() {
   };
   
   return (
-    <Card className="border border-border/50 shadow-sm w-full max-w-6xl mx-auto bg-card sm:rounded-lg rounded-none sm:mx-auto mx-0 sm:border border-x-0">
+    <Card className="border border-border/50 shadow-sm w-full bg-card sm:rounded-lg rounded-none sm:border border-x-0">
       <CardHeader className="pb-2 space-y-2 sm:px-6 px-3 pt-4 sm:pt-6">
         <CardTitle className="text-xl font-semibold">Market Sectors</CardTitle>
         <CardDescription>
@@ -78,39 +79,42 @@ export default function SectorPerformance() {
           <Table className="w-full">
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className="sticky left-0 bg-background">
+                <TableHead className="sticky left-0 bg-background h-7 px-2 text-[11px] sm:text-[11px]">
                   <Button
                     variant="ghost"
                     onClick={() => requestSort('sector')}
-                    className="hover:bg-transparent pl-0 pr-1 text-xs"
+                    className="hover:bg-transparent pl-0 pr-1 text-[11px] h-6"
                   >
                     Sector
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                    <ArrowUpDown className="ml-1 h-3 w-3" />
                   </Button>
                 </TableHead>
-                <TableHead>
+                <TableHead className="h-7 px-2 text-[11px] sm:text-[11px] text-right">
                   <Button
                     variant="ghost"
                     onClick={() => requestSort('changesPercentage')}
-                    className="hover:bg-transparent pl-0 pr-1 text-xs"
+                    className="hover:bg-transparent pl-0 pr-1 text-[11px] h-6"
                   >
                     Performance
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                    <ArrowUpDown className="ml-1 h-3 w-3" />
                   </Button>
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {sortedData.map((item, index) => (
-                <TableRow key={index} className="group">
-                  <TableCell className="sticky left-0 bg-background">
+                <TableRow key={index} className="group hover:bg-muted">
+                  <TableCell className="sticky left-0 bg-background group-hover:bg-muted transition-colors py-1 px-2 text-[11px] sm:text-[11px]">
                     <Link
-                      href={`/scans/sectors/${encodeURIComponent(item.sector)}`}
+                      href={`/screener/sectors/${encodeURIComponent(item.sector)}`}
                       className="hover:underline text-blue-600 dark:text-blue-400">
                         {item.sector}
                     </Link>
                   </TableCell>
-                  <TableCell className={parseFloat(item.changesPercentage) >= 0 ? "text-positive" : "text-negative"}>
+                  <TableCell className={cn(
+                    "py-1 px-2 text-[11px] sm:text-[11px] text-right tabular-nums",
+                    parseFloat(item.changesPercentage) >= 0 ? "text-positive" : "text-negative"
+                  )}>
                     {parseFloat(item.changesPercentage).toFixed(2)}%
                   </TableCell>
                 </TableRow>
