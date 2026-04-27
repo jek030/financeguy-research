@@ -22,7 +22,7 @@ import {
 import { BrokerageTransaction, OPTION_ACTIONS, TRADE_ACTIONS, isOptionAction } from '@/lib/types/transactions';
 import { usePortfolio, StockPosition } from '@/hooks/usePortfolio';
 import { useAuth } from '@/lib/context/auth-context';
-import { calculateRPriceTargets } from '@/utils/portfolioCalculations';
+import { calculateRPriceTargets, getRemainingShares } from '@/utils/portfolioCalculations';
 import { formatCurrency } from '@/utils/transactionCalculations';
 import { cn } from '@/lib/utils';
 import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
@@ -34,7 +34,6 @@ interface AddToPortfolioModalProps {
 }
 
 type Mode = 'new' | 'offset';
-type OffsetSlot = 'pt1' | 'pt2' | 'trail';
 const OPTION_CONTRACT_MULTIPLIER = 100;
 
 function isOpeningAction(action: string): boolean {
@@ -79,15 +78,14 @@ export default function AddToPortfolioModal({
     selectPortfolio,
     addPosition,
     addExit,
-    updateExit,
   } = usePortfolio();
 
   const [mode, setMode] = useState<Mode>('new');
   const [selectedPortfolioKey, setSelectedPortfolioKey] = useState<string>('');
   const [stopLoss, setStopLoss] = useState('');
   const [selectedPositionId, setSelectedPositionId] = useState<string>('');
-  const [offsetSlot, setOffsetSlot] = useState<OffsetSlot>('pt1');
   const [offsetQty, setOffsetQty] = useState('');
+  const [offsetNotes, setOffsetNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -106,8 +104,8 @@ export default function AddToPortfolioModal({
       setMode(getDefaultMode(transaction.action));
       setStopLoss('');
       setSelectedPositionId('');
-      setOffsetSlot('pt1');
       setOffsetQty(transaction.quantity ? Math.abs(transaction.quantity).toString() : '');
+      setOffsetNotes('');
       setSubmitError(null);
       setSubmitSuccess(false);
     }
@@ -132,16 +130,6 @@ export default function AddToPortfolioModal({
   const selectedPosition = useMemo(() => {
     return positions.find((p) => p.id === selectedPositionId) || null;
   }, [positions, selectedPositionId]);
-
-  const pt1Exit = useMemo(() => {
-    if (!selectedPosition) return null;
-    return selectedPosition.exits.find((exit) => exit.sortOrder === 0) || null;
-  }, [selectedPosition]);
-
-  const pt2Exit = useMemo(() => {
-    if (!selectedPosition) return null;
-    return selectedPosition.exits.find((exit) => exit.sortOrder === 1) || null;
-  }, [selectedPosition]);
 
   // Auto-select position if there's only one match
   useEffect(() => {
@@ -175,43 +163,11 @@ export default function AddToPortfolioModal({
     };
   }, [isOptionTransaction, stopLoss, transaction]);
 
-  // Which slots are available for the selected position
-  const availableSlots = useMemo(() => {
-    if (!selectedPosition) return { pt1: false, pt2: false, trail: true };
-    return {
-      pt1: !pt1Exit || pt1Exit.exitDate === null,
-      pt2: !pt2Exit || pt2Exit.exitDate === null,
-      trail: true,
-    };
-  }, [pt1Exit, pt2Exit, selectedPosition]);
-
-  // Auto-select first available slot when position changes
-  useEffect(() => {
-    if (selectedPosition) {
-      if (availableSlots.pt1) setOffsetSlot('pt1');
-      else if (availableSlots.pt2) setOffsetSlot('pt2');
-      else setOffsetSlot('trail');
-    }
-  }, [selectedPosition, availableSlots]);
-
-  // For 21 Day Trail, shares are the remaining shares (qty - pt1# - pt2#)
-  const trailShares = useMemo(() => {
+  // Remaining (unfilled) shares on the selected position.
+  const remainingShares = useMemo(() => {
     if (!selectedPosition) return 0;
-    const filledShares = selectedPosition.exits
-      .filter((exit) => exit.exitDate !== null)
-      .reduce((sum, exit) => sum + exit.shares, 0);
-    return Math.max(0, selectedPosition.quantity - filledShares);
+    return getRemainingShares(selectedPosition);
   }, [selectedPosition]);
-
-  const pt1Shares = useMemo(() => {
-    if (!pt1Exit || pt1Exit.exitDate === null) return 0;
-    return pt1Exit.shares;
-  }, [pt1Exit]);
-
-  const pt2Shares = useMemo(() => {
-    if (!pt2Exit || pt2Exit.exitDate === null) return 0;
-    return pt2Exit.shares;
-  }, [pt2Exit]);
 
   // Computed values for offset
   const offsetPreview = useMemo(() => {
@@ -219,12 +175,9 @@ export default function AddToPortfolioModal({
     const sellPrice = transaction.price;
 
     const offsetInput = parseFloat(offsetQty) || 0;
-    const soldQty =
-      offsetSlot === 'trail'
-        ? trailShares
-        : isOptionTransaction
-          ? offsetInput * OPTION_CONTRACT_MULTIPLIER
-          : offsetInput;
+    const soldQty = isOptionTransaction
+      ? offsetInput * OPTION_CONTRACT_MULTIPLIER
+      : offsetInput;
     if (soldQty <= 0) return null;
 
     const gainPerShare =
@@ -232,18 +185,17 @@ export default function AddToPortfolioModal({
         ? sellPrice - selectedPosition.cost
         : selectedPosition.cost - sellPrice;
     const gainIncrement = gainPerShare * soldQty;
-    const willClose = offsetSlot === 'trail';
+    const willClose = soldQty >= remainingShares;
 
     return {
       sellPrice,
       gainPerShare,
       gainIncrement,
       soldQty,
-      displayQty: offsetSlot === 'trail' ? trailShares : offsetInput,
+      displayQty: offsetInput,
       willClose,
-      slot: offsetSlot,
     };
-  }, [isOptionTransaction, transaction, selectedPosition, offsetQty, offsetSlot, trailShares]);
+  }, [isOptionTransaction, transaction, selectedPosition, offsetQty, remainingShares]);
 
   const handleSubmitNewPosition = async () => {
     if (!transaction || !newPositionPreview) return;
@@ -283,44 +235,13 @@ export default function AddToPortfolioModal({
     setSubmitError(null);
 
     try {
-      if (offsetPreview.slot === 'pt1') {
-        if (pt1Exit) {
-          await updateExit(pt1Exit.id, {
-            price: offsetPreview.sellPrice,
-            shares: offsetPreview.soldQty,
-            exitDate: parseTxnDate(transaction.date),
-          });
-        } else {
-          await addExit(selectedPosition.id, {
-            price: offsetPreview.sellPrice,
-            shares: offsetPreview.soldQty,
-            exitDate: parseTxnDate(transaction.date),
-            notes: 'Price Target 1',
-          });
-        }
-      } else if (offsetPreview.slot === 'pt2') {
-        if (pt2Exit) {
-          await updateExit(pt2Exit.id, {
-            price: offsetPreview.sellPrice,
-            shares: offsetPreview.soldQty,
-            exitDate: parseTxnDate(transaction.date),
-          });
-        } else {
-          await addExit(selectedPosition.id, {
-            price: offsetPreview.sellPrice,
-            shares: offsetPreview.soldQty,
-            exitDate: parseTxnDate(transaction.date),
-            notes: 'Price Target 2',
-          });
-        }
-      } else {
-        await addExit(selectedPosition.id, {
-          price: offsetPreview.sellPrice,
-          shares: offsetPreview.soldQty,
-          exitDate: parseTxnDate(transaction.date),
-          notes: '21 Day Trail',
-        });
-      }
+      const trimmed = offsetNotes.trim();
+      await addExit(selectedPosition.id, {
+        price: offsetPreview.sellPrice,
+        shares: offsetPreview.soldQty,
+        exitDate: parseTxnDate(transaction.date),
+        notes: trimmed.length > 0 ? trimmed : null,
+      });
       setSubmitSuccess(true);
       setTimeout(() => onOpenChange(false), 1200);
     } catch (err) {
@@ -441,17 +362,13 @@ export default function AddToPortfolioModal({
                 matchingPositions={matchingPositions}
                 selectedPositionId={selectedPositionId}
                 onPositionSelect={setSelectedPositionId}
-                offsetSlot={offsetSlot}
-                onSlotChange={setOffsetSlot}
-                availableSlots={availableSlots}
                 offsetQty={offsetQty}
                 onOffsetQtyChange={setOffsetQty}
+                offsetNotes={offsetNotes}
+                onOffsetNotesChange={setOffsetNotes}
                 preview={offsetPreview}
                 selectedPosition={selectedPosition}
-                trailShares={trailShares}
-                pt1Shares={pt1Shares}
-                pt2Shares={pt2Shares}
-                remainingShares={trailShares}
+                remainingShares={remainingShares}
                 isOptionTransaction={isOptionTransaction}
               />
             )}
@@ -607,16 +524,12 @@ function OffsetForm({
   matchingPositions,
   selectedPositionId,
   onPositionSelect,
-  offsetSlot,
-  onSlotChange,
-  availableSlots,
   offsetQty,
   onOffsetQtyChange,
+  offsetNotes,
+  onOffsetNotesChange,
   preview,
   selectedPosition,
-  trailShares,
-  pt1Shares,
-  pt2Shares,
   remainingShares,
   isOptionTransaction,
 }: {
@@ -624,11 +537,10 @@ function OffsetForm({
   matchingPositions: StockPosition[];
   selectedPositionId: string;
   onPositionSelect: (id: string) => void;
-  offsetSlot: OffsetSlot;
-  onSlotChange: (slot: OffsetSlot) => void;
-  availableSlots: { pt1: boolean; pt2: boolean; trail: boolean };
   offsetQty: string;
   onOffsetQtyChange: (v: string) => void;
+  offsetNotes: string;
+  onOffsetNotesChange: (v: string) => void;
   preview: {
     sellPrice: number;
     gainPerShare: number;
@@ -636,12 +548,8 @@ function OffsetForm({
     willClose: boolean;
     soldQty: number;
     displayQty: number;
-    slot: OffsetSlot;
   } | null;
   selectedPosition: StockPosition | null;
-  trailShares: number;
-  pt1Shares: number;
-  pt2Shares: number;
   remainingShares: number;
   isOptionTransaction: boolean;
 }) {
@@ -678,7 +586,7 @@ function OffsetForm({
           {/* Current Position Info */}
           <div className="rounded-md border border-border/50 bg-muted/20 p-2.5 space-y-1">
             <div className="text-[10px] font-medium text-muted-foreground">Current Position</div>
-            <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="grid grid-cols-2 gap-2 text-xs">
               <div>
                 <span className="text-muted-foreground">Qty: </span>
                 <span className="font-mono font-semibold">{selectedPosition.quantity}</span>
@@ -686,6 +594,10 @@ function OffsetForm({
               <div>
                 <span className="text-muted-foreground">Cost: </span>
                 <span className="font-mono">{formatCurrency(selectedPosition.cost)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Remaining: </span>
+                <span className="font-mono font-semibold">{remainingShares}</span>
               </div>
               <div>
                 <span className="text-muted-foreground">Gain: </span>
@@ -697,93 +609,34 @@ function OffsetForm({
                 </span>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-2 text-xs mt-1">
-              <div>
-                <span className="text-muted-foreground">PT1 #: </span>
-                <span className="font-mono">{pt1Shares}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">PT2 #: </span>
-                <span className="font-mono">{pt2Shares}</span>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Remaining: </span>
-                <span className="font-mono">{remainingShares}</span>
-              </div>
-            </div>
           </div>
 
-          {/* Target Slot Selector */}
+          {/* Quantity to Offset */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Offset Target</Label>
-            <div className="grid grid-cols-3 gap-1.5">
-              <button
-                onClick={() => onSlotChange('pt1')}
-                disabled={!availableSlots.pt1}
-                className={cn(
-                  'rounded-md border px-2 py-1.5 text-xs font-medium transition-colors',
-                  !availableSlots.pt1 && 'opacity-40 cursor-not-allowed',
-                  offsetSlot === 'pt1' && availableSlots.pt1
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
-                )}
-              >
-                PT 1
-                {!availableSlots.pt1 && (
-                  <span className="block text-[9px] text-muted-foreground/70 font-normal">filled</span>
-                )}
-              </button>
-              <button
-                onClick={() => onSlotChange('pt2')}
-                disabled={!availableSlots.pt2}
-                className={cn(
-                  'rounded-md border px-2 py-1.5 text-xs font-medium transition-colors',
-                  !availableSlots.pt2 && 'opacity-40 cursor-not-allowed',
-                  offsetSlot === 'pt2' && availableSlots.pt2
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
-                )}
-              >
-                PT 2
-                {!availableSlots.pt2 && (
-                  <span className="block text-[9px] text-muted-foreground/70 font-normal">filled</span>
-                )}
-              </button>
-              <button
-                onClick={() => onSlotChange('trail')}
-                className={cn(
-                  'rounded-md border px-2 py-1.5 text-xs font-medium transition-colors',
-                  offsetSlot === 'trail'
-                    ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
-                )}
-              >
-                21 Day Trail
-              </button>
-            </div>
+            <Label className="text-xs" htmlFor="offset-qty">
+              {isOptionTransaction ? 'Contracts to Close' : 'Shares to Sell'}
+            </Label>
+            <Input
+              id="offset-qty"
+              type="number"
+              min="1"
+              value={offsetQty}
+              onChange={(e) => onOffsetQtyChange(e.target.value)}
+              className="h-8 text-sm font-mono"
+            />
           </div>
 
-          {/* Quantity to Offset (only for PT1 / PT2) */}
-          {offsetSlot !== 'trail' ? (
-            <div className="space-y-1.5">
-              <Label className="text-xs" htmlFor="offset-qty">
-                {isOptionTransaction ? 'Contracts to Close' : 'Shares to Sell'}
-              </Label>
-              <Input
-                id="offset-qty"
-                type="number"
-                min="1"
-                value={offsetQty}
-                onChange={(e) => onOffsetQtyChange(e.target.value)}
-                className="h-8 text-sm font-mono"
-              />
-            </div>
-          ) : (
-            <div className="text-xs text-muted-foreground">
-              Sells remaining <span className="font-mono font-semibold text-foreground">{trailShares}</span>{' '}
-              {isOptionTransaction ? 'share-equivalent units' : 'shares'} at the trailing stop.
-            </div>
-          )}
+          {/* Notes (freeform; copied to the exit row's notes column) */}
+          <div className="space-y-1.5">
+            <Label className="text-xs" htmlFor="offset-notes">Notes</Label>
+            <Input
+              id="offset-notes"
+              value={offsetNotes}
+              onChange={(e) => onOffsetNotesChange(e.target.value)}
+              placeholder="(optional)"
+              className="h-8 text-sm"
+            />
+          </div>
 
           {/* Offset Preview */}
           {preview && (
@@ -810,12 +663,6 @@ function OffsetForm({
                     preview.gainIncrement >= 0 ? 'text-emerald-500' : 'text-red-500'
                   )}>
                     {formatCurrency(preview.gainIncrement)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Target column</span>
-                  <span className="font-mono">
-                    {preview.slot === 'pt1' ? 'Price Target 1' : preview.slot === 'pt2' ? 'Price Target 2' : '21 Day Trail'}
                   </span>
                 </div>
                 {preview.willClose && (
