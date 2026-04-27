@@ -61,16 +61,21 @@ export function useTableSettings(tableId: string, columns: TableColumnDef[]) {
   }, [user, tableId]);
 
   const hiddenColumns = useMemo(() => {
+    const validIds = new Set(columns.map(c => c.id));
     const tableConfig = allSettings?.[tableId];
     if (!tableConfig) {
       return new Set(defaultHidden);
     }
-    return new Set(tableConfig.hiddenColumns);
-  }, [allSettings, tableId, defaultHidden]);
+    return new Set(tableConfig.hiddenColumns.filter(id => validIds.has(id)));
+  }, [allSettings, tableId, defaultHidden, columns]);
 
   const columnOrder = useMemo(() => {
-    return allSettings?.[tableId]?.columnOrder ?? null;
-  }, [allSettings, tableId]);
+    const saved = allSettings?.[tableId]?.columnOrder;
+    if (!saved) return null;
+    const validIds = new Set(columns.map(c => c.id));
+    const filtered = saved.filter(id => validIds.has(id));
+    return filtered.length > 0 ? filtered : null;
+  }, [allSettings, tableId, columns]);
 
   const persist = useCallback((nextHidden: string[], nextOrder?: string[] | null | undefined) => {
     const currentConfig = allSettings?.[tableId];
