@@ -39,6 +39,7 @@ import { useAuth } from '@/lib/context/auth-context';
 import { getRemainingShares, getRealizedGain, isFullyClosed } from '@/utils/portfolioCalculations';
 import { ExitsCell } from '@/components/portfolio/ExitsCell';
 import { EditPositionModal } from '@/components/portfolio/EditPositionModal';
+import { PositionChartModal } from '@/components/portfolio/PositionChartModal';
 import Link from 'next/link';
 import type { TableColumnDef } from '@/lib/table-types';
 
@@ -2472,7 +2473,11 @@ export default function Portfolio() {
   // Edit state
   const [editingPosition, setEditingPosition] = useState<StockPosition | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  
+
+  // Chart modal state
+  const [chartPosition, setChartPosition] = useState<StockPosition | null>(null);
+  const [showChartModal, setShowChartModal] = useState(false);
+
   // Position Percentage Calculator state
   const [adrPercent, setAdrPercent] = useState<string>('');
 
@@ -3303,7 +3308,16 @@ export default function Portfolio() {
                                       <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Summary</span>
                                     </span>
                                   ) : (
-                                    position.symbol
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setChartPosition(position);
+                                        setShowChartModal(true);
+                                      }}
+                                      className="underline"
+                                    >
+                                      {position.symbol}
+                                    </button>
                                   )}
                                 </TableCell>
                               );
@@ -3797,6 +3811,15 @@ export default function Portfolio() {
         onAddExit={addExit}
         onUpdateExit={updateExit}
         onDeleteExit={deleteExit}
+      />
+
+      <PositionChartModal
+        position={chartPosition}
+        isOpen={showChartModal}
+        onClose={() => {
+          setShowChartModal(false);
+          setChartPosition(null);
+        }}
       />
 
       {/* Delete Confirmation Dialog */}
