@@ -14,8 +14,11 @@ import {
   createChart,
   BarSeries,
   PriceScaleMode,
+  createSeriesMarkers,
   type IChartApi,
   type ISeriesApi,
+  type ISeriesMarkersPluginApi,
+  type SeriesMarker,
   type Time,
 } from 'lightweight-charts';
 import { useTheme } from 'next-themes';
@@ -70,6 +73,40 @@ function deriveRange(position: StockPosition, preset: RangePreset): {
   };
 }
 
+function buildMarkers(position: StockPosition): {
+  markers: SeriesMarker<Time>[];
+  undatedExitCount: number;
+} {
+  const markers: SeriesMarker<Time>[] = [
+    {
+      time: format(position.openDate, 'yyyy-MM-dd') as Time,
+      position: 'belowBar',
+      color: '#22C55E',
+      shape: 'arrowUp',
+      text: '',
+    },
+  ];
+
+  let undated = 0;
+  for (const exit of position.exits) {
+    if (!exit.exitDate) {
+      undated += 1;
+      continue;
+    }
+    markers.push({
+      time: format(exit.exitDate, 'yyyy-MM-dd') as Time,
+      position: 'aboveBar',
+      color: '#EF4444',
+      shape: 'arrowDown',
+      text: '',
+    });
+  }
+
+  // lightweight-charts requires markers sorted ascending by time.
+  markers.sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0));
+  return { markers, undatedExitCount: undated };
+}
+
 function toBarData(historical: DailyPriceData[]): {
   time: Time;
   open: number;
@@ -101,10 +138,16 @@ export function PositionChartModal({
     [position, preset]
   );
 
+  const { markers, undatedExitCount } = useMemo(
+    () => (position ? buildMarkers(position) : { markers: [], undatedExitCount: 0 }),
+    [position]
+  );
+
   const { resolvedTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Bar'> | null>(null);
+  const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
 
   const { data: historical, isLoading, isError, refetch } = useDailyPrices({
     symbol: position?.symbol ?? '',
@@ -143,6 +186,7 @@ export function PositionChartModal({
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
+      markersRef.current = null;
     };
     // We deliberately recreate the chart only on open toggle; theme handled in Task 7.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -153,8 +197,15 @@ export function PositionChartModal({
     const series = seriesRef.current;
     if (!series || !historical || historical.length === 0) return;
     series.setData(toBarData(historical));
+
+    if (!markersRef.current) {
+      markersRef.current = createSeriesMarkers(series, markers);
+    } else {
+      markersRef.current.setMarkers(markers);
+    }
+
     chartRef.current?.timeScale().fitContent();
-  }, [historical]);
+  }, [historical, markers]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -213,6 +264,23 @@ export function PositionChartModal({
                     No price history available for {position.symbol}.
                   </div>
                 )}
+              </div>
+              <div className="flex items-center justify-between pt-2 text-[10px] text-muted-foreground">
+                <span>
+                  {undatedExitCount > 0 &&
+                    `${undatedExitCount} undated exit${undatedExitCount === 1 ? '' : 's'} not shown`}
+                </span>
+                <span>
+                  Data by{' '}
+                  <a
+                    href="https://financialmodelingprep.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                  >
+                    Financial Modeling Prep
+                  </a>
+                </span>
               </div>
             </div>
           </div>
