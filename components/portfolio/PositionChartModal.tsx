@@ -24,7 +24,7 @@ export function PositionChartModal({
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-[1100px] p-0 gap-0">
         {position && (
-          <div key={position.id} className="flex flex-col">
+          <div className="flex flex-col">
             <DialogHeader className="flex flex-row items-center justify-between px-5 py-3 border-b">
               <div className="flex flex-col gap-0.5">
                 <DialogTitle className="font-mono text-base">
