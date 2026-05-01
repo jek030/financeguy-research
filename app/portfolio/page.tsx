@@ -3299,7 +3299,23 @@ export default function Portfolio() {
                               : "border-r font-mono";
 
                           switch (col.id) {
-                            case 'symbol':
+                            case 'symbol': {
+                              const isOption = position.symbol.includes(' ');
+                              const symbolNode = isOption ? (
+                                <span>{position.symbol}</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setChartPosition(position);
+                                    setShowChartModal(true);
+                                  }}
+                                  className="text-left hover:underline focus:outline-none focus:underline cursor-pointer"
+                                >
+                                  {position.symbol}
+                                </button>
+                              );
+
                               return (
                                 <TableCell key={col.id} className={baseCellClass}>
                                   {isSummaryRow ? (
@@ -3308,19 +3324,11 @@ export default function Portfolio() {
                                       <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Summary</span>
                                     </span>
                                   ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setChartPosition(position);
-                                        setShowChartModal(true);
-                                      }}
-                                      className="underline"
-                                    >
-                                      {position.symbol}
-                                    </button>
+                                    symbolNode
                                   )}
                                 </TableCell>
                               );
+                            }
                             case 'price':
                               return <TableCell key={col.id} className={baseCellClass}><PriceCell symbol={position.symbol} /></TableCell>;
                             case 'type':
