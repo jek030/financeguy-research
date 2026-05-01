@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,16 @@ import {
 import type { StockPosition } from '@/hooks/usePortfolio';
 import { addDays, format, subDays, subMonths, subYears } from 'date-fns';
 import { cn } from '@/lib/utils';
+import {
+  createChart,
+  BarSeries,
+  PriceScaleMode,
+  type IChartApi,
+  type ISeriesApi,
+  type Time,
+} from 'lightweight-charts';
+import { useTheme } from 'next-themes';
+import { useDailyPrices, type DailyPriceData } from '@/hooks/FMP/useDailyPrices';
 
 export interface PositionChartModalProps {
   position: StockPosition | null;
@@ -60,6 +70,25 @@ function deriveRange(position: StockPosition, preset: RangePreset): {
   };
 }
 
+function toBarData(historical: DailyPriceData[]): {
+  time: Time;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}[] {
+  // FMP returns newest-first; lightweight-charts needs ascending time.
+  return [...historical]
+    .reverse()
+    .map((d) => ({
+      time: d.date as Time, // YYYY-MM-DD strings are valid BusinessDay-equivalent Time values
+      open: d.open,
+      high: d.high,
+      low: d.low,
+      close: d.close,
+    }));
+}
+
 export function PositionChartModal({
   position,
   isOpen,
@@ -71,6 +100,61 @@ export function PositionChartModal({
     () => (position ? deriveRange(position, preset) : null),
     [position, preset]
   );
+
+  const { resolvedTheme } = useTheme();
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const seriesRef = useRef<ISeriesApi<'Bar'> | null>(null);
+
+  const { data: historical, isLoading, isError, refetch } = useDailyPrices({
+    symbol: position?.symbol ?? '',
+    from: range?.from ?? '',
+    to: range?.to ?? '',
+    enabled: isOpen && !!position && !!range,
+  });
+
+  // Create / destroy chart on modal open/close
+  useEffect(() => {
+    if (!isOpen || !containerRef.current) return;
+
+    const isLight = resolvedTheme === 'light';
+    const chart = createChart(containerRef.current, {
+      autoSize: true,
+      layout: {
+        background: { color: isLight ? '#FFFFFF' : '#0F0F0F' },
+        textColor: isLight ? '#0F172A' : '#F2F2F2',
+      },
+      grid: {
+        vertLines: { color: isLight ? 'rgba(15,23,42,0.08)' : 'rgba(242,242,242,0.06)' },
+        horzLines: { color: isLight ? 'rgba(15,23,42,0.08)' : 'rgba(242,242,242,0.06)' },
+      },
+      rightPriceScale: { mode: PriceScaleMode.Logarithmic, borderVisible: false },
+      timeScale: { borderVisible: false },
+    });
+    const series = chart.addSeries(BarSeries, {
+      upColor: isLight ? '#16A34A' : '#22C55E',
+      downColor: isLight ? '#DC2626' : '#EF4444',
+      thinBars: false,
+    });
+    chartRef.current = chart;
+    seriesRef.current = series;
+
+    return () => {
+      chart.remove();
+      chartRef.current = null;
+      seriesRef.current = null;
+    };
+    // We deliberately recreate the chart only on open toggle; theme handled in Task 7.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // Push data into the series when it arrives or range changes
+  useEffect(() => {
+    const series = seriesRef.current;
+    if (!series || !historical || historical.length === 0) return;
+    series.setData(toBarData(historical));
+    chartRef.current?.timeScale().fitContent();
+  }, [historical]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -105,8 +189,30 @@ export function PositionChartModal({
               </div>
             </DialogHeader>
             <div className="px-5 py-4">
-              <div className="h-[600px] flex items-center justify-center text-sm text-muted-foreground">
-                {range && `Range: ${range.from} → ${range.to}`}
+              <div className="relative h-[600px] w-full">
+                <div ref={containerRef} className="absolute inset-0" />
+                {isLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="h-full w-full animate-pulse bg-muted/30 rounded" />
+                  </div>
+                )}
+                {isError && !isLoading && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm">
+                    <p>Could not load price data for {position.symbol}.</p>
+                    <button
+                      type="button"
+                      onClick={() => refetch()}
+                      className="px-3 py-1 text-xs border rounded hover:bg-muted"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+                {!isLoading && !isError && historical && historical.length === 0 && (
+                  <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
+                    No price history available for {position.symbol}.
+                  </div>
+                )}
               </div>
             </div>
           </div>
