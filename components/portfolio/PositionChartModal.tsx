@@ -100,17 +100,35 @@ function buildTooltipMap(position: StockPosition): Map<string, MarkerTooltip> {
       ? position.cost - exit.price
       : exit.price - position.cost;
     const pnlDollar = perShareGain * exit.shares;
-    const pnlPercent = position.cost !== 0
-      ? (perShareGain / position.cost) * 100
-      : 0;
-    map.set(exitDate, {
-      kind: 'sell',
-      date: exitDate,
-      shares: exit.shares,
-      price: exit.price,
-      pnlDollar,
-      pnlPercent,
-    });
+    const existing = map.get(exitDate);
+    if (existing && existing.kind === 'sell') {
+      // Aggregate same-date partial exits: sum shares + dollar P&L,
+      // recompute weighted-average price and percent from the totals.
+      const shares = existing.shares + exit.shares;
+      const dollar = (existing.pnlDollar ?? 0) + pnlDollar;
+      const cost = position.cost * shares;
+      const price = (existing.price * existing.shares + exit.price * exit.shares) / shares;
+      map.set(exitDate, {
+        kind: 'sell',
+        date: exitDate,
+        shares,
+        price,
+        pnlDollar: dollar,
+        pnlPercent: cost !== 0 ? (dollar / cost) * 100 : 0,
+      });
+    } else {
+      const pnlPercent = position.cost !== 0
+        ? (perShareGain / position.cost) * 100
+        : 0;
+      map.set(exitDate, {
+        kind: 'sell',
+        date: exitDate,
+        shares: exit.shares,
+        price: exit.price,
+        pnlDollar,
+        pnlPercent,
+      });
+    }
   }
   return map;
 }
@@ -378,17 +396,27 @@ export function PositionChartModal({
                     No price history available for {position.symbol}.
                   </div>
                 )}
-                {tooltip && (
-                  <div
-                    className="pointer-events-none absolute z-10 px-2 py-1 text-[11px] font-mono bg-popover border border-border rounded shadow-md whitespace-nowrap"
-                    style={{
-                      left: Math.min(tooltip.x + 12, 900),
-                      top: Math.max(tooltip.y - 30, 0),
-                    }}
-                  >
-                    {tooltip.text}
-                  </div>
-                )}
+                {tooltip && (() => {
+                  // Estimated tooltip width — wide enough for a long SELL
+                  // line on a Short with multi-share P&L.
+                  const TOOLTIP_WIDTH = 320;
+                  const containerWidth = containerRef.current?.clientWidth ?? 1060;
+                  const placeRight = tooltip.x + 12 + TOOLTIP_WIDTH <= containerWidth;
+                  const left = placeRight
+                    ? tooltip.x + 12
+                    : Math.max(tooltip.x - 12 - TOOLTIP_WIDTH, 0);
+                  return (
+                    <div
+                      className="pointer-events-none absolute z-10 px-2 py-1 text-[11px] font-mono bg-popover border border-border rounded shadow-md whitespace-nowrap"
+                      style={{
+                        left,
+                        top: Math.max(tooltip.y - 30, 0),
+                      }}
+                    >
+                      {tooltip.text}
+                    </div>
+                  );
+                })()}
               </div>
               <div className="flex items-center justify-between pt-2 text-[10px] text-muted-foreground">
                 <span>
