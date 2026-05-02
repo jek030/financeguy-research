@@ -11,11 +11,27 @@ import type { StockPosition } from '@/hooks/usePortfolio';
 import { addDays, format, subDays, subMonths, subYears } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
+  formatRMultiple,
+  getRMultiple,
+  getRealizedGain,
+} from '@/utils/portfolioCalculations';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/Table';
+import {
   createChart,
   BarSeries,
+  CrosshairMode,
   PriceScaleMode,
+  LineStyle,
   createSeriesMarkers,
   type IChartApi,
+  type IPriceLine,
   type ISeriesApi,
   type ISeriesMarkersPluginApi,
   type SeriesMarker,
@@ -28,6 +44,36 @@ export interface PositionChartModalProps {
   position: StockPosition | null;
   isOpen: boolean;
   onClose: () => void;
+  portfolioValue: number;
+}
+
+function formatMoney(value: number): string {
+  const abs = Math.abs(value);
+  const formatted = abs.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return `${value < 0 ? '-' : ''}$${formatted}`;
+}
+
+function formatSignedMoney(value: number): string {
+  const sign = value < 0 ? '-' : '+';
+  const abs = Math.abs(value).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  return `${sign}$${abs}`;
+}
+
+function formatSignedPercent(value: number): string {
+  const sign = value < 0 ? '-' : '+';
+  return `${sign}${Math.abs(value).toFixed(2)}%`;
+}
+
+function gainClass(value: number): string {
+  if (value > 0) return 'text-green-600 dark:text-green-400';
+  if (value < 0) return 'text-red-600 dark:text-red-400';
+  return '';
 }
 
 type RangePreset = 'Trade' | '3M' | '6M' | '1Y';
@@ -75,7 +121,8 @@ function deriveRange(position: StockPosition, preset: RangePreset): {
 
 interface MarkerTooltip {
   kind: 'buy' | 'sell';
-  date: string; // yyyy-MM-dd
+  date: string; // yyyy-MM-dd — used as the map key to match chart bar time
+  dateLabel: string; // pretty form for display, e.g. "April 24, 2026"
   shares: number;
   price: number;
   pnlDollar?: number;
@@ -88,6 +135,7 @@ function buildTooltipMap(position: StockPosition): Map<string, MarkerTooltip> {
   map.set(buyDate, {
     kind: 'buy',
     date: buyDate,
+    dateLabel: format(position.openDate, 'MMMM d, yyyy'),
     shares: position.quantity,
     price: position.cost,
   });
@@ -96,6 +144,7 @@ function buildTooltipMap(position: StockPosition): Map<string, MarkerTooltip> {
   for (const exit of position.exits) {
     if (!exit.exitDate) continue;
     const exitDate = format(exit.exitDate, 'yyyy-MM-dd');
+    const exitDateLabel = format(exit.exitDate, 'MMMM d, yyyy');
     const perShareGain = isShort
       ? position.cost - exit.price
       : exit.price - position.cost;
@@ -111,6 +160,7 @@ function buildTooltipMap(position: StockPosition): Map<string, MarkerTooltip> {
       map.set(exitDate, {
         kind: 'sell',
         date: exitDate,
+        dateLabel: exitDateLabel,
         shares,
         price,
         pnlDollar: dollar,
@@ -123,6 +173,7 @@ function buildTooltipMap(position: StockPosition): Map<string, MarkerTooltip> {
       map.set(exitDate, {
         kind: 'sell',
         date: exitDate,
+        dateLabel: exitDateLabel,
         shares: exit.shares,
         price: exit.price,
         pnlDollar,
@@ -136,17 +187,20 @@ function buildTooltipMap(position: StockPosition): Map<string, MarkerTooltip> {
 function formatTooltip(t: MarkerTooltip): string {
   const px = `$${t.price.toFixed(2)}`;
   if (t.kind === 'buy') {
-    return `BUY · ${t.date} · ${t.shares} sh @ ${px}`;
+    return `BUY · ${t.dateLabel} · ${t.shares} shares @ ${px}`;
   }
   const dollar = t.pnlDollar ?? 0;
   const percent = t.pnlPercent ?? 0;
   const dollarStr = `${dollar < 0 ? '-' : '+'}$${Math.abs(dollar).toFixed(2)}`;
   const percentStr = `${percent < 0 ? '-' : '+'}${Math.abs(percent).toFixed(2)}%`;
   const pnl = `${dollarStr} (${percentStr})`;
-  return `SELL · ${t.date} · ${t.shares} sh @ ${px} · ${pnl}`;
+  return `SELL · ${t.dateLabel} · ${t.shares} shares @ ${px} · ${pnl}`;
 }
 
-function buildMarkers(position: StockPosition): {
+function buildMarkers(
+  position: StockPosition,
+  markerColor: string
+): {
   markers: SeriesMarker<Time>[];
   undatedExitCount: number;
 } {
@@ -154,7 +208,7 @@ function buildMarkers(position: StockPosition): {
     {
       time: format(position.openDate, 'yyyy-MM-dd') as Time,
       position: 'belowBar',
-      color: '#22C55E',
+      color: markerColor,
       shape: 'arrowUp',
       text: '',
     },
@@ -169,7 +223,7 @@ function buildMarkers(position: StockPosition): {
     markers.push({
       time: format(exit.exitDate, 'yyyy-MM-dd') as Time,
       position: 'aboveBar',
-      color: '#EF4444',
+      color: markerColor,
       shape: 'arrowDown',
       text: '',
     });
@@ -203,17 +257,25 @@ export function PositionChartModal({
   position,
   isOpen,
   onClose,
+  portfolioValue,
 }: PositionChartModalProps) {
   const [preset, setPreset] = useState<RangePreset>('Trade');
+
+  const { resolvedTheme } = useTheme();
 
   const range = useMemo(
     () => (position ? deriveRange(position, preset) : null),
     [position, preset]
   );
 
-  const { markers, undatedExitCount } = useMemo(
-    () => (position ? buildMarkers(position) : { markers: [], undatedExitCount: 0 }),
-    [position]
+  const markerColor = resolvedTheme === 'light' ? '#000000' : '#9CA3AF';
+
+  const { markers } = useMemo(
+    () =>
+      position
+        ? buildMarkers(position, markerColor)
+        : { markers: [], undatedExitCount: 0 },
+    [position, markerColor]
   );
 
   const [tooltip, setTooltip] = useState<{
@@ -232,11 +294,11 @@ export function PositionChartModal({
     tooltipMapRef.current = tooltipMap;
   }, [tooltipMap]);
 
-  const { resolvedTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Bar'> | null>(null);
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+  const priceLinesRef = useRef<IPriceLine[]>([]);
   const [chartReady, setChartReady] = useState(false);
 
   const { data: historical, isLoading, isError, refetch } = useDailyPrices({
@@ -275,6 +337,7 @@ export function PositionChartModal({
         },
         rightPriceScale: { mode: PriceScaleMode.Logarithmic, borderVisible: false },
         timeScale: { borderVisible: false },
+        crosshair: { mode: CrosshairMode.Normal },
       });
       const series = chart.addSeries(BarSeries, {
         upColor: isLight ? '#16A34A' : '#22C55E',
@@ -318,6 +381,7 @@ export function PositionChartModal({
       chartRef.current = null;
       seriesRef.current = null;
       markersRef.current = null;
+      priceLinesRef.current = [];
       setChartReady(false);
     };
     // We deliberately recreate the chart only on open toggle; theme handled in Task 7.
@@ -342,8 +406,8 @@ export function PositionChartModal({
   }, [resolvedTheme]);
 
   // Push data into the series when it arrives, the chart is ready, or
-  // markers change. `chartReady` is what triggers the push when data
-  // loaded before the deferred chart-creation finished.
+  // markers/position change. `chartReady` is what triggers the push when
+  // data loaded before the deferred chart-creation finished.
   useEffect(() => {
     if (!chartReady) return;
     const series = seriesRef.current;
@@ -356,12 +420,40 @@ export function PositionChartModal({
       markersRef.current.setMarkers(markers);
     }
 
+    // Rebuild horizontal price lines for buy + each dated exit. Dedupe
+    // by (kind, price) so two same-price exits don't stack.
+    for (const line of priceLinesRef.current) {
+      series.removePriceLine(line);
+    }
+    priceLinesRef.current = [];
+    if (position) {
+      const seen = new Set<string>();
+      const addLine = (price: number, kind: 'buy' | 'sell') => {
+        const key = `${kind}:${price}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        const line = series.createPriceLine({
+          price,
+          color: kind === 'buy' ? '#22C55E' : '#EF4444',
+          lineWidth: 1,
+          lineStyle: LineStyle.Dashed,
+          axisLabelVisible: true,
+          title: '',
+        });
+        priceLinesRef.current.push(line);
+      };
+      addLine(position.cost, 'buy');
+      for (const exit of position.exits) {
+        if (exit.exitDate) addLine(exit.price, 'sell');
+      }
+    }
+
     chartRef.current?.timeScale().fitContent();
-  }, [historical, markers, chartReady]);
+  }, [historical, markers, chartReady, position]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-[1100px] p-0 gap-0">
+      <DialogContent className="max-w-[1100px] p-0 gap-0 max-h-[90vh] overflow-y-auto">
         {position && (
           <div className="flex flex-col">
             <DialogHeader className="flex flex-row items-center justify-between px-5 py-3 border-b">
@@ -370,10 +462,10 @@ export function PositionChartModal({
                   {position.symbol}
                 </DialogTitle>
                 <p className="text-[11px] text-muted-foreground">
-                  {position.type} · opened {format(position.openDate, 'yyyy-MM-dd')}
+                  {position.type} · opened {format(position.openDate, 'MMMM d, yyyy')}
                 </p>
               </div>
-              <div className="flex gap-1">
+              <div className="flex gap-1 mr-8">
                 {RANGE_PRESETS.map((p) => (
                   <button
                     key={p}
@@ -438,27 +530,108 @@ export function PositionChartModal({
                   );
                 })()}
               </div>
-              <div className="flex items-center justify-between pt-2 text-[10px] text-muted-foreground">
-                <span>
-                  {undatedExitCount > 0 &&
-                    `${undatedExitCount} undated exit${undatedExitCount === 1 ? '' : 's'} not shown`}
-                </span>
-                <span>
-                  Data by{' '}
-                  <a
-                    href="https://financialmodelingprep.com/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:underline"
-                  >
-                    Financial Modeling Prep
-                  </a>
-                </span>
-              </div>
             </div>
+            <TradeSummary position={position} portfolioValue={portfolioValue} />
+            <ExitsSection position={position} />
           </div>
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function TradeSummary({
+  position,
+  portfolioValue,
+}: {
+  position: StockPosition;
+  portfolioValue: number;
+}) {
+  const realized = getRealizedGain(position);
+  const rMultiple = getRMultiple(position);
+  const portfolioGainPercent =
+    portfolioValue > 0 ? (realized / portfolioValue) * 100 : 0;
+
+  return (
+    <div className="px-5 pb-3">
+      <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground pb-1">
+        Trade summary
+      </p>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Symbol</TableHead>
+            <TableHead>Cost</TableHead>
+            <TableHead>Stop loss</TableHead>
+            <TableHead>R</TableHead>
+            <TableHead>Gain/Loss</TableHead>
+            <TableHead>Portfolio Gain</TableHead>
+            <TableHead>Net Cost</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          <TableRow>
+            <TableCell className="font-mono">{position.symbol}</TableCell>
+            <TableCell className="font-mono">{formatMoney(position.cost)}</TableCell>
+            <TableCell className="font-mono">{formatMoney(position.initialStopLoss)}</TableCell>
+            <TableCell className={cn('font-mono font-medium', gainClass(rMultiple ?? 0))}>
+              {formatRMultiple(rMultiple)}
+            </TableCell>
+            <TableCell className={cn('font-mono font-medium', gainClass(realized))}>
+              {formatSignedMoney(realized)}
+            </TableCell>
+            <TableCell
+              className={cn('font-mono font-medium', gainClass(portfolioGainPercent))}
+            >
+              {portfolioValue > 0 ? formatSignedPercent(portfolioGainPercent) : '—'}
+            </TableCell>
+            <TableCell className="font-mono">{formatMoney(position.netCost)}</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
+
+function ExitsSection({ position }: { position: StockPosition }) {
+  const sortedExits = [...position.exits].sort((a, b) => {
+    if (a.exitDate && b.exitDate) return a.exitDate.getTime() - b.exitDate.getTime();
+    if (a.exitDate) return -1;
+    if (b.exitDate) return 1;
+    return a.sortOrder - b.sortOrder;
+  });
+
+  return (
+    <div className="px-5 pb-5">
+      <p className="text-[10px] uppercase tracking-[0.15em] text-muted-foreground pb-1">
+        Exits
+      </p>
+      {sortedExits.length === 0 ? (
+        <p className="text-xs text-muted-foreground py-3">No exits recorded.</p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Price</TableHead>
+              <TableHead>Shares</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Notes</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sortedExits.map((exit) => (
+              <TableRow key={exit.id}>
+                <TableCell className="font-mono">{formatMoney(exit.price)}</TableCell>
+                <TableCell className="font-mono">{exit.shares}</TableCell>
+                <TableCell className="font-mono">
+                  {exit.exitDate ? format(exit.exitDate, 'MMMM d, yyyy') : '—'}
+                </TableCell>
+                <TableCell className="text-xs">{exit.notes ?? ''}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+    </div>
   );
 }

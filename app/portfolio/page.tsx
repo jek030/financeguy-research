@@ -3825,6 +3825,7 @@ export default function Portfolio() {
         key={chartPosition?.id ?? 'none'}
         position={chartPosition}
         isOpen={showChartModal}
+        portfolioValue={portfolioValueNumber}
         onClose={() => {
           setShowChartModal(false);
           setChartPosition(null);
