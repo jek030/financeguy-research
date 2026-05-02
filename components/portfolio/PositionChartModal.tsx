@@ -237,6 +237,7 @@ export function PositionChartModal({
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Bar'> | null>(null);
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+  const [chartReady, setChartReady] = useState(false);
 
   const { data: historical, isLoading, isError, refetch } = useDailyPrices({
     symbol: position?.symbol ?? '',
@@ -245,63 +246,79 @@ export function PositionChartModal({
     enabled: isOpen && !!position && !!range,
   });
 
-  // Create / destroy chart on modal open/close
+  // Create / destroy chart on modal open/close.
+  // We defer chart creation by one frame so Radix Dialog has time to paint
+  // and the container has real dimensions — otherwise lightweight-charts
+  // reads 0×0 at construction and never grows.
   useEffect(() => {
-    if (!isOpen || !containerRef.current) return;
+    if (!isOpen) return;
 
-    const isLight = resolvedTheme === 'light';
-    const chart = createChart(containerRef.current, {
-      autoSize: true,
-      layout: {
-        background: { color: isLight ? '#FFFFFF' : '#0F0F0F' },
-        textColor: isLight ? '#0F172A' : '#F2F2F2',
-      },
-      grid: {
-        vertLines: { color: isLight ? 'rgba(15,23,42,0.08)' : 'rgba(242,242,242,0.06)' },
-        horzLines: { color: isLight ? 'rgba(15,23,42,0.08)' : 'rgba(242,242,242,0.06)' },
-      },
-      rightPriceScale: { mode: PriceScaleMode.Logarithmic, borderVisible: false },
-      timeScale: { borderVisible: false },
-    });
-    const series = chart.addSeries(BarSeries, {
-      upColor: isLight ? '#16A34A' : '#22C55E',
-      downColor: isLight ? '#DC2626' : '#EF4444',
-      thinBars: false,
-    });
-    chartRef.current = chart;
-    seriesRef.current = series;
+    let chart: IChartApi | null = null;
+    let handleCrosshair:
+      | ((param: Parameters<Parameters<IChartApi['subscribeCrosshairMove']>[0]>[0]) => void)
+      | null = null;
 
-    const handleCrosshair = (
-      param: Parameters<Parameters<IChartApi['subscribeCrosshairMove']>[0]>[0]
-    ) => {
-      if (!param.point || !param.time) {
-        setTooltip(null);
-        return;
-      }
-      const timeStr = typeof param.time === 'string' ? param.time : null;
-      if (!timeStr) {
-        setTooltip(null);
-        return;
-      }
-      const hit = tooltipMapRef.current.get(timeStr);
-      if (!hit) {
-        setTooltip(null);
-        return;
-      }
-      setTooltip({
-        text: formatTooltip(hit),
-        x: param.point.x,
-        y: param.point.y,
+    const raf = requestAnimationFrame(() => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      const isLight = resolvedTheme === 'light';
+      chart = createChart(container, {
+        autoSize: true,
+        layout: {
+          background: { color: isLight ? '#FFFFFF' : '#0F0F0F' },
+          textColor: isLight ? '#0F172A' : '#F2F2F2',
+        },
+        grid: {
+          vertLines: { color: isLight ? 'rgba(15,23,42,0.08)' : 'rgba(242,242,242,0.06)' },
+          horzLines: { color: isLight ? 'rgba(15,23,42,0.08)' : 'rgba(242,242,242,0.06)' },
+        },
+        rightPriceScale: { mode: PriceScaleMode.Logarithmic, borderVisible: false },
+        timeScale: { borderVisible: false },
       });
-    };
-    chart.subscribeCrosshairMove(handleCrosshair);
+      const series = chart.addSeries(BarSeries, {
+        upColor: isLight ? '#16A34A' : '#22C55E',
+        downColor: isLight ? '#DC2626' : '#EF4444',
+        thinBars: false,
+      });
+      chartRef.current = chart;
+      seriesRef.current = series;
+
+      handleCrosshair = (param) => {
+        if (!param.point || !param.time) {
+          setTooltip(null);
+          return;
+        }
+        const timeStr = typeof param.time === 'string' ? param.time : null;
+        if (!timeStr) {
+          setTooltip(null);
+          return;
+        }
+        const hit = tooltipMapRef.current.get(timeStr);
+        if (!hit) {
+          setTooltip(null);
+          return;
+        }
+        setTooltip({
+          text: formatTooltip(hit),
+          x: param.point.x,
+          y: param.point.y,
+        });
+      };
+      chart.subscribeCrosshairMove(handleCrosshair);
+      setChartReady(true);
+    });
 
     return () => {
-      chart.unsubscribeCrosshairMove(handleCrosshair);
-      chart.remove();
+      cancelAnimationFrame(raf);
+      if (chart && handleCrosshair) {
+        chart.unsubscribeCrosshairMove(handleCrosshair);
+      }
+      chart?.remove();
       chartRef.current = null;
       seriesRef.current = null;
       markersRef.current = null;
+      setChartReady(false);
     };
     // We deliberately recreate the chart only on open toggle; theme handled in Task 7.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -324,8 +341,11 @@ export function PositionChartModal({
     });
   }, [resolvedTheme]);
 
-  // Push data into the series when it arrives or range changes
+  // Push data into the series when it arrives, the chart is ready, or
+  // markers change. `chartReady` is what triggers the push when data
+  // loaded before the deferred chart-creation finished.
   useEffect(() => {
+    if (!chartReady) return;
     const series = seriesRef.current;
     if (!series || !historical || historical.length === 0) return;
     series.setData(toBarData(historical));
@@ -337,7 +357,7 @@ export function PositionChartModal({
     }
 
     chartRef.current?.timeScale().fitContent();
-  }, [historical, markers]);
+  }, [historical, markers, chartReady]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
