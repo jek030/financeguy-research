@@ -120,8 +120,11 @@ function formatTooltip(t: MarkerTooltip): string {
   if (t.kind === 'buy') {
     return `BUY · ${t.date} · ${t.shares} sh @ ${px}`;
   }
-  const sign = (t.pnlDollar ?? 0) >= 0 ? '+' : '';
-  const pnl = `${sign}$${(t.pnlDollar ?? 0).toFixed(2)} (${sign}${(t.pnlPercent ?? 0).toFixed(2)}%)`;
+  const dollar = t.pnlDollar ?? 0;
+  const percent = t.pnlPercent ?? 0;
+  const dollarStr = `${dollar < 0 ? '-' : '+'}$${Math.abs(dollar).toFixed(2)}`;
+  const percentStr = `${percent < 0 ? '-' : '+'}${Math.abs(percent).toFixed(2)}%`;
+  const pnl = `${dollarStr} (${percentStr})`;
   return `SELL · ${t.date} · ${t.shares} sh @ ${px} · ${pnl}`;
 }
 
