@@ -73,6 +73,58 @@ function deriveRange(position: StockPosition, preset: RangePreset): {
   };
 }
 
+interface MarkerTooltip {
+  kind: 'buy' | 'sell';
+  date: string; // yyyy-MM-dd
+  shares: number;
+  price: number;
+  pnlDollar?: number;
+  pnlPercent?: number;
+}
+
+function buildTooltipMap(position: StockPosition): Map<string, MarkerTooltip> {
+  const map = new Map<string, MarkerTooltip>();
+  const buyDate = format(position.openDate, 'yyyy-MM-dd');
+  map.set(buyDate, {
+    kind: 'buy',
+    date: buyDate,
+    shares: position.quantity,
+    price: position.cost,
+  });
+
+  const isShort = position.type === 'Short';
+  for (const exit of position.exits) {
+    if (!exit.exitDate) continue;
+    const exitDate = format(exit.exitDate, 'yyyy-MM-dd');
+    const perShareGain = isShort
+      ? position.cost - exit.price
+      : exit.price - position.cost;
+    const pnlDollar = perShareGain * exit.shares;
+    const pnlPercent = position.cost !== 0
+      ? (perShareGain / position.cost) * 100
+      : 0;
+    map.set(exitDate, {
+      kind: 'sell',
+      date: exitDate,
+      shares: exit.shares,
+      price: exit.price,
+      pnlDollar,
+      pnlPercent,
+    });
+  }
+  return map;
+}
+
+function formatTooltip(t: MarkerTooltip): string {
+  const px = `$${t.price.toFixed(2)}`;
+  if (t.kind === 'buy') {
+    return `BUY · ${t.date} · ${t.shares} sh @ ${px}`;
+  }
+  const sign = (t.pnlDollar ?? 0) >= 0 ? '+' : '';
+  const pnl = `${sign}$${(t.pnlDollar ?? 0).toFixed(2)} (${sign}${(t.pnlPercent ?? 0).toFixed(2)}%)`;
+  return `SELL · ${t.date} · ${t.shares} sh @ ${px} · ${pnl}`;
+}
+
 function buildMarkers(position: StockPosition): {
   markers: SeriesMarker<Time>[];
   undatedExitCount: number;
@@ -143,6 +195,22 @@ export function PositionChartModal({
     [position]
   );
 
+  const [tooltip, setTooltip] = useState<{
+    text: string;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const tooltipMap = useMemo(
+    () => (position ? buildTooltipMap(position) : new Map<string, MarkerTooltip>()),
+    [position]
+  );
+
+  const tooltipMapRef = useRef(tooltipMap);
+  useEffect(() => {
+    tooltipMapRef.current = tooltipMap;
+  }, [tooltipMap]);
+
   const { resolvedTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -182,7 +250,33 @@ export function PositionChartModal({
     chartRef.current = chart;
     seriesRef.current = series;
 
+    const handleCrosshair = (
+      param: Parameters<Parameters<IChartApi['subscribeCrosshairMove']>[0]>[0]
+    ) => {
+      if (!param.point || !param.time) {
+        setTooltip(null);
+        return;
+      }
+      const timeStr = typeof param.time === 'string' ? param.time : null;
+      if (!timeStr) {
+        setTooltip(null);
+        return;
+      }
+      const hit = tooltipMapRef.current.get(timeStr);
+      if (!hit) {
+        setTooltip(null);
+        return;
+      }
+      setTooltip({
+        text: formatTooltip(hit),
+        x: param.point.x,
+        y: param.point.y,
+      });
+    };
+    chart.subscribeCrosshairMove(handleCrosshair);
+
     return () => {
+      chart.unsubscribeCrosshairMove(handleCrosshair);
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
@@ -262,6 +356,17 @@ export function PositionChartModal({
                 {!isLoading && !isError && historical && historical.length === 0 && (
                   <div className="absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
                     No price history available for {position.symbol}.
+                  </div>
+                )}
+                {tooltip && (
+                  <div
+                    className="pointer-events-none absolute z-10 px-2 py-1 text-[11px] font-mono bg-popover border border-border rounded shadow-md whitespace-nowrap"
+                    style={{
+                      left: Math.min(tooltip.x + 12, 900),
+                      top: Math.max(tooltip.y - 30, 0),
+                    }}
+                  >
+                    {tooltip.text}
                   </div>
                 )}
               </div>
