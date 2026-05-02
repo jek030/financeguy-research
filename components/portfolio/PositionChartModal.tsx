@@ -289,6 +289,23 @@ export function PositionChartModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
+  // Apply theme on theme change
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const isLight = resolvedTheme === 'light';
+    chart.applyOptions({
+      layout: {
+        background: { color: isLight ? '#FFFFFF' : '#0F0F0F' },
+        textColor: isLight ? '#0F172A' : '#F2F2F2',
+      },
+      grid: {
+        vertLines: { color: isLight ? 'rgba(15,23,42,0.08)' : 'rgba(242,242,242,0.06)' },
+        horzLines: { color: isLight ? 'rgba(15,23,42,0.08)' : 'rgba(242,242,242,0.06)' },
+      },
+    });
+  }, [resolvedTheme]);
+
   // Push data into the series when it arrives or range changes
   useEffect(() => {
     const series = seriesRef.current;
