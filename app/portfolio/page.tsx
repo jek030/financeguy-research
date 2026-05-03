@@ -39,6 +39,7 @@ import { useAuth } from '@/lib/context/auth-context';
 import { getRemainingShares, getRealizedGain, isFullyClosed } from '@/utils/portfolioCalculations';
 import { ExitsCell } from '@/components/portfolio/ExitsCell';
 import { EditPositionModal } from '@/components/portfolio/EditPositionModal';
+import { PositionChartModal } from '@/components/portfolio/PositionChartModal';
 import Link from 'next/link';
 import type { TableColumnDef } from '@/lib/table-types';
 
@@ -2472,7 +2473,11 @@ export default function Portfolio() {
   // Edit state
   const [editingPosition, setEditingPosition] = useState<StockPosition | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  
+
+  // Chart modal state
+  const [chartPosition, setChartPosition] = useState<StockPosition | null>(null);
+  const [showChartModal, setShowChartModal] = useState(false);
+
   // Position Percentage Calculator state
   const [adrPercent, setAdrPercent] = useState<string>('');
 
@@ -3211,7 +3216,7 @@ export default function Portfolio() {
                   />
                   <Button
                     size="sm"
-                    variant={showClosedPositions ? "secondary" : "ghost"}
+                    variant={showClosedPositions ? "secondary" : "outline"}
                     onClick={() => setShowClosedPositions(!showClosedPositions)}
                     disabled={closedPositions.length === 0}
                     className="h-8 text-xs"
@@ -3220,7 +3225,7 @@ export default function Portfolio() {
                   </Button>
                   <Button
                     size="sm"
-                    variant={summarizeOpenPositions ? "secondary" : "ghost"}
+                    variant={summarizeOpenPositions ? "secondary" : "outline"}
                     onClick={() => setSummarizeOpenPositions(!summarizeOpenPositions)}
                     disabled={!canSummarizeOpenPositions}
                     className="h-8 text-xs"
@@ -3238,7 +3243,7 @@ export default function Portfolio() {
                 </div>
               </div>
             </div>
-            <div className="overflow-x-auto [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
+            <div className="overflow-auto max-h-[70vh] border border-border rounded-md [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
               {isPortfolioLoading ? (
                 <div className="flex flex-col gap-2 py-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground px-2">
@@ -3294,7 +3299,23 @@ export default function Portfolio() {
                               : "border-r font-mono";
 
                           switch (col.id) {
-                            case 'symbol':
+                            case 'symbol': {
+                              const isOption = position.symbol.includes(' ');
+                              const symbolNode = isOption ? (
+                                <span>{position.symbol}</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setChartPosition(position);
+                                    setShowChartModal(true);
+                                  }}
+                                  className="text-left hover:underline focus:outline-none focus:underline cursor-pointer"
+                                >
+                                  {position.symbol}
+                                </button>
+                              );
+
                               return (
                                 <TableCell key={col.id} className={baseCellClass}>
                                   {isSummaryRow ? (
@@ -3303,10 +3324,11 @@ export default function Portfolio() {
                                       <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Summary</span>
                                     </span>
                                   ) : (
-                                    position.symbol
+                                    symbolNode
                                   )}
                                 </TableCell>
                               );
+                            }
                             case 'price':
                               return <TableCell key={col.id} className={baseCellClass}><PriceCell symbol={position.symbol} /></TableCell>;
                             case 'type':
@@ -3797,6 +3819,17 @@ export default function Portfolio() {
         onAddExit={addExit}
         onUpdateExit={updateExit}
         onDeleteExit={deleteExit}
+      />
+
+      <PositionChartModal
+        key={chartPosition?.id ?? 'none'}
+        position={chartPosition}
+        isOpen={showChartModal}
+        portfolioValue={portfolioValueNumber}
+        onClose={() => {
+          setShowChartModal(false);
+          setChartPosition(null);
+        }}
       />
 
       {/* Delete Confirmation Dialog */}
