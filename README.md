@@ -42,6 +42,12 @@ Core app stack:
 - Persistent storage saved to login
 - Track your favorite securities in one place
 
+### 💼 Portfolio
+- Login required
+- Position table with open/closed trade tracking, R multiples, realized gain, and exits
+- Click a regular stock symbol in the positions table to open a position chart modal
+- Chart modal shows daily FMP bars, 21 EMA, buy/exit markers, price lines, trade summary, and exits table
+
 ### 📁 Transactions → Portfolio Workflow
 - Upload brokerage JSON (`app/transactions/page.tsx`)
 - Compute summary metrics and action/symbol breakdowns
@@ -171,6 +177,35 @@ Persistence details that matter:
 - Realized gain and remaining shares are recalculated during position updates.
 - Portfolio selection precedence combines default preference + localStorage (`financeguy-selected-portfolio`).
 
+### 4) Portfolio position chart modal
+
+Codepaths:
+
+- Positions table + modal mount: `app/portfolio/page.tsx`
+- Chart modal: `components/portfolio/PositionChartModal.tsx`
+- Daily price hook/API: `hooks/FMP/useDailyPrices.ts`, `app/api/fmp/dailyprices/route.ts`
+- Position math helpers: `utils/portfolioCalculations.ts`
+
+Workflow summary:
+
+1. On `/portfolio`, a non-summary, non-option symbol cell renders as a button.
+2. Clicking the symbol opens `PositionChartModal` for that single `StockPosition`.
+3. The modal fetches daily FMP history through `/api/fmp/dailyprices`, never directly from the browser.
+4. The chart renders lightweight-charts `BarSeries` data on a logarithmic price scale, plus a 21 EMA line.
+5. Buy and dated-exit markers are shown on the chart; horizontal price lines mark entry and dated exit prices.
+6. Below the chart, the modal shows a trade summary and the sorted exits table.
+
+Behavior details that matter:
+
+- Range presets are `Trade`, `3M`, `6M`, and `1Y`.
+- `Trade` range displays from 30 calendar days before `openDate` through 30 calendar days after the last dated exit, capped at today.
+- The data fetch starts an additional 35 calendar days before the visible range to seed the 21 EMA.
+- FMP daily data is returned newest-first; the modal reverses it before passing it to lightweight-charts.
+- Marker hover tooltips show buy/exit details; same-date partial exits are aggregated into one sell tooltip with weighted-average exit price.
+- Short-position sell P&L is inverted so exits below cost are profitable.
+- Option symbols are detected by a space in `position.symbol` and stay non-clickable.
+- Summary rows from "Summarize Open Positions" stay non-clickable because they do not represent a single `StockPosition`.
+
 ## 🚀 Getting Started
 
 ```bash
@@ -232,6 +267,14 @@ NEXT_PUBLIC_SIGNUP_ENABLED=true
 
 - `updatePosition` recalculates derived fields (`remaining_shares`, `realized_gain`, `% portfolio`) from current + updated values.
 - Ensure PT share quantities and base quantity are consistent (PT1 + PT2 should not exceed total quantity).
+
+### Position chart modal is blank or missing data
+
+- Confirm the clicked row is a regular stock position, not an option symbol or summary row.
+- Check the network call to `/api/fmp/dailyprices?symbol=...&from=...&to=...`.
+- If the API returns 500, verify `FMP_API_KEY` is configured server-side.
+- If the chart has no bars, FMP may have no daily history for that symbol/range.
+- The modal creates the chart after the Dialog paints; if layout changes regress this, check the deferred chart creation in `PositionChartModal`.
 
 ## 📝 License
 This project is for educational purposes.
