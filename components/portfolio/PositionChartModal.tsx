@@ -8,12 +8,20 @@ import {
   DialogTitle,
 } from '@/components/ui/Dialog';
 import type { StockPosition } from '@/hooks/usePortfolio';
-import { addDays, format, subDays, subMonths, subYears } from 'date-fns';
+import {
+  addDays,
+  differenceInCalendarDays,
+  format,
+  subDays,
+  subMonths,
+  subYears,
+} from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
   formatRMultiple,
   getRMultiple,
   getRealizedGain,
+  getRemainingShares,
 } from '@/utils/portfolioCalculations';
 import {
   Table,
@@ -27,6 +35,7 @@ import {
   createChart,
   BarSeries,
   CrosshairMode,
+  LineSeries,
   PriceScaleMode,
   LineStyle,
   createSeriesMarkers,
@@ -89,11 +98,18 @@ function clampToToday(d: Date): Date {
   return d > today ? today : d;
 }
 
+// 35 calendar days ≈ 25 trading days, comfortably enough to seed the
+// 21 EMA before the visible range starts.
+const EMA_LOOKBACK_DAYS = 35;
+
 function deriveRange(position: StockPosition, preset: RangePreset): {
-  from: string;
-  to: string;
+  from: string; // visible-window start
+  to: string; // visible-window end
+  fetchFrom: string; // pulled back to seed the EMA
 } {
   const today = new Date();
+  let fromDate: Date;
+  let toDate: Date;
 
   if (preset === 'Trade') {
     const datedExits = position.exits.filter((e) => e.exitDate !== null);
@@ -103,19 +119,22 @@ function deriveRange(position: StockPosition, preset: RangePreset): {
           datedExits[0].exitDate as Date
         )
       : null;
-    const from = subDays(position.openDate, 30);
-    const to = clampToToday(addDays(lastExit ?? today, 30));
-    return { from: formatDateForFmp(from), to: formatDateForFmp(to) };
+    fromDate = subDays(position.openDate, 30);
+    toDate = clampToToday(addDays(lastExit ?? today, 30));
+  } else {
+    const spanMap: Record<Exclude<RangePreset, 'Trade'>, Date> = {
+      '3M': subMonths(today, 3),
+      '6M': subMonths(today, 6),
+      '1Y': subYears(today, 1),
+    };
+    fromDate = spanMap[preset];
+    toDate = today;
   }
 
-  const spanMap: Record<Exclude<RangePreset, 'Trade'>, Date> = {
-    '3M': subMonths(today, 3),
-    '6M': subMonths(today, 6),
-    '1Y': subYears(today, 1),
-  };
   return {
-    from: formatDateForFmp(spanMap[preset]),
-    to: formatDateForFmp(today),
+    from: formatDateForFmp(fromDate),
+    to: formatDateForFmp(toDate),
+    fetchFrom: formatDateForFmp(subDays(fromDate, EMA_LOOKBACK_DAYS)),
   };
 }
 
@@ -253,6 +272,28 @@ function toBarData(historical: DailyPriceData[]): {
     }));
 }
 
+// Standard EMA: seed with the SMA of the first `period` closes, then
+// iterate. Bars before the seed are omitted from the result so the line
+// only starts where it has a real value.
+function calculateEMA(
+  bars: { time: Time; close: number }[],
+  period: number
+): { time: Time; value: number }[] {
+  if (bars.length < period) return [];
+  const multiplier = 2 / (period + 1);
+  const out: { time: Time; value: number }[] = [];
+  let sum = 0;
+  for (let i = 0; i < period; i++) sum += bars[i].close;
+  let prev = sum / period;
+  out.push({ time: bars[period - 1].time, value: prev });
+  for (let i = period; i < bars.length; i++) {
+    const ema = (bars[i].close - prev) * multiplier + prev;
+    out.push({ time: bars[i].time, value: ema });
+    prev = ema;
+  }
+  return out;
+}
+
 export function PositionChartModal({
   position,
   isOpen,
@@ -297,13 +338,14 @@ export function PositionChartModal({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Bar'> | null>(null);
+  const emaSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const priceLinesRef = useRef<IPriceLine[]>([]);
   const [chartReady, setChartReady] = useState(false);
 
   const { data: historical, isLoading, isError, refetch } = useDailyPrices({
     symbol: position?.symbol ?? '',
-    from: range?.from ?? '',
+    from: range?.fetchFrom ?? '',
     to: range?.to ?? '',
     enabled: isOpen && !!position && !!range,
   });
@@ -344,8 +386,16 @@ export function PositionChartModal({
         downColor: isLight ? '#DC2626' : '#EF4444',
         thinBars: false,
       });
+      const emaSeries = chart.addSeries(LineSeries, {
+        color: isLight ? '#000000' : '#9CA3AF',
+        lineWidth: 1,
+        priceLineVisible: false,
+        lastValueVisible: false,
+        crosshairMarkerVisible: false,
+      });
       chartRef.current = chart;
       seriesRef.current = series;
+      emaSeriesRef.current = emaSeries;
 
       handleCrosshair = (param) => {
         if (!param.point || !param.time) {
@@ -380,6 +430,7 @@ export function PositionChartModal({
       chart?.remove();
       chartRef.current = null;
       seriesRef.current = null;
+      emaSeriesRef.current = null;
       markersRef.current = null;
       priceLinesRef.current = [];
       setChartReady(false);
@@ -403,6 +454,9 @@ export function PositionChartModal({
         horzLines: { color: isLight ? 'rgba(15,23,42,0.08)' : 'rgba(242,242,242,0.06)' },
       },
     });
+    emaSeriesRef.current?.applyOptions({
+      color: isLight ? '#000000' : '#9CA3AF',
+    });
   }, [resolvedTheme]);
 
   // Push data into the series when it arrives, the chart is ready, or
@@ -412,7 +466,12 @@ export function PositionChartModal({
     if (!chartReady) return;
     const series = seriesRef.current;
     if (!series || !historical || historical.length === 0) return;
-    series.setData(toBarData(historical));
+    const bars = toBarData(historical);
+    series.setData(bars);
+
+    if (emaSeriesRef.current) {
+      emaSeriesRef.current.setData(calculateEMA(bars, 21));
+    }
 
     if (!markersRef.current) {
       markersRef.current = createSeriesMarkers(series, markers);
@@ -448,8 +507,14 @@ export function PositionChartModal({
       }
     }
 
-    chartRef.current?.timeScale().fitContent();
-  }, [historical, markers, chartReady, position]);
+    if (range) {
+      chartRef.current
+        ?.timeScale()
+        .setVisibleRange({ from: range.from as Time, to: range.to as Time });
+    } else {
+      chartRef.current?.timeScale().fitContent();
+    }
+  }, [historical, markers, chartReady, position, range]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -540,6 +605,19 @@ export function PositionChartModal({
   );
 }
 
+function normalizeToLocalMidnight(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+// Mirrors `calculateDaysInTrade` in app/portfolio/page.tsx so the
+// modal's "Days" matches the positions table exactly.
+function daysInTrade(position: StockPosition): number {
+  const start = normalizeToLocalMidnight(position.openDate);
+  const end = normalizeToLocalMidnight(position.closedDate ?? new Date());
+  const diff = differenceInCalendarDays(end, start);
+  return diff < 0 ? 0 : diff;
+}
+
 function TradeSummary({
   position,
   portfolioValue,
@@ -551,6 +629,8 @@ function TradeSummary({
   const rMultiple = getRMultiple(position);
   const portfolioGainPercent =
     portfolioValue > 0 ? (realized / portfolioValue) * 100 : 0;
+  const remaining = getRemainingShares(position);
+  const days = daysInTrade(position);
 
   return (
     <div className="px-5 pb-3">
@@ -567,6 +647,9 @@ function TradeSummary({
             <TableHead>Gain/Loss</TableHead>
             <TableHead>Portfolio Gain</TableHead>
             <TableHead>Net Cost</TableHead>
+            <TableHead>Initial Shares</TableHead>
+            <TableHead>Remaining Shares</TableHead>
+            <TableHead>Days</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -586,6 +669,9 @@ function TradeSummary({
               {portfolioValue > 0 ? formatSignedPercent(portfolioGainPercent) : '—'}
             </TableCell>
             <TableCell className="font-mono">{formatMoney(position.netCost)}</TableCell>
+            <TableCell className="font-mono">{position.quantity}</TableCell>
+            <TableCell className="font-mono">{remaining}</TableCell>
+            <TableCell className="font-mono">{days}</TableCell>
           </TableRow>
         </TableBody>
       </Table>

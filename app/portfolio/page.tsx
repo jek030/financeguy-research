@@ -3216,7 +3216,7 @@ export default function Portfolio() {
                   />
                   <Button
                     size="sm"
-                    variant={showClosedPositions ? "secondary" : "ghost"}
+                    variant={showClosedPositions ? "secondary" : "outline"}
                     onClick={() => setShowClosedPositions(!showClosedPositions)}
                     disabled={closedPositions.length === 0}
                     className="h-8 text-xs"
@@ -3225,7 +3225,7 @@ export default function Portfolio() {
                   </Button>
                   <Button
                     size="sm"
-                    variant={summarizeOpenPositions ? "secondary" : "ghost"}
+                    variant={summarizeOpenPositions ? "secondary" : "outline"}
                     onClick={() => setSummarizeOpenPositions(!summarizeOpenPositions)}
                     disabled={!canSummarizeOpenPositions}
                     className="h-8 text-xs"
@@ -3243,7 +3243,7 @@ export default function Portfolio() {
                 </div>
               </div>
             </div>
-            <div className="overflow-x-auto [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
+            <div className="overflow-auto max-h-[70vh] border border-border rounded-md [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
               {isPortfolioLoading ? (
                 <div className="flex flex-col gap-2 py-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground px-2">
