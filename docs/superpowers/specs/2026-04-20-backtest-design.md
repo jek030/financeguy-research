@@ -104,7 +104,7 @@ Hook: `hooks/useBacktest.ts`
 
 - Reads closed positions from the existing `usePortfolio` hook
 - For each trade, fetches in parallel (Promise.all):
-  - OHLC via `/api/fmp/dailyprices?symbol=X&from=open_date&to=today` — fetches through today so the sim can run past the actual close date if the user exited early
+  - OHLC via `/api/fmp/dailyprices?symbol=X&from=60_days_before_open&to=30_days_after_close` — includes pre-entry data for ATR setup and a post-close window for simulated exits after the actual close
   - MA data via `/api/fmp/technical/moving-average` — one call per MA needed (trail exit MA always; trailing MA stop adds a second call if that method is selected)
 - Passes fetched data to `backtestCalculations.ts`
 - Returns an array of result objects, each appended as it resolves (progressive rendering)
