@@ -364,7 +364,7 @@ function renderPortfolioColumnHeader(
         sortColumn={sortColumn}
         sortDirection={sortDirection}
         onSort={handleSort}
-        className="sticky left-0 z-20 !bg-background border-r border-border"
+        className="sticky left-0 top-0 z-30 !bg-background border-r border-border"
       />
     );
   }
@@ -741,8 +741,8 @@ function PortfolioToolbar({
   handleTabChange,
 }: PortfolioToolbarProps) {
   return (
-    <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
-      <div className="flex flex-col gap-2 px-3 py-2.5 border-b border-border/50 bg-muted/30 lg:flex-row lg:items-center lg:justify-between">
+    <div className="border-b border-border">
+      <div className="flex flex-col gap-2 px-3 py-1.5 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap">
           <Select
             value={selectedPortfolioKey !== null ? String(selectedPortfolioKey) : undefined}
@@ -3182,9 +3182,9 @@ export default function Portfolio() {
   };
 
   return (
-    <div className="w-full p-3 sm:p-4 bg-gradient-to-br from-background via-background to-muted/20">
+    <div className="w-full bg-gradient-to-br from-background via-background to-muted/20">
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <div className="space-y-3">
+        <div className="space-y-2">
           <PortfolioToolbar
             portfolios={portfolios}
             selectedPortfolioKey={selectedPortfolioKey}
@@ -3199,11 +3199,11 @@ export default function Portfolio() {
             handleTabChange={handleTabChange}
           />
 
-          <TabsContent value="positions">
+          <TabsContent value="positions" className="px-3 sm:px-4">
             <div className="flex flex-col xl:flex-row gap-3">
               <div className="flex-1 min-w-0 space-y-3">
                 {/* Positions Table Card */}
-          <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden p-2.5 sm:p-3">
+          <div>
             <div className="mb-2 space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
@@ -3243,7 +3243,7 @@ export default function Portfolio() {
                 </div>
               </div>
             </div>
-            <div className="overflow-auto max-h-[70vh] border border-border rounded-md [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
+            <div className="overflow-auto max-h-[calc(100vh-180px)] border-y border-l border-border [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
               {isPortfolioLoading ? (
                 <div className="flex flex-col gap-2 py-2">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground px-2">
@@ -3257,8 +3257,8 @@ export default function Portfolio() {
                 </div>
               ) : hasPositions && hasDisplayedPositions ? (
                 <Table>
-                  <TableHeader>
-                    <TableRow className="border-b-2">
+                  <TableHeader className="!border-b-0 sticky top-0 z-30 bg-background [&_th]:bg-background [&_th]:border-b [&_th]:border-border">
+                    <TableRow>
                       {visibleColumns.map((col) =>
                         renderPortfolioColumnHeader(
                           col,
@@ -3787,11 +3787,11 @@ export default function Portfolio() {
             </div>
           </TabsContent>
 
-          <TabsContent value="backtest">
+          <TabsContent value="backtest" className="px-3 sm:px-4">
             <BacktestTab closedPositions={positions.filter(isPositionFullyClosed)} />
           </TabsContent>
 
-          <TabsContent value="stats">
+          <TabsContent value="stats" className="px-3 sm:px-4">
             <PortfolioHero
               portfolioName={portfolioName}
               portfolioValue={portfolio?.portfolio_value ?? (portfolioValue ? parseFloat(portfolioValue) : 0)}

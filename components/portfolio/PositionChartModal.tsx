@@ -385,6 +385,8 @@ export function PositionChartModal({
         upColor: isLight ? '#16A34A' : '#22C55E',
         downColor: isLight ? '#DC2626' : '#EF4444',
         thinBars: false,
+        priceLineVisible: false,
+        lastValueVisible: false,
       });
       const emaSeries = chart.addSeries(LineSeries, {
         color: isLight ? '#000000' : '#9CA3AF',
@@ -487,13 +489,18 @@ export function PositionChartModal({
     priceLinesRef.current = [];
     if (position) {
       const seen = new Set<string>();
-      const addLine = (price: number, kind: 'buy' | 'sell') => {
+      const colorMap = {
+        buy: '#22C55E',
+        sell: '#EF4444',
+        stop: '#EAB308',
+      } as const;
+      const addLine = (price: number, kind: 'buy' | 'sell' | 'stop') => {
         const key = `${kind}:${price}`;
         if (seen.has(key)) return;
         seen.add(key);
         const line = series.createPriceLine({
           price,
-          color: kind === 'buy' ? '#22C55E' : '#EF4444',
+          color: colorMap[kind],
           lineWidth: 1,
           lineStyle: LineStyle.Dashed,
           axisLabelVisible: true,
@@ -502,6 +509,9 @@ export function PositionChartModal({
         priceLinesRef.current.push(line);
       };
       addLine(position.cost, 'buy');
+      if (position.initialStopLoss > 0) {
+        addLine(position.initialStopLoss, 'stop');
+      }
       for (const exit of position.exits) {
         if (exit.exitDate) addLine(exit.price, 'sell');
       }
@@ -701,20 +711,38 @@ function ExitsSection({ position }: { position: StockPosition }) {
               <TableHead>Price</TableHead>
               <TableHead>Shares</TableHead>
               <TableHead>Date</TableHead>
+              <TableHead>Gain $</TableHead>
+              <TableHead>Gain %</TableHead>
               <TableHead>Notes</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedExits.map((exit) => (
-              <TableRow key={exit.id}>
-                <TableCell className="font-mono">{formatMoney(exit.price)}</TableCell>
-                <TableCell className="font-mono">{exit.shares}</TableCell>
-                <TableCell className="font-mono">
-                  {exit.exitDate ? format(exit.exitDate, 'MMMM d, yyyy') : '—'}
-                </TableCell>
-                <TableCell className="text-xs">{exit.notes ?? ''}</TableCell>
-              </TableRow>
-            ))}
+            {sortedExits.map((exit) => {
+              const isShort = position.type === 'Short';
+              const perShareGain = isShort
+                ? position.cost - exit.price
+                : exit.price - position.cost;
+              const gainDollar = perShareGain * exit.shares;
+              const gainPercent = position.cost !== 0
+                ? (perShareGain / position.cost) * 100
+                : 0;
+              return (
+                <TableRow key={exit.id}>
+                  <TableCell className="font-mono">{formatMoney(exit.price)}</TableCell>
+                  <TableCell className="font-mono">{exit.shares}</TableCell>
+                  <TableCell className="font-mono">
+                    {exit.exitDate ? format(exit.exitDate, 'MMMM d, yyyy') : '—'}
+                  </TableCell>
+                  <TableCell className={cn('font-mono font-medium', gainClass(gainDollar))}>
+                    {formatSignedMoney(gainDollar)}
+                  </TableCell>
+                  <TableCell className={cn('font-mono font-medium', gainClass(gainPercent))}>
+                    {formatSignedPercent(gainPercent)}
+                  </TableCell>
+                  <TableCell className="text-xs">{exit.notes ?? ''}</TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       )}

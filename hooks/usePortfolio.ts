@@ -3,7 +3,6 @@ import { supabase, SupabasePortfolio, SupabasePortfolioPosition, SupabasePositio
 import { useAuth } from '@/lib/context/auth-context';
 import { useUserPreferences } from './useUserPreferences';
 import {
-  calculateRPriceTargets,
   getRealizedGain,
   isFullyClosed,
 } from '@/utils/portfolioCalculations';
@@ -382,52 +381,6 @@ export function usePortfolio() {
         .single();
 
       if (positionError) throw positionError;
-
-      const rTargets = calculateRPriceTargets(
-        position.cost,
-        position.initialStopLoss,
-        position.type
-      );
-
-      if (rTargets.priceTarget2R > 0 && rTargets.priceTarget5R > 0) {
-        const seedRows = [
-          {
-            position_id: insertedPosition.trade_key,
-            price: rTargets.priceTarget2R,
-            shares: 0,
-            exit_date: null,
-            notes: null,
-            sort_order: 0,
-          },
-          {
-            position_id: insertedPosition.trade_key,
-            price: rTargets.priceTarget5R,
-            shares: 0,
-            exit_date: null,
-            notes: null,
-            sort_order: 1,
-          },
-        ];
-
-        const { error: exitsError } = await supabase
-          .from('tblPositionExits')
-          .insert(seedRows);
-
-        if (exitsError) {
-          const { error: rollbackError } = await supabase
-            .from('tblPortfolioPositions')
-            .delete()
-            .eq('trade_key', insertedPosition.trade_key);
-          if (rollbackError) {
-            console.error(
-              'Failed to rollback position insert; orphaned row:',
-              insertedPosition.trade_key,
-              rollbackError
-            );
-          }
-          throw exitsError;
-        }
-      }
 
       const { data: refetched, error: refetchError } = await supabase
         .from('tblPortfolioPositions')
