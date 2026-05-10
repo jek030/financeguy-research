@@ -42,6 +42,12 @@ Core app stack:
 - Persistent storage saved to login
 - Track your favorite securities in one place
 
+### 📊 Portfolio
+- Login required
+- Track stock and option positions with flexible exit rows
+- Edit position details and planned/filled exits in a tabbed modal
+- Click a non-option, non-summary symbol to open the position chart modal
+
 ### 📁 Transactions → Portfolio Workflow
 - Upload brokerage JSON (`app/transactions/page.tsx`)
 - Compute summary metrics and action/symbol breakdowns
@@ -160,16 +166,42 @@ Workflow summary:
 3. In "New Position" mode:
    - position type inferred from action (Long/Short)
    - option quantities are converted to share-equivalent (`contracts * 100`)
-   - 2R/5R targets are computed from entry vs stop (`calculateRPriceTargets`)
+   - 2R/5R preview targets are computed from entry vs stop (`calculateRPriceTargets`)
 4. In "Offset Existing" mode:
-   - offsets write into PT1/PT2/21-day-trail fields for the selected open position
-   - trail mode can close the position by setting `closedDate`
+   - offsets append a filled exit row through `addExit`
+   - freeform notes are copied to the exit row's `notes` field
 
 Persistence details that matter:
 
 - `open_risk` is stored as a percentage in DB, then converted back to stop price for UI editing.
-- Realized gain and remaining shares are recalculated during position updates.
+- Realized gain, remaining shares, and closed-date status are derived from filled exits.
 - Portfolio selection precedence combines default preference + localStorage (`financeguy-selected-portfolio`).
+
+### 4) Portfolio position chart modal
+
+Codepaths:
+
+- Trigger + modal mount: `app/portfolio/page.tsx`
+- Modal implementation: `components/portfolio/PositionChartModal.tsx`
+- Daily price hook/API: `hooks/FMP/useDailyPrices.ts`, `app/api/fmp/dailyprices/route.ts`
+- Portfolio calculations: `utils/portfolioCalculations.ts`
+
+Workflow summary:
+
+1. In the positions table, only non-summary stock symbols are buttons. Option symbols are treated as plain text because option symbols contain spaces.
+2. Opening the modal fetches daily OHLC through `/api/fmp/dailyprices`; the client never calls FMP directly.
+3. The `Trade` range shows `openDate - 30d` through `(last dated exit ?? today) + 30d`, capped at today. `3M`, `6M`, and `1Y` end at today.
+4. The fetch starts 35 days before the visible range so the 21 EMA has enough seed bars before the displayed window starts.
+5. The chart renders daily bars on a logarithmic price scale, a 21 EMA, buy/exit markers, and dashed price lines for entry, stop, and dated exits.
+6. The modal also renders trade summary and exits tables using the same derived helpers as the portfolio page (`getRealizedGain`, `getRMultiple`, `getRemainingShares`).
+
+Operational constraints:
+
+- `/api/fmp/dailyprices` requires `symbol`, `from`, and `to` query params in `YYYY-MM-DD` format plus `FMP_API_KEY`.
+- `useDailyPrices` caches by `[symbol, from, to]` with 5-minute stale time and 15-minute cache retention.
+- Lightweight Charts needs a measured container; the modal defers chart creation one animation frame after Radix Dialog opens.
+- Marker tooltips aggregate same-date exits and flip P&L for short positions.
+- Summary rows are intentionally not clickable because they can represent multiple position IDs.
 
 ## 🚀 Getting Started
 
@@ -230,8 +262,15 @@ NEXT_PUBLIC_SIGNUP_ENABLED=true
 
 ### Portfolio values look off after edits
 
-- `updatePosition` recalculates derived fields (`remaining_shares`, `realized_gain`, `% portfolio`) from current + updated values.
-- Ensure PT share quantities and base quantity are consistent (PT1 + PT2 should not exceed total quantity).
+- `updatePosition`, `addExit`, `updateExit`, and `deleteExit` refetch the position after persistence so derived fields stay aligned.
+- Filled exit shares cannot exceed the base position quantity; planned exits with no date are allowed to over-allocate.
+
+### Position chart modal is blank or missing data
+
+- Confirm the clicked row is a regular stock position, not an option symbol or summarized row.
+- Check the network call to `/api/fmp/dailyprices?symbol=...&from=...&to=...`.
+- A 400 response means missing or invalid date params; a 500 response usually points to `FMP_API_KEY` or upstream FMP failure.
+- If editing the dialog layout, keep chart creation deferred until after the modal container has dimensions.
 
 ## 📝 License
 This project is for educational purposes.

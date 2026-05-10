@@ -1,137 +1,196 @@
 # Position Chart Modal — Design
 
 **Date:** 2026-04-30
-**Status:** Approved (pending implementation)
+**Status:** Implemented
 
 ## Goal
 
-Let the user click a symbol on the `/portfolio` positions tab and immediately see a daily price chart of that symbol, with arrow markers showing where the buy (cost) and the exits occurred. Goal is to easily visualize where transactions sit on the price action of a single position.
+Let the user click a stock symbol on the `/portfolio` positions tab and inspect the price action for that single position. The modal should show where the entry, stop, and filled exits sit on the chart, plus the derived trade summary needed to review the position without leaving the table.
 
 ## Scope
 
 - One modal, opened from the positions tab on `/portfolio`.
-- Single position scope: the chart shows the buy + exits for the **specific position row clicked** (one row in `tblPortfolioPositions` plus its joined `tblPositionExits`).
-- Daily timeframe only. Bar series, log scale. No indicators.
+- Single position scope: the chart and tables are for the specific `StockPosition` row clicked.
+- Daily timeframe only, with range presets: `Trade`, `3M`, `6M`, `1Y`.
+- Daily bar chart on a logarithmic price scale, plus a 21 EMA line.
+- Buy and dated-exit markers; dashed price lines for entry, initial stop, and dated exit prices.
+- Trade summary and exits tables inside the modal.
 
 ## Non-goals
 
-- No volume pane, no moving averages, no RSI, no any indicator.
-- No candlesticks (bar series only).
+- No volume pane, RSI, MACD, or additional indicators beyond the implemented 21 EMA.
+- No candlesticks; the chart uses `BarSeries`.
 - No intraday/weekly/monthly timeframes.
-- No company-name lookup in the title.
-- No custom date pickers — only the four range presets below.
-- No tooltip when hovering plain bars (markers only).
+- No custom date pickers; only the four range presets above.
+- No tooltip when hovering plain bars without a marker date.
 - No multi-position overlay for the same symbol.
 - No persistence of last-used range preset.
-- No automated tests (project has no test runner per CLAUDE.md).
+- No automated tests; the project has no test runner per `CLAUDE.md`.
 
 ## Architecture
 
-### New file
-- `components/portfolio/PositionChartModal.tsx` — the modal. Owns dialog shell, range selector, lightweight-charts setup, marker derivation, theme reactivity.
+### Files
 
-### Modified files
-- `app/portfolio/page.tsx` — two edits in this single file:
-  1. **Symbol cell** at the `case 'symbol':` branch (~line 3297). The non-summary path currently renders `position.symbol` as bare text; wrap it in a `<button>` when the symbol is a clickable stock. **Summary rows** (`isSummaryRow === true`, when `summarizeOpenPositions` is on) stay non-clickable — they aggregate multiple `trade_key`s and don't map to a single position.
-  2. **Page state + modal mount** — add `selectedPosition` + `showChartModal` state and render `<PositionChartModal>` at the page level. Mirrors the existing `EditPositionModal` wiring already in this file (~lines 2473-2474).
+- `components/portfolio/PositionChartModal.tsx`
+  - Dialog shell, range selector, lightweight-charts lifecycle, marker/tooltip derivation, 21 EMA, price lines, trade summary, exits table, theme reactivity.
+- `app/portfolio/page.tsx`
+  - Holds `chartPosition` / `showChartModal` state.
+  - Wraps clickable non-summary stock symbols in a button.
+  - Mounts `<PositionChartModal>` near the existing `EditPositionModal`.
+- `hooks/FMP/useDailyPrices.ts`
+  - TanStack Query wrapper for `/api/fmp/dailyprices`.
+- `app/api/fmp/dailyprices/route.ts`
+  - Server-side FMP proxy. Validates `symbol`, `from`, and `to`; requires `FMP_API_KEY`.
+- `utils/portfolioCalculations.ts`
+  - Shared derived values for realized gain, remaining shares, and R multiple.
 
 ### Dependencies
-- None new. `lightweight-charts@5.0.1` is already installed; `useDailyPrices` hook + `/api/fmp/dailyprices` route already exist.
+
+- No feature-specific dependency was added for the final modal. It uses existing `lightweight-charts@5.0.1`, `next-themes`, TanStack Query, `date-fns`, and shadcn/Radix Dialog primitives.
 
 ### Component shape
-```ts
+
+```tsx
 <PositionChartModal
-  position={SupabasePortfolioPosition & { tblPositionExits: SupabasePositionExit[] }}
-  open={boolean}
-  onOpenChange={(open: boolean) => void}
+  key={chartPosition?.id ?? 'none'}
+  position={chartPosition}
+  isOpen={showChartModal}
+  portfolioValue={portfolioValueNumber}
+  onClose={() => {
+    setShowChartModal(false);
+    setChartPosition(null);
+  }}
 />
 ```
 
-Internal hooks: `useDailyPrices({ symbol, from, to })`, `useTheme()` from `next-themes`, local `useState` for the active range preset, `useRef` + `useEffect` for the chart instance.
+Internal hooks: `useDailyPrices({ symbol, from, to })`, `useTheme()`, local state for active range preset and tooltip, and refs for chart, bar series, EMA series, markers, and price lines.
 
 ## Data flow
 
-### Inputs (already on the position object passed in)
-- `symbol`, `cost`, `quantity`, `open_date`, `type`
-- `tblPositionExits[]` — `price`, `shares`, `exit_date` (nullable), `notes`
+### Inputs
+
+The modal receives the camelCase `StockPosition` shape from `hooks/usePortfolio.ts`, not the raw Supabase row:
+
+- Position fields: `id`, `symbol`, `cost`, `quantity`, `netCost`, `initialStopLoss`, `type`, `openDate`, `closedDate`
+- Exit rows: `exits[]` with `price`, `shares`, `exitDate`, `notes`, `sortOrder`
+- Portfolio value: `portfolioValue`, used only for `% portfolio gain` in the summary table
 
 ### Daily prices fetch
-- `useDailyPrices({ symbol, from, to })` — TanStack Query, 5m staleTime, 15m gcTime (existing defaults).
-- `from`/`to` derived from the active range preset (see UI Behavior). Cached per `[symbol, from, to]`.
 
-### Marker derivation
-Pure helper inside the same file:
-```ts
-buildMarkers(position): SeriesMarker<Time>[]
-```
-- 1 buy marker: `{ time: open_date, position: 'belowBar', color: green, shape: 'arrowUp' }`.
-- For each exit where `exit_date != null`: `{ time: exit_date, position: 'aboveBar', color: red, shape: 'arrowDown' }`.
-- Exits with null `exit_date` are filtered out. If any are dropped, the chart caption renders `"N undated exit(s) not shown"`.
+- `deriveRange(position, preset)` returns:
+  - `from`: visible-window start
+  - `to`: visible-window end
+  - `fetchFrom`: `from - 35 calendar days`
+- `useDailyPrices` is called with `from: range.fetchFrom` and `to: range.to`.
+- Query key: `['daily-prices', symbol, from, to]`.
+- Cache policy: 5-minute `staleTime`, 15-minute `gcTime`.
+- The API route proxies to FMP `/v3/historical-price-full/{symbol}` and validates `YYYY-MM-DD` dates.
+- FMP historical data is returned newest-first; `toBarData` reverses it before passing to lightweight-charts.
 
-### Hover tooltip
-Built with lightweight-charts' `subscribeCrosshairMove`. When the crosshair sits over a date that has a marker, a small floating div renders near the cursor:
-- **Buy:** `BUY · {date} · {qty} shares @ ${cost}`
-- **Sell:** `SELL · {date} · {shares} shares @ ${price} · {pnl$} ({pnl%})` — pnl computed against `position.cost`. For shorts (`position.type === 'Short'`), pnl sign flips (profit when exit price < cost).
+The 35-day fetch lookback seeds the 21 EMA before the visible range starts. After data is set, the chart calls `setVisibleRange({ from: range.from, to: range.to })`.
 
-No tooltip when hovering bars without a marker.
+### Range presets
 
-### Series setup
-- `BarSeries` (lightweight-charts v5) — open/high/low/close from daily prices.
-- Right price scale: `mode: PriceScaleMode.Logarithmic`.
-- Theme: subscribe to `next-themes` `resolvedTheme`; rebuild chart options (background, grid, text colors) on change.
+- `Trade`: `from = openDate - 30d`; `to = (latest dated exit ?? today) + 30d`, capped at today.
+- `3M`, `6M`, `1Y`: `to = today`; `from = today - span`.
 
-### Lifecycle
-- Chart created in a `useEffect` keyed on `[open]` (modal open); disposed via `chart.remove()` on close.
-- Data updates use `series.setData(...)` without recreating the chart.
-- Markers attached via `createSeriesMarkers(series, markers)` (the v5 plugin API), updated when range or data changes.
-- `key={position.trade_key}` on modal contents so reopening on a different position fully remounts; no stale state.
+### Chart setup
+
+- `BarSeries` for OHLC bars.
+- `LineSeries` for the 21 EMA.
+- Right price scale uses `PriceScaleMode.Logarithmic`.
+- Crosshair uses `CrosshairMode.Normal`.
+- Chart creation is deferred with `requestAnimationFrame` after the Dialog opens so the container has real dimensions.
+- Theme changes call `chart.applyOptions(...)` and update EMA color without recreating the chart.
+- Cleanup removes the chart, clears refs, and resets `chartReady`.
+
+### Markers, price lines, and tooltip
+
+- `buildMarkers(position, markerColor)` creates:
+  - one entry marker at `openDate`, below the bar
+  - one exit marker per dated exit, above the bar
+  - no marker for planned/undated exits
+- Markers are sorted ascending because lightweight-charts requires chronological order.
+- Marker color is black in light mode and gray in dark mode.
+- Dashed price lines are rebuilt with each data/position update:
+  - entry: green
+  - initial stop: yellow, when `initialStopLoss > 0`
+  - dated exits: red
+  - duplicates are skipped by `(kind, price)`
+- Tooltip data is keyed by chart date:
+  - Buy: `BUY · {date} · {shares} shares @ ${cost}`
+  - Sell: `SELL · {date} · {shares} shares @ ${weightedExitPrice} · {pnl$} ({pnl%})`
+  - Same-date exits are aggregated into total shares, weighted-average exit price, and total P&L.
+  - Short positions flip P&L so an exit below cost is positive.
+- The tooltip is horizontally clamped to the chart container to avoid edge clipping.
+
+### Trade summary and exits tables
+
+- `TradeSummary` renders symbol, cost, stop loss, R, gain/loss, portfolio gain, net cost, initial shares, remaining shares, and days in trade.
+- `ExitsSection` sorts dated exits first by date, then planned exits by `sortOrder`.
+- Exit rows show price, shares, date, gain dollars, gain percent, and notes.
+- Derived values intentionally reuse `utils/portfolioCalculations.ts` helpers where available.
 
 ## UI behavior
 
 ### Modal
-- `Dialog` from `@/components/ui/Dialog`, `max-w-[1100px]`, body height ~600px. Closes on outside click / ESC / X button.
-- **Header (left):** `{symbol}` in monospace + small subtitle showing `Long`/`Short` and the open_date.
-- **Header (right):** segmented buttons — `Trade · 3M · 6M · 1Y`. Default = `Trade`.
-- **Body:** chart fills remaining space.
-- **Caption strip below chart:** left side shows `"N undated exit(s) not shown"` only if applicable; right side shows the FMP attribution.
 
-### Range presets → from/to
-- `Trade` — `from = open_date − 30 calendar days`, `to = (latest dated exit ?? today) + 30 calendar days`. Capped at today.
-- `3M` / `6M` / `1Y` — `to = today`, `from = today − span`.
+- `Dialog` from `@/components/ui/Dialog`.
+- `DialogContent`: `max-w-[1100px]`, `max-h-[90vh]`, vertical scroll for the chart plus tables.
+- Header left: monospace `{symbol}` plus `{Long|Short} · opened {date}`.
+- Header right: range buttons `Trade · 3M · 6M · 1Y`; default is `Trade`.
+- Chart area height: `600px`.
+- The chart body shows loading, error, and empty states over the chart container.
 
 ### Click guard on the symbol cell
-In the symbol cell branch (`app/portfolio/page.tsx` ~line 3297):
+
+In `app/portfolio/page.tsx`, the symbol cell keeps summary rows and options non-clickable:
+
 ```tsx
 const isOption = position.symbol.includes(' ');
-const isClickable = !isSummaryRow && !isOption;
-isClickable
-  ? <button onClick={() => openChart(position)}>{position.symbol}</button>
-  : <span>{position.symbol}</span>
+const symbolNode = isOption ? (
+  <span>{position.symbol}</span>
+) : (
+  <button
+    type="button"
+    onClick={() => {
+      setChartPosition(position);
+      setShowChartModal(true);
+    }}
+  >
+    {position.symbol}
+  </button>
+);
 ```
-Clickable tickers get hover underline / pointer cursor; options and summary rows stay plain.
+
+Summary rows render `row.symbol` plus a `Summary` label. They do not open the modal because a summary row can aggregate multiple position IDs.
 
 ### Loading / error / empty states
-- **Loading:** skeleton block in the chart area.
-- **Error** (FMP fetch failed): centered message `"Could not load price data for {symbol}."` + Retry button (TanStack Query `refetch`).
-- **Empty** (FMP returns 0 bars): centered message `"No price history available for {symbol}."`.
+
+- Loading: full-area skeleton block.
+- Error: `"Could not load price data for {symbol}."` plus a Retry button (`refetch`).
+- Empty: `"No price history available for {symbol}."`.
 
 ## Edge cases
 
-- **Symbol is an option** (`symbol.includes(' ')`) → cell not clickable.
-- **Summary row** (multiple positions for the same symbol aggregated when `summarizeOpenPositions` is on) → cell not clickable.
-- **All exits have null `exit_date`** → only buy marker rendered; "N undated exit(s) not shown" caption appears.
-- **Position is fully closed** → `Trade` range uses last dated exit + 30d as `to`.
-- **Position is open (no exits)** → only buy marker; `Trade` range uses today as `to`.
-- **Trade older than the FMP history window** → chart renders whatever bars FMP returns; markers outside that range simply don't appear.
-- **Theme change while modal is open** → chart options rebuilt from `resolvedTheme`.
-- **Modal reopened on a different position** → `key={position.trade_key}` forces full remount.
-- **Short positions** → buy marker still below bar (entry is entry); tooltip P&L flipped.
+- **Option symbol** (`symbol.includes(' ')`) -> not clickable.
+- **Summary row** (`summarizeOpenPositions` aggregate) -> not clickable.
+- **Undated/planned exits** -> excluded from markers and dated-exit price lines; still shown in the exits table.
+- **Position is fully closed** -> `Trade` range uses last dated exit + 30d as `to`, capped at today.
+- **Position is open or has no dated exits** -> `Trade` range uses today as `to`.
+- **Trade older than the FMP history window** -> chart renders whatever bars FMP returns; markers outside returned bars do not appear.
+- **Data loads before deferred chart creation finishes** -> `chartReady` triggers the data push once refs exist.
+- **Theme change while modal is open** -> chart and EMA colors update through `applyOptions`.
+- **Modal reopened on a different position** -> page-level `key={chartPosition?.id ?? 'none'}` forces a remount.
+- **Short positions** -> entry marker remains below bar; sell tooltip and exits table P&L flip sign correctly.
 
 ## Manual verification
 
-1. Click a stock symbol on a closed position → modal opens with bar chart, log scale, buy + exit markers.
-2. Hover markers → tooltip shows correct numbers; sells show P&L vs cost.
-3. Range buttons swap data (verify network calls in devtools).
-4. Click an option symbol (e.g., `MU 04/17/2026 470.00 C`) → no click handler, no cursor change.
-5. Close modal, reopen on different symbol → chart shows new symbol's data, no flash of old data.
-6. Toggle theme → chart colors update.
+1. Click a stock symbol on a closed position -> modal opens with daily bar chart, log scale, 21 EMA, entry/exit markers, and price lines.
+2. Hover marker dates -> tooltip shows correct buy/sell values; same-date exits aggregate; shorts show positive P&L when exit price is below cost.
+3. Change `Trade`, `3M`, `6M`, and `1Y` -> data fetches by range and visible window updates.
+4. Click an option symbol such as `MU 04/17/2026 470.00 C` -> no modal and no pointer affordance.
+5. Toggle summarized open positions -> summary symbols stay non-clickable.
+6. Close and reopen on a different symbol -> chart and tables show only the new position.
+7. Toggle theme while the modal is open -> chart colors and EMA update.
+8. Open positions with planned/undated exits -> planned exits appear in the table but not as chart markers.

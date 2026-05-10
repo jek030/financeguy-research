@@ -100,7 +100,8 @@ All external API calls are proxied through Next.js API routes — client compone
 | Table | Purpose |
 |---|---|
 | `portfolio` | User portfolios (portfolio_key, user_id, name, value) |
-| `portfolio_position` | Positions with R-targets, open risk, realized gains |
+| `portfolio_position` | Position entries with cost, quantity, stop, open risk, and exit-derived gains |
+| `tblPositionExits` | Flexible position exits (price, shares, optional date, notes, sort order) |
 | `watchlist` | Named watchlists per user |
 | `ticker` | Symbols within a watchlist |
 | `market_sentiment_naaim` | Weekly NAAIM exposure (week_ending, mean, quartiles) |
@@ -108,7 +109,7 @@ All external API calls are proxied through Next.js API routes — client compone
 
 ### Portfolio & R-Target System
 
-Positions store `initial_stop_loss`, `cost` (entry price), and `quantity`. R-targets are calculated as multiples of the entry-to-stop distance. `price_target_1/2/3` and `price_target_1/2_quantity` track partial exits. `realized_gain` accumulates from trims + final exit. `open_risk` is stored as a percentage.
+Positions store `initial_stop_loss`, `cost` (entry price), and `quantity`. R-targets are calculated as multiples of the entry-to-stop distance. Partial exits live in `tblPositionExits` with price, shares, optional exit date, notes, and sort order. Filled exits (`exitDate !== null`) drive realized gain, remaining shares, R multiple, and closed-date behavior; planned exits can remain undated. `open_risk` is stored as a percentage.
 
 ### Transaction Import Flow
 
