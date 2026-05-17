@@ -28,7 +28,7 @@ if (!user) redirect('/login');
 
 ## Row-Level Security
 
-All tables use RLS. Always include `user_id` on inserts for user-owned tables.
+All tables use RLS. Include `user_id` on inserts for user-owned tables that carry an owner column.
 
 ```ts
 // ✅ insert with owner
@@ -38,7 +38,8 @@ await supabase.from('tblPortfolio').insert({ ...data, user_id: user.id });
 await supabase.from('tblPortfolio').insert({ ...data });
 ```
 
-User-owned tables: `tblPortfolio`, `tblPortfolioPositions`, `watchlists`, `watchlist_tickers`, `user_preferences`.
+User-owned tables: `tblPortfolio`, `tblPortfolioPositions`, `tblPositionExits`, `watchlists`, `watchlist_tickers`, `user_preferences`.
+`tblPositionExits` does not carry `user_id` directly; its RLS policies resolve ownership through `tblPortfolioPositions` → `tblPortfolio`.
 Reference/market data tables (`sectors`, `earnings_calendar`, `income_statements`) are public-read, service_role-write.
 
 ## Never Expose

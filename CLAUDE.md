@@ -80,7 +80,7 @@ No test runner is configured. There is an optional backend in `/server` with its
 
 All external API calls are proxied through Next.js API routes — client components never call FMP or CNN directly.
 
-- **FMP (Financial Modeling Prep)** — 26+ proxy routes under `app/api/fmp/`, configured via `app/api/fmp/config.ts`. Key env var: `FMP_API_KEY`.
+- **FMP (Financial Modeling Prep)** — proxy routes under `app/api/fmp/`, configured via `app/api/fmp/config.ts`. Key env var: `FMP_API_KEY`.
 - **Supabase** — PostgreSQL backend for auth, portfolios, watchlists, preferences, and NAAIM sentiment data. Client: `lib/supabase.ts`. Env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 - **CNN Fear & Greed** — proxied through `app/api/market/fear-greed/`, cached 5 minutes.
 - **NAAIM Exposure** — synced weekly via GitHub Actions (`naaim-job.yml`) using `scripts/sync_naaim_to_supabase.py`.
@@ -91,28 +91,39 @@ All external API calls are proxied through Next.js API routes — client compone
 - `hooks/usePortfolio.ts` — full portfolio CRUD against Supabase
 - `hooks/useWatchlist.ts` — watchlist CRUD against Supabase
 - `hooks/useUserPreferences.ts` — persists user settings (default watchlist, portfolio, table column config)
-- `utils/portfolioCalculations.ts` — R-target math (2R/5R price targets from entry vs. stop loss)
+- `hooks/useBacktest.ts` — fetches closed-trade OHLC/MA data for portfolio backtests
+- `utils/portfolioCalculations.ts` — R-target math plus realized gain, R multiple, remaining shares, and closed-position helpers
+- `utils/backtestCalculations.ts` — pure backtest simulation engine
 - `utils/transactionCalculations.ts` — brokerage JSON parsing → action/symbol summaries
 - `lib/formatters.ts` — shared number/date/currency formatters
+- `components/ui/BacktestTab.tsx` — portfolio backtest configuration + results table
+- `components/portfolio/PositionChartModal.tsx` — daily price chart for a single portfolio position
 
 ### Supabase Schema (key tables)
 
 | Table | Purpose |
 |---|---|
-| `portfolio` | User portfolios (portfolio_key, user_id, name, value) |
-| `portfolio_position` | Positions with R-targets, open risk, realized gains |
-| `watchlist` | Named watchlists per user |
-| `ticker` | Symbols within a watchlist |
+| `tblPortfolio` | User portfolios (`portfolio_key`, `user_id`, `portfolio_name`, `portfolio_value`) |
+| `tblPortfolioPositions` | Position entries with cost, quantity, stop/risk, open/close dates, realized gain |
+| `tblPositionExits` | Child exit rows (`position_id`, price, shares, nullable exit date, notes, sort order) |
+| `watchlists` | Named watchlists per user |
+| `watchlist_tickers` | Ordered symbols within a watchlist |
 | `market_sentiment_naaim` | Weekly NAAIM exposure (week_ending, mean, quartiles) |
 | `user_preferences` | Default watchlist/portfolio, table column settings |
 
-### Portfolio & R-Target System
+### Portfolio, Exits & R-Target System
 
-Positions store `initial_stop_loss`, `cost` (entry price), and `quantity`. R-targets are calculated as multiples of the entry-to-stop distance. `price_target_1/2/3` and `price_target_1/2_quantity` track partial exits. `realized_gain` accumulates from trims + final exit. `open_risk` is stored as a percentage.
+Positions store `initial_stop_loss`, `cost` (entry price), `quantity`, `open_date`, and optional `close_date`. R-targets are calculated as multiples of the entry-to-stop distance. Exits are flexible child rows in `tblPositionExits`: `exit_date = null` means planned, and a non-null date means filled. `getRemainingShares`, `getRealizedGain`, `getRMultiple`, and `isFullyClosed` derive position state from filled exits. `open_risk` is stored as a percentage and mapped back to a stop price in `usePortfolio`.
+
+### Portfolio Backtest & Chart Modal
+
+- `/portfolio` has Positions, Stats, and Backtest tabs.
+- The Backtest tab receives fully closed positions only, fetches OHLC from `/api/fmp/dailyprices`, fetches MA data from `/api/fmp/technical/moving-average`, and simulates configurable stops/trims in `utils/backtestCalculations.ts`.
+- The position chart modal opens from non-option, non-summary stock rows. It uses `/api/fmp/dailyprices`, daily bars on a log scale, a 21 EMA seeded with extra lookback, and entry/exit markers from `tblPositionExits`.
 
 ### Transaction Import Flow
 
-Brokerage JSON → `localStorage` (`transactions-data` key) → parsed by `utils/transactionCalculations.ts` → displayed in `app/transactions/` → eligible trades pushed to portfolio via Supabase.
+Brokerage JSON → `localStorage` (`transactions-data` key) → parsed by `utils/transactionCalculations.ts` → displayed in `app/transactions/` → eligible trades pushed to portfolio via Supabase. New-position mode inserts a `tblPortfolioPositions` row; offset mode calls `addExit` to insert a filled `tblPositionExits` row on the selected open position.
 
 ### Page Routes
 
@@ -125,7 +136,10 @@ Brokerage JSON → `localStorage` (`transactions-data` key) → parsed by `utils
 | `/transactions` | Brokerage JSON importer |
 | `/calendar` | Earnings calendar |
 | `/screener` | Sector/market scans with drill-down |
+| `/scans` | Redirects to `/screener` |
+| `/canslim` | CANSLIM screener/research view |
 | `/crypto` | Crypto prices |
+| `/settings` | Authenticated user settings |
 | `/realized-gains` | Realized gains analysis |
 
 ### State Management Pattern

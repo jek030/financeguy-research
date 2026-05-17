@@ -39,11 +39,19 @@ utils/                # Pure calculation helpers (portfolio, trades, CSV)
 server/               # Express + Prisma job server (own tsconfig + package.json)
 ```
 
+## Core App Surfaces
+
+- **Portfolio**: `app/portfolio/page.tsx`, `hooks/usePortfolio.ts`, `utils/portfolioCalculations.ts`
+  - Stores portfolios in `tblPortfolio`, positions in `tblPortfolioPositions`, and flexible exits in `tblPositionExits`.
+  - Filled exits derive realized gain, remaining shares, R multiple, and closed status.
+  - Includes portfolio-local tools: position chart modal (`components/portfolio/PositionChartModal.tsx`) and Backtest tab (`components/ui/BacktestTab.tsx`, `hooks/useBacktest.ts`, `utils/backtestCalculations.ts`).
+- **Watchlists**: `hooks/useWatchlist.ts` uses `watchlists` and `watchlist_tickers`.
+
 ## Conventions
 
 - Path alias `@/` maps to the project root.
 - All FMP market data goes through `app/api/fmp/` proxy — never call FMP from the browser directly (protects the API key).
-- Supabase writes always include the authenticated user's `user_id`.
+- Supabase writes include the authenticated user's `user_id` on owner tables that carry it; child tables like `tblPositionExits` inherit ownership through parent rows and RLS.
 - `service_role` key is server/CI-only; never expose it in client code or `NEXT_PUBLIC_*` env vars.
 
 ## Coding Style
