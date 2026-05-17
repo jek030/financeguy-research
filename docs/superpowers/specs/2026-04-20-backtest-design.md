@@ -1,7 +1,7 @@
 # Backtest Feature Design
 
 **Date:** 2026-04-20  
-**Status:** Implemented  
+**Status:** Implemented
 **Scope:** New "Backtest" tab on the portfolio page for replaying closed trades under configurable stop-loss and exit strategies.
 
 ---
