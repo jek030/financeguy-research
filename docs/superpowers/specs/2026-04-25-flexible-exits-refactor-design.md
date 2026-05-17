@@ -1,12 +1,14 @@
 # Flexible Exits Refactor — Design
 
-**Status:** Approved · **Date:** 2026-04-25 · **Spec:** 1 of 2 (next: position chart modal)
+**Status:** Implemented · **Date:** 2026-04-25 · **Spec:** 1 of 2 (next: position chart modal)
+
+Implementation note: the shipped Supabase schema uses `tblPortfolioPositions` for positions and `tblPositionExits` for exit rows, as reflected in `supabase/migrations/20260425171852_flexible_exits.sql`, `supabase/migrations/20260427010316_position_exits_rls.sql`, `hooks/usePortfolio.ts`, and `lib/supabase.ts`.
 
 ## Context
 
-Today every `portfolio_position` row stores three hardcoded exit slots — `price_target_1` (PT1 = 2R), `price_target_2` (PT2 = 5R), and `price_target_3` (the "21-day trail" final exit) — together with two `_quantity` fields. This caps every position at three exits and conflates "planned target" with "actual fill price." None of the slots record a fill date, which prevents accurate per-exit charting (the motivation for spec 2).
+Before this refactor, every position row stored three hardcoded exit slots — `price_target_1` (PT1 = 2R), `price_target_2` (PT2 = 5R), and `price_target_3` (the "21-day trail" final exit) — together with two `_quantity` fields. This capped every position at three exits and conflated "planned target" with "actual fill price." None of the slots recorded a fill date, which prevented accurate per-exit charting (the motivation for spec 2).
 
-This spec replaces the three slots with a flexible `portfolio_position_exit` table: one row per exit, each with its own price, shares, optional date, and notes. A null date means "planned, not yet filled"; a non-null date means "this exit happened on that date." Positions can have any number of exits.
+This spec replaces the three slots with a flexible `tblPositionExits` table: one row per exit, each with its own price, shares, optional date, and notes. A null date means "planned, not yet filled"; a non-null date means "this exit happened on that date." Positions can have any number of exits.
 
 ## Goals
 
@@ -45,12 +47,12 @@ This spec replaces the three slots with a flexible `portfolio_position_exit` tab
 
 ## 1. Schema & Migration
 
-### 1.1 New table: `portfolio_position_exit`
+### 1.1 New table: `tblPositionExits`
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | `uuid` PK, default `gen_random_uuid()` | |
-| `position_id` | `int8` NOT NULL, FK → `portfolio_position(trade_key)` ON DELETE CASCADE | |
+| `position_id` | `int8` NOT NULL, FK → `tblPortfolioPositions(trade_key)` ON DELETE CASCADE | |
 | `price` | `numeric(18,6)` NOT NULL | |
 | `shares` | `numeric(18,6)` NOT NULL CHECK (`shares > 0`) | partial shares allowed |
 | `exit_date` | `date` NULL | NULL = planned, not filled |
@@ -60,7 +62,7 @@ This spec replaces the three slots with a flexible `portfolio_position_exit` tab
 
 **Indexes:** `(position_id, sort_order)` — covers the per-position fetch with ordered display.
 
-### 1.2 Changes to `portfolio_position`
+### 1.2 Changes to `tblPortfolioPositions`
 
 Drop, after the backfill SQL runs:
 - `price_target_1`, `price_target_1_quantity`
@@ -88,9 +90,9 @@ Date assignment:
 - Wrapped in `BEGIN ... COMMIT` so partial failure leaves the DB unchanged.
 - Applied via `npx supabase db push` (CLI now installed at v2.95.3 as a `devDependency`; user must run `npx supabase login` and `npx supabase link --project-ref kcibynptcpqgsamhionk` once before first push). Dashboard SQL editor remains a valid fallback.
 - Migration runs in order:
-  1. `CREATE TABLE portfolio_position_exit ...`
+  1. `CREATE TABLE tblPositionExits ...`
   2. Backfill `INSERT ... SELECT` from existing positions.
-  3. `ALTER TABLE portfolio_position DROP COLUMN ...` for the legacy columns.
+  3. `ALTER TABLE tblPortfolioPositions DROP COLUMN ...` for the legacy columns.
 
 ---
 
@@ -178,8 +180,8 @@ deleteExit(exitId: string): Promise<void>
 
 A single Supabase select with PostgREST embedding:
 ```ts
-.from('portfolio_position')
-.select('*, portfolio_position_exit (*)')
+.from('tblPortfolioPositions')
+.select('*, tblPositionExits (*)')
 ```
 returns positions with their exits already populated. No N+1.
 
@@ -252,7 +254,7 @@ After mutation:
   else:
     closedDate = null
 
-If closedDate changed, write back to portfolio_position in the same mutation round-trip.
+If closedDate changed, write back to `tblPortfolioPositions` in the same mutation round-trip.
 ```
 
 Implication, accepted: deleting the latest exit on a fully-closed position auto-reopens it (closedDate → null).

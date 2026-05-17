@@ -1,7 +1,7 @@
 # Backtest Feature Design
 
 **Date:** 2026-04-20  
-**Status:** Approved  
+**Status:** Implemented  
 **Scope:** New "Backtest" tab on the portfolio page for replaying closed trades under configurable stop-loss and exit strategies.
 
 ---
@@ -104,10 +104,16 @@ Hook: `hooks/useBacktest.ts`
 
 - Reads closed positions from the existing `usePortfolio` hook
 - For each trade, fetches in parallel (Promise.all):
-  - OHLC via `/api/fmp/dailyprices?symbol=X&from=open_date&to=today` — fetches through today so the sim can run past the actual close date if the user exited early
+  - OHLC via `/api/fmp/dailyprices?symbol=X&from=YYYY-MM-DD&to=YYYY-MM-DD` — from 60 calendar days before `open_date` through 30 calendar days after `close_date`
   - MA data via `/api/fmp/technical/moving-average` — one call per MA needed (trail exit MA always; trailing MA stop adds a second call if that method is selected)
 - Passes fetched data to `backtestCalculations.ts`
 - Returns an array of result objects, each appended as it resolves (progressive rendering)
+
+Implementation constraints:
+
+- The Backtest tab receives only fully closed positions from `app/portfolio/page.tsx`.
+- ATR is a simple average of true ranges, not Wilder smoothing.
+- If FMP data is missing or the simulated risk is invalid (`stop >= entry`), the row remains visible with no-data state and is excluded from summary totals.
 
 ---
 

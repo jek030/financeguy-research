@@ -42,11 +42,19 @@ Core app stack:
 - Persistent storage saved to login
 - Track your favorite securities in one place
 
+### 📊 Portfolio Manager
+- Login required
+- Position table with open/closed filtering, stats, allocation charts, and grouped open-position summaries
+- Flexible exits: each position can have dated or planned exits in `tblPositionExits`
+- Click a non-option position symbol to open the daily price chart modal with entry/exit markers
+- Backtest tab replays fully closed positions against configurable stop and trim rules
+
 ### 📁 Transactions → Portfolio Workflow
 - Upload brokerage JSON (`app/transactions/page.tsx`)
 - Compute summary metrics and action/symbol breakdowns
 - Push eligible trade rows into portfolio positions from table actions
 - Supports stock and option trade actions (options use 100x share-equivalent quantity)
+- Offset mode records a filled exit on an existing position instead of writing fixed target fields
 
 ### 🔍 Search Page
 - Comprehensive company analysis
@@ -144,7 +152,41 @@ Notes:
 - Upserts into `market_sentiment_naaim` with conflict key `week_ending`.
 - Supports `NAAIM_SOURCE_PATH` for local file override.
 
-### 3) Transactions → portfolio position mapping
+### 3) Portfolio positions, exits, chart modal, and backtest
+
+Codepaths:
+
+- Page composition: `app/portfolio/page.tsx`
+- Portfolio persistence: `hooks/usePortfolio.ts`
+- Shared portfolio math: `utils/portfolioCalculations.ts`
+- Position chart modal: `components/portfolio/PositionChartModal.tsx`
+- Backtest UI/orchestration/math: `components/ui/BacktestTab.tsx`, `hooks/useBacktest.ts`, `utils/backtestCalculations.ts`
+
+Data model:
+
+- Portfolios are stored in `tblPortfolio`; positions are stored in `tblPortfolioPositions`.
+- Exits are stored in child rows in `tblPositionExits` and loaded with `.select('*, tblPositionExits (*)')`.
+- `exit_date = null` means planned; a non-null `exit_date` means filled.
+- Filled exits drive remaining shares, realized gain, R multiple, and whether `close_date` is set.
+- Filled exit shares cannot exceed the base position quantity; planned exits can over-allocate.
+
+Chart modal:
+
+- Opens from stock symbols on `/portfolio` position rows; option symbols and summary rows are not clickable.
+- Uses `hooks/FMP/useDailyPrices.ts` through `/api/fmp/dailyprices`.
+- The `Trade` range starts 30 calendar days before the open date and ends 30 days after the latest dated exit, capped at today.
+- Fetches an extra 35 days before the visible range to seed the 21 EMA.
+- Renders daily bars on a log scale with entry/exit markers, entry/stop/exit price lines, a 21 EMA, and trade/exits summary tables.
+
+Backtest tab:
+
+- Receives only fully closed positions from `/portfolio`.
+- Fetches OHLC from 60 calendar days before open through 30 calendar days after close.
+- Fetches moving averages from `/api/fmp/technical/moving-average`.
+- ATR uses a simple average of true ranges, not Wilder smoothing.
+- Missing FMP data or invalid simulated risk returns a no-data row instead of dropping the trade.
+
+### 4) Transactions → portfolio position mapping
 
 Codepaths:
 
@@ -162,13 +204,14 @@ Workflow summary:
    - option quantities are converted to share-equivalent (`contracts * 100`)
    - 2R/5R targets are computed from entry vs stop (`calculateRPriceTargets`)
 4. In "Offset Existing" mode:
-   - offsets write into PT1/PT2/21-day-trail fields for the selected open position
-   - trail mode can close the position by setting `closedDate`
+   - offsets call `addExit` for the selected open position
+   - the imported transaction date becomes the exit fill date
+   - notes are stored on the `tblPositionExits.notes` field when provided
 
 Persistence details that matter:
 
 - `open_risk` is stored as a percentage in DB, then converted back to stop price for UI editing.
-- Realized gain and remaining shares are recalculated during position updates.
+- Realized gain, remaining shares, and `close_date` are recalculated from filled exits during exit mutations.
 - Portfolio selection precedence combines default preference + localStorage (`financeguy-selected-portfolio`).
 
 ## 🚀 Getting Started
@@ -230,8 +273,19 @@ NEXT_PUBLIC_SIGNUP_ENABLED=true
 
 ### Portfolio values look off after edits
 
-- `updatePosition` recalculates derived fields (`remaining_shares`, `realized_gain`, `% portfolio`) from current + updated values.
-- Ensure PT share quantities and base quantity are consistent (PT1 + PT2 should not exceed total quantity).
+- `updatePosition` recalculates position-level values; `addExit` / `updateExit` / `deleteExit` recalculate realized gain and close status.
+- Ensure filled exit shares do not exceed the base position quantity.
+
+### Portfolio chart modal has no data
+
+- Confirm the symbol is a stock row, not an option symbol or summary row.
+- Check `/api/fmp/dailyprices?symbol=...&from=YYYY-MM-DD&to=YYYY-MM-DD`.
+- Confirm `FMP_API_KEY` is configured server-side.
+
+### Backtest rows show "No price data"
+
+- Backtest depends on `/api/fmp/dailyprices` and `/api/fmp/technical/moving-average`.
+- Delisted symbols, sparse history, or a simulated stop at/above entry produce no-data rows.
 
 ## 📝 License
 This project is for educational purposes.
