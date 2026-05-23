@@ -2592,8 +2592,10 @@ function getHistogramDrilldownSortValue(
       return realizedEquityBase > 0 && Number.isFinite(realizedEquityBase)
         ? (realizedGainValue / realizedEquityBase) * 100
         : Number.NEGATIVE_INFINITY;
-    case 'rMultiple':
-      return getDrilldownRowRMultiple(row);
+    case 'rMultiple': {
+      const rMultiple = getDrilldownRowRMultiple(row);
+      return rMultiple ?? Number.NEGATIVE_INFINITY;
+    }
     case 'openDate':
       return position.openDate.getTime();
     case 'closedDate':
