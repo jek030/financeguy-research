@@ -170,6 +170,12 @@ const formatAxisPercentTick = (value: number | string, precision = 1) =>
 
 const formatSignedPercent = (value: number) => `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
 const getSignedPercentColorClass = (value: number) => (value >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-400');
+const getAdaptiveXAxisInterval = (itemCount: number, maxVisibleTicks: number) => {
+  if (itemCount <= maxVisibleTicks) {
+    return 0;
+  }
+  return Math.ceil(itemCount / maxVisibleTicks) - 1;
+};
 
 const normalizeToLocalMidnight = (date: Date) => {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -233,6 +239,20 @@ type HistogramBucketKey =
   | 'pos-8-16'
   | 'pos-16-32'
   | 'pos-32-plus';
+type RealizedEquityBucketKey =
+  | 'neg-5-plus'
+  | 'neg-2-5'
+  | 'neg-1-2'
+  | 'neg-0.5-1'
+  | 'neg-0.25-0.5'
+  | 'neg-0-0.25'
+  | 'pos-0-0.25'
+  | 'pos-0.25-0.5'
+  | 'pos-0.5-1'
+  | 'pos-1-2'
+  | 'pos-2-5'
+  | 'pos-5-plus';
+type DistributionBucketKey = HistogramBucketKey | RealizedEquityBucketKey;
 
 const HISTOGRAM_BUCKETS: Array<{ key: HistogramBucketKey; label: string; bucketType: HistogramBucketType }> = [
   { key: 'neg-32-plus', label: '<-32%', bucketType: 'negative' },
@@ -250,12 +270,27 @@ const HISTOGRAM_BUCKETS: Array<{ key: HistogramBucketKey; label: string; bucketT
   { key: 'pos-32-plus', label: '32%+', bucketType: 'positive' },
 ];
 
-type HistogramDistributionEntry = {
-  binKey: HistogramBucketKey;
+type HistogramDistributionEntry<TBinKey extends DistributionBucketKey = HistogramBucketKey> = {
+  binKey: TBinKey;
   rangeLabel: string;
   trades: number;
   bucketType: HistogramBucketType;
 };
+
+const REALIZED_EQUITY_BUCKETS: Array<{ key: RealizedEquityBucketKey; label: string; bucketType: HistogramBucketType }> = [
+  { key: 'neg-5-plus', label: '< -5%', bucketType: 'negative' },
+  { key: 'neg-2-5', label: '-5% to -2%', bucketType: 'negative' },
+  { key: 'neg-1-2', label: '-2% to -1%', bucketType: 'negative' },
+  { key: 'neg-0.5-1', label: '-1% to -0.5%', bucketType: 'negative' },
+  { key: 'neg-0.25-0.5', label: '-0.5% to -0.25%', bucketType: 'negative' },
+  { key: 'neg-0-0.25', label: '-0.25% to 0%', bucketType: 'negative' },
+  { key: 'pos-0-0.25', label: '0% to 0.25%', bucketType: 'positive' },
+  { key: 'pos-0.25-0.5', label: '0.25% to 0.5%', bucketType: 'positive' },
+  { key: 'pos-0.5-1', label: '0.5% to 1%', bucketType: 'positive' },
+  { key: 'pos-1-2', label: '1% to 2%', bucketType: 'positive' },
+  { key: 'pos-2-5', label: '2% to 5%', bucketType: 'positive' },
+  { key: 'pos-5-plus', label: '5%+', bucketType: 'positive' },
+];
 
 type HistogramDrilldownType = 'realizedGain' | 'realizedEquity';
 type HoldingPeriodBucketKey =
@@ -291,7 +326,7 @@ type PortfolioHeroDrilldownSelection =
   | {
       kind: 'distribution';
       histogramType: HistogramDrilldownType;
-      binKey: HistogramBucketKey;
+      binKey: DistributionBucketKey;
       rangeLabel: string;
     }
   | {
@@ -318,6 +353,7 @@ const HISTOGRAM_DRILLDOWN_COLUMNS: Array<{ id: string; label: string }> = [
   { id: 'stopLoss', label: 'Stop Loss' },
   { id: 'realizedGain', label: 'Realized $' },
   { id: 'realizedPercent', label: 'Realized %' },
+  { id: 'realizedEquityPercent', label: 'Realized Equity %' },
   { id: 'rMultiple', label: 'R' },
   { id: 'closedDate', label: 'Closed Date' },
   { id: 'holdingPeriod', label: 'Holding Period' },
@@ -341,6 +377,24 @@ const getBinKeyForPercent = (percent: number): HistogramBucketKey => {
   if (percent > -16) return 'neg-8-16';
   if (percent > -32) return 'neg-16-32';
   return 'neg-32-plus';
+};
+
+const getRealizedEquityBinKeyForPercent = (percent: number): RealizedEquityBucketKey => {
+  if (percent >= 0) {
+    if (percent <= 0.25) return 'pos-0-0.25';
+    if (percent <= 0.5) return 'pos-0.25-0.5';
+    if (percent <= 1) return 'pos-0.5-1';
+    if (percent <= 2) return 'pos-1-2';
+    if (percent <= 5) return 'pos-2-5';
+    return 'pos-5-plus';
+  }
+
+  if (percent >= -0.25) return 'neg-0-0.25';
+  if (percent >= -0.5) return 'neg-0.25-0.5';
+  if (percent >= -1) return 'neg-0.5-1';
+  if (percent >= -2) return 'neg-1-2';
+  if (percent >= -5) return 'neg-2-5';
+  return 'neg-5-plus';
 };
 
 function renderPortfolioColumnHeader(
@@ -955,6 +1009,9 @@ function PortfolioHero({
   tradeStatistics,
 }: PortfolioHeroProps) {
   const [selectedDrilldown, setSelectedDrilldown] = useState<PortfolioHeroDrilldownSelection | null>(null);
+  const [drilldownSortColumn, setDrilldownSortColumn] = useState<string>('closedDate');
+  const [drilldownSortDirection, setDrilldownSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [drilldownFilterInput, setDrilldownFilterInput] = useState<string>('');
 
   // Calculate metrics
   const totalOpenRisk = useMemo(() => calculateTotalOpenRisk(positions), [positions]);
@@ -1186,11 +1243,11 @@ function PortfolioHero({
     }));
   }, [positions]);
 
-  const realizedEquityDistributionData = useMemo<HistogramDistributionEntry[]>(() => {
-    const counts = HISTOGRAM_BUCKETS.reduce((acc, bin) => {
+  const realizedEquityDistributionData = useMemo<HistogramDistributionEntry<RealizedEquityBucketKey>[]>(() => {
+    const counts = REALIZED_EQUITY_BUCKETS.reduce((acc, bin) => {
       acc[bin.key] = 0;
       return acc;
-    }, {} as Record<HistogramBucketKey, number>);
+    }, {} as Record<RealizedEquityBucketKey, number>);
     const equityBase = currentBalance > 0 ? currentBalance : portfolioValue;
 
     positions.forEach((position) => {
@@ -1207,11 +1264,11 @@ function PortfolioHero({
         return;
       }
 
-      const binKey = getBinKeyForPercent(realizedEquityPct);
+      const binKey = getRealizedEquityBinKeyForPercent(realizedEquityPct);
       counts[binKey] += 1;
     });
 
-    return HISTOGRAM_BUCKETS.map((bin) => ({
+    return REALIZED_EQUITY_BUCKETS.map((bin) => ({
       binKey: bin.key,
       rangeLabel: bin.label,
       trades: counts[bin.key] ?? 0,
@@ -1219,7 +1276,10 @@ function PortfolioHero({
     }));
   }, [positions, currentBalance, portfolioValue]);
 
-  const openHistogramDrilldown = (histogramType: HistogramDrilldownType, entry: HistogramDistributionEntry) => {
+  const openHistogramDrilldown = (
+    histogramType: HistogramDrilldownType,
+    entry: HistogramDistributionEntry<DistributionBucketKey>,
+  ) => {
     setSelectedDrilldown({
       kind: 'distribution',
       histogramType,
@@ -1306,7 +1366,7 @@ function PortfolioHero({
       if (!Number.isFinite(realizedEquityPct)) {
         return false;
       }
-      return getBinKeyForPercent(realizedEquityPct) === selectedDrilldown.binKey;
+      return getRealizedEquityBinKeyForPercent(realizedEquityPct) === selectedDrilldown.binKey;
     });
   }, [selectedDrilldown, positions, currentBalance, portfolioValue]);
 
@@ -1331,6 +1391,71 @@ function PortfolioHero({
 
     return `Realized Gain/Loss by Symbol - ${selectedDrilldown.symbol}`;
   }, [selectedDrilldown]);
+
+  useEffect(() => {
+    if (!selectedDrilldown) {
+      return;
+    }
+
+    setDrilldownSortColumn('closedDate');
+    setDrilldownSortDirection('desc');
+    setDrilldownFilterInput('');
+  }, [selectedDrilldown]);
+
+  const filteredHistogramPositions = useMemo(() => {
+    const rawFilter = drilldownFilterInput.trim();
+    if (!rawFilter) {
+      return selectedHistogramPositions;
+    }
+
+    const quotedMatch = rawFilter.match(/^(['"])(.*)\1$/);
+    if (quotedMatch) {
+      const exactSymbol = quotedMatch[2].trim().toUpperCase();
+      if (!exactSymbol) {
+        return selectedHistogramPositions;
+      }
+      return selectedHistogramPositions.filter((position) => position.symbol.toUpperCase() === exactSymbol);
+    }
+
+    const normalizedFilter = rawFilter.toUpperCase();
+    return selectedHistogramPositions.filter((position) =>
+      position.symbol.toUpperCase().startsWith(normalizedFilter),
+    );
+  }, [selectedHistogramPositions, drilldownFilterInput]);
+
+  const drilldownRealizedEquityBase = currentBalance > 0 ? currentBalance : portfolioValue;
+
+  const sortedHistogramPositions = useMemo(() => {
+    const rows = [...filteredHistogramPositions];
+    rows.sort((a, b) => {
+      const aValue = getHistogramDrilldownSortValue(a, drilldownSortColumn, drilldownRealizedEquityBase);
+      const bValue = getHistogramDrilldownSortValue(b, drilldownSortColumn, drilldownRealizedEquityBase);
+
+      let result = 0;
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        result = aValue - bValue;
+      } else {
+        result = String(aValue).localeCompare(String(bValue), undefined, { numeric: true, sensitivity: 'base' });
+      }
+
+      return drilldownSortDirection === 'asc' ? result : -result;
+    });
+    return rows;
+  }, [filteredHistogramPositions, drilldownSortColumn, drilldownSortDirection, drilldownRealizedEquityBase]);
+
+  const drilldownRealizedGainTotal = useMemo(
+    () => sortedHistogramPositions.reduce((sum, position) => sum + calculateRealizedGainForPosition(position), 0),
+    [sortedHistogramPositions],
+  );
+
+  const handleDrilldownSort = (column: string) => {
+    if (drilldownSortColumn === column) {
+      setDrilldownSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setDrilldownSortColumn(column);
+    setDrilldownSortDirection('desc');
+  };
 
   const realizedGainsBySymbolData = useMemo(() => {
     const gainBySymbol = new Map<string, number>();
@@ -1384,7 +1509,7 @@ function PortfolioHero({
   }
 
   return (
-    <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
+    <div className="rounded-xl bg-card/80 backdrop-blur-sm overflow-hidden">
       {/* Main Hero Content */}
       {isEditingPortfolio ? (
         <div className="p-6">
@@ -1694,7 +1819,13 @@ function PortfolioHero({
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={balanceOverTimeData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="pointLabel" tick={{ fontSize: 10 }} />
+                  <XAxis
+                    dataKey="pointLabel"
+                    tick={{ fontSize: 10 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={66}
+                  />
                   <YAxis
                     domain={[balanceChartDomain[0], balanceChartDomain[1]]}
                     tick={{ fontSize: 10 }}
@@ -1731,7 +1862,15 @@ function PortfolioHero({
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={holdingPeriodByPositionData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="positionLabel" tick={{ fontSize: 10 }} />
+                  <XAxis
+                    dataKey="positionLabel"
+                    tick={{ fontSize: 10 }}
+                    interval={getAdaptiveXAxisInterval(holdingPeriodByPositionData.length, 12)}
+                    angle={-45}
+                    textAnchor="end"
+                    height={66}
+                    minTickGap={8}
+                  />
                   <YAxis
                     yAxisId="pnlDollar"
                     domain={[histogramAxisDomain.minDollar, histogramAxisDomain.maxDollar]}
@@ -1790,7 +1929,14 @@ function PortfolioHero({
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={gainLossDistributionData} margin={{ top: 4, right: 8, left: 0, bottom: 16 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="rangeLabel" tick={{ fontSize: 10 }} interval={0} />
+                    <XAxis
+                      dataKey="rangeLabel"
+                      tick={{ fontSize: 10 }}
+                      interval={0}
+                      angle={-45}
+                      textAnchor="end"
+                      height={66}
+                    />
                     <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                     <RechartsTooltip
                       {...chartTooltipProps}
@@ -1834,7 +1980,14 @@ function PortfolioHero({
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={realizedEquityDistributionData} margin={{ top: 4, right: 8, left: 0, bottom: 16 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="rangeLabel" tick={{ fontSize: 10 }} interval={0} />
+                    <XAxis
+                      dataKey="rangeLabel"
+                      tick={{ fontSize: 10 }}
+                      interval={0}
+                      angle={-45}
+                      textAnchor="end"
+                      height={66}
+                    />
                     <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
                     <RechartsTooltip
                       {...chartTooltipProps}
@@ -1880,7 +2033,15 @@ function PortfolioHero({
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={realizedGainsBySymbolData} margin={{ top: 4, right: 8, left: 0, bottom: 12 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="symbol" tick={{ fontSize: 10 }} interval={0} />
+                    <XAxis
+                      dataKey="symbol"
+                      tick={{ fontSize: 10 }}
+                      interval={getAdaptiveXAxisInterval(realizedGainsBySymbolData.length, 14)}
+                      angle={-45}
+                      textAnchor="end"
+                      height={68}
+                      minTickGap={8}
+                    />
                     <YAxis tick={{ fontSize: 10 }} tickFormatter={formatAxisCurrencyTick} />
                     <RechartsTooltip
                       {...chartTooltipProps}
@@ -1918,7 +2079,14 @@ function PortfolioHero({
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={realizedGainByAvgHoldingPeriodData} margin={{ top: 4, right: 8, left: 0, bottom: 12 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="rangeLabel" tick={{ fontSize: 10 }} interval={0} />
+                    <XAxis
+                      dataKey="rangeLabel"
+                      tick={{ fontSize: 10 }}
+                      interval={0}
+                      angle={-45}
+                      textAnchor="end"
+                      height={62}
+                    />
                     <YAxis tick={{ fontSize: 10 }} tickFormatter={formatAxisCurrencyTick} />
                     <RechartsTooltip
                       {...chartTooltipProps}
@@ -1972,22 +2140,38 @@ function PortfolioHero({
             </DialogTitle>
             <DialogDescription>
               {selectedHistogramPositions.length} position{selectedHistogramPositions.length === 1 ? '' : 's'} in this bucket.
+              {drilldownFilterInput.trim() ? ` Showing ${sortedHistogramPositions.length} after filter.` : ''}
             </DialogDescription>
           </DialogHeader>
+          <div className="flex items-center justify-between gap-2">
+            <Input
+              value={drilldownFilterInput}
+              onChange={(e) => setDrilldownFilterInput(e.target.value.toUpperCase())}
+              placeholder="Filter"
+              aria-label="Filter drilldown positions by symbol"
+              className="h-8 w-full text-xs bg-background/50 sm:w-[320px]"
+            />
+          </div>
           <div className="max-h-[70vh] overflow-auto [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-30 bg-background [&_th]:bg-background [&_th]:border-b [&_th]:border-border">
                 <TableRow className="border-b-2">
                   {HISTOGRAM_DRILLDOWN_COLUMNS.map((column) => (
-                    <TableHead key={column.id} className="border-r last:border-r-0">
-                      {column.label}
-                    </TableHead>
+                    <SortableHeader
+                      key={column.id}
+                      column={column.id}
+                      label={column.label}
+                      sortColumn={drilldownSortColumn}
+                      sortDirection={drilldownSortDirection}
+                      onSort={handleDrilldownSort}
+                      className={cn(column.id === 'symbol' ? 'sticky left-0 z-30 !bg-background border-r border-border' : 'border-r', column.id === HISTOGRAM_DRILLDOWN_COLUMNS[HISTOGRAM_DRILLDOWN_COLUMNS.length - 1]?.id && 'border-r-0')}
+                    />
                   ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {selectedHistogramPositions.length > 0 ? (
-                  selectedHistogramPositions.map((position) => {
+                {sortedHistogramPositions.length > 0 ? (
+                  sortedHistogramPositions.map((position) => {
                     const realizedGainValue = calculateRealizedGainForPosition(position);
                     return (
                       <TableRow key={position.id} className="border-b even:bg-muted/20 hover:bg-muted/40 transition-colors">
@@ -2001,7 +2185,12 @@ function PortfolioHero({
                               column.id === HISTOGRAM_DRILLDOWN_COLUMNS[HISTOGRAM_DRILLDOWN_COLUMNS.length - 1]?.id && 'border-r-0',
                             )}
                           >
-                            {renderHistogramDrilldownCell(column.id, position, realizedGainValue)}
+                            {renderHistogramDrilldownCell(
+                              column.id,
+                              position,
+                              realizedGainValue,
+                              drilldownRealizedEquityBase,
+                            )}
                           </TableCell>
                         ))}
                       </TableRow>
@@ -2015,6 +2204,31 @@ function PortfolioHero({
                     >
                       No positions found for this bucket.
                     </TableCell>
+                  </TableRow>
+                )}
+                {sortedHistogramPositions.length > 0 && (
+                  <TableRow className="border-t-2 bg-muted/20">
+                    {HISTOGRAM_DRILLDOWN_COLUMNS.map((column) => (
+                      <TableCell
+                        key={`summary-${column.id}`}
+                        className={cn(
+                          column.id === 'symbol'
+                            ? 'font-semibold border-r font-mono sticky left-0 z-20 !bg-background'
+                            : 'border-r font-mono',
+                          column.id === HISTOGRAM_DRILLDOWN_COLUMNS[HISTOGRAM_DRILLDOWN_COLUMNS.length - 1]?.id && 'border-r-0',
+                        )}
+                      >
+                        {column.id === 'symbol' ? (
+                          <span className="text-xs text-muted-foreground uppercase tracking-wide">Summary</span>
+                        ) : column.id === 'realizedGain' ? (
+                          <span className={cn('font-semibold', drilldownRealizedGainTotal >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-400')}>
+                            {formatCurrency(drilldownRealizedGainTotal)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    ))}
                   </TableRow>
                 )}
               </TableBody>
@@ -2041,8 +2255,52 @@ type PortfolioTableRow =
       positions: StockPosition[];
     };
 
-function renderHistogramDrilldownCell(columnId: string, position: StockPosition, realizedGain: number) {
+function getHistogramDrilldownSortValue(
+  position: StockPosition,
+  columnId: string,
+  realizedEquityBase: number,
+): number | string {
+  const realizedGainValue = calculateRealizedGainForPosition(position);
+  switch (columnId) {
+    case 'symbol':
+      return position.symbol.toUpperCase();
+    case 'type':
+      return position.type;
+    case 'quantity':
+      return position.quantity;
+    case 'cost':
+      return position.cost;
+    case 'netCost':
+      return position.netCost;
+    case 'stopLoss':
+      return position.stopLoss;
+    case 'realizedGain':
+      return realizedGainValue;
+    case 'realizedPercent':
+      return position.netCost !== 0 ? (realizedGainValue / position.netCost) * 100 : Number.NEGATIVE_INFINITY;
+    case 'realizedEquityPercent':
+      return realizedEquityBase > 0 && Number.isFinite(realizedEquityBase)
+        ? (realizedGainValue / realizedEquityBase) * 100
+        : Number.NEGATIVE_INFINITY;
+    case 'rMultiple':
+      return calculateDisplayedRMultipleForPosition(position);
+    case 'closedDate':
+      return position.closedDate ? position.closedDate.getTime() : Number.NEGATIVE_INFINITY;
+    case 'holdingPeriod':
+      return calculateDaysInTrade(position.openDate, position.closedDate);
+    default:
+      return '';
+  }
+}
+
+function renderHistogramDrilldownCell(
+  columnId: string,
+  position: StockPosition,
+  realizedGain: number,
+  realizedEquityBase: number,
+) {
   const realizedPercent = position.netCost !== 0 ? (realizedGain / position.netCost) * 100 : null;
+  const realizedEquityPercent = realizedEquityBase > 0 ? (realizedGain / realizedEquityBase) * 100 : null;
 
   switch (columnId) {
     case 'symbol':
@@ -2080,6 +2338,14 @@ function renderHistogramDrilldownCell(columnId: string, position: StockPosition,
       ) : (
         <span className={cn('font-medium', getSignedPercentColorClass(realizedPercent))}>
           {formatSignedPercent(realizedPercent)}
+        </span>
+      );
+    case 'realizedEquityPercent':
+      return realizedEquityPercent === null || !Number.isFinite(realizedEquityPercent) ? (
+        <span className="text-muted-foreground">-</span>
+      ) : (
+        <span className={cn('font-medium', getSignedPercentColorClass(realizedEquityPercent))}>
+          {formatSignedPercent(realizedEquityPercent)}
         </span>
       );
     case 'rMultiple':
