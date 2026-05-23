@@ -331,8 +331,8 @@ type PortfolioHeroDrilldownSelection =
     }
   | {
       kind: 'holdingPeriod';
-      positionId: string;
-      positionLabel: string;
+      rowId: string;
+      rowLabel: string;
     }
   | {
       kind: 'realizedSymbol';
@@ -355,6 +355,7 @@ const HISTOGRAM_DRILLDOWN_COLUMNS: Array<{ id: string; label: string }> = [
   { id: 'realizedPercent', label: 'Realized %' },
   { id: 'realizedEquityPercent', label: 'Realized Equity %' },
   { id: 'rMultiple', label: 'R' },
+  { id: 'openDate', label: 'Open Date' },
   { id: 'closedDate', label: 'Closed Date' },
   { id: 'holdingPeriod', label: 'Holding Period' },
 ];
@@ -743,11 +744,11 @@ function calculateTotalOpenRisk(positions: StockPosition[]): number {
   return Math.max(0, raw);
 }
 
-type PortfolioTab = 'positions' | 'stats' | 'backtest';
+type PortfolioTab = 'positions' | 'calendar' | 'stats' | 'backtest';
 const SELECTED_PORTFOLIO_TAB_STORAGE_KEY = 'financeguy-selected-portfolio-tab';
 
 const isPortfolioTab = (value: string): value is PortfolioTab =>
-  value === 'positions' || value === 'stats' || value === 'backtest';
+  value === 'positions' || value === 'calendar' || value === 'stats' || value === 'backtest';
 
 const readStoredSelectedPortfolioTab = (userId?: string): PortfolioTab => {
   if (typeof window === 'undefined') {
@@ -901,6 +902,14 @@ function PortfolioToolbar({
             </Button>
             <Button
               size="sm"
+              variant={activeTab === 'calendar' ? 'secondary' : 'ghost'}
+              className="h-7 px-2.5 !text-sm font-medium"
+              onClick={() => handleTabChange('calendar')}
+            >
+              Calendar
+            </Button>
+            <Button
+              size="sm"
               variant={activeTab === 'stats' ? 'secondary' : 'ghost'}
               className="h-7 px-2.5 !text-sm font-medium"
               onClick={() => handleTabChange('stats')}
@@ -954,7 +963,7 @@ interface PortfolioHeroProps {
     maxLossEquity: number;
     avgWinnerR: number;
     avgLoserR: number;
-    totalR: number;
+    avgR: number;
     avgEquityPerTrade: number;
     avgNetCost: number;
     avgWinnerDays: number;
@@ -1009,9 +1018,6 @@ function PortfolioHero({
   tradeStatistics,
 }: PortfolioHeroProps) {
   const [selectedDrilldown, setSelectedDrilldown] = useState<PortfolioHeroDrilldownSelection | null>(null);
-  const [drilldownSortColumn, setDrilldownSortColumn] = useState<string>('closedDate');
-  const [drilldownSortDirection, setDrilldownSortDirection] = useState<'asc' | 'desc'>('desc');
-  const [drilldownFilterInput, setDrilldownFilterInput] = useState<string>('');
 
   // Calculate metrics
   const totalOpenRisk = useMemo(() => calculateTotalOpenRisk(positions), [positions]);
@@ -1085,20 +1091,45 @@ function PortfolioHero({
       ? "bg-orange-500" 
       : "bg-emerald-500";
 
+  const realizedExitRows = useMemo<PortfolioDrilldownRow[]>(
+    () => {
+      const rows: PortfolioDrilldownRow[] = [];
+      positions.forEach((position) => {
+        position.exits.forEach((exit) => {
+          if (!exit.exitDate || exit.shares <= 0) {
+            return;
+          }
+          const realizedGain = calculateGainLoss(exit.price, position.cost, exit.shares, position.type);
+          rows.push({
+            kind: 'exit',
+            id: `${position.id}-exit-${exit.id}`,
+            position,
+            exitDate: exit.exitDate,
+            exitShares: exit.shares,
+            exitPrice: exit.price,
+            realizedGain,
+            netCost: position.cost * exit.shares,
+          });
+        });
+      });
+      return rows;
+    },
+    [positions],
+  );
+
   const balanceOverTimeData = useMemo(() => {
     const eventsByDate = new Map<number, number>();
 
-    positions.forEach((position) => {
-      if (!position.closedDate) {
+    realizedExitRows.forEach((row) => {
+      if (row.kind !== 'exit') {
         return;
       }
       const dayTimestamp = new Date(
-        position.closedDate.getFullYear(),
-        position.closedDate.getMonth(),
-        position.closedDate.getDate(),
+        row.exitDate.getFullYear(),
+        row.exitDate.getMonth(),
+        row.exitDate.getDate(),
       ).getTime();
-      const realizedGain = calculateRealizedGainForPosition(position);
-      eventsByDate.set(dayTimestamp, (eventsByDate.get(dayTimestamp) ?? 0) + realizedGain);
+      eventsByDate.set(dayTimestamp, (eventsByDate.get(dayTimestamp) ?? 0) + row.realizedGain);
     });
 
     const sortedDates = Array.from(eventsByDate.keys()).sort((a, b) => a - b);
@@ -1118,7 +1149,7 @@ function PortfolioHero({
     });
 
     return series;
-  }, [positions, portfolioValue]);
+  }, [realizedExitRows, portfolioValue]);
 
   const balanceChartDomain = useMemo(() => {
     if (balanceOverTimeData.length === 0) {
@@ -1143,45 +1174,27 @@ function PortfolioHero({
     return [minBalance, maxBalance] as const;
   }, [balanceOverTimeData, portfolioValue]);
 
-  const holdingPeriodByPositionData = useMemo(() => {
-    const openPriceBySymbol = new Map<string, number>();
-    openPositionsForPnl.forEach((position, index) => {
-      const price = pnlQuoteQueries[index]?.data?.price;
-      if (typeof price === 'number') {
-        openPriceBySymbol.set(position.symbol, price);
-      }
-    });
+  const holdingPeriodByExitData = useMemo(() => {
+    const exitRows = realizedExitRows
+      .filter((row): row is Extract<PortfolioDrilldownRow, { kind: 'exit' }> => row.kind === 'exit')
+      .sort((a, b) => a.exitDate.getTime() - b.exitDate.getTime());
 
-    return positions
-      .map((position, index) => {
-        const totalGainLoss = calculateProjectedGainForPosition(position, openPriceBySymbol.get(position.symbol));
-        const portfolioGainPercent = portfolioValue > 0 ? (totalGainLoss / portfolioValue) * 100 : 0;
-        return {
-          positionId: position.id,
-          positionLabel: `${position.symbol}-${index + 1}`,
-          status: isPositionFullyClosed(position) ? 'Closed' : 'Open',
-          totalGainLoss,
-          portfolioGainPercent,
-          closedAt: position.closedDate ? position.closedDate.getTime() : null,
-          openedAt: position.openDate.getTime(),
-        };
-      })
-      .sort((a, b) => {
-        if (a.closedAt !== null && b.closedAt !== null) {
-          return a.closedAt - b.closedAt;
-        }
-        if (a.closedAt !== null && b.closedAt === null) {
-          return -1;
-        }
-        if (a.closedAt === null && b.closedAt !== null) {
-          return 1;
-        }
-        return a.openedAt - b.openedAt;
-      });
-  }, [positions, openPositionsForPnl, pnlQuoteQueries, portfolioValue]);
+    return exitRows.map((row, index) => {
+      const totalGainLoss = row.realizedGain;
+      const portfolioGainPercent = portfolioValue > 0 ? (totalGainLoss / portfolioValue) * 100 : 0;
+      return {
+        rowId: row.id,
+        rowLabel: `${row.position.symbol}-${index + 1}`,
+        totalGainLoss,
+        portfolioGainPercent,
+        closedAt: row.exitDate.getTime(),
+        openedAt: row.position.openDate.getTime(),
+      };
+    });
+  }, [realizedExitRows, portfolioValue]);
 
   const histogramAxisDomain = useMemo(() => {
-    if (holdingPeriodByPositionData.length === 0) {
+    if (holdingPeriodByExitData.length === 0) {
       return {
         minDollar: -1,
         maxDollar: 1,
@@ -1190,7 +1203,7 @@ function PortfolioHero({
       };
     }
 
-    const values = holdingPeriodByPositionData.map((entry) => entry.totalGainLoss);
+    const values = holdingPeriodByExitData.map((entry) => entry.totalGainLoss);
     let minDollar = Math.min(...values, 0);
     let maxDollar = Math.max(...values, 0);
 
@@ -1212,7 +1225,7 @@ function PortfolioHero({
       minPercent: toPercent(minDollar),
       maxPercent: toPercent(maxDollar),
     };
-  }, [holdingPeriodByPositionData, portfolioValue]);
+  }, [holdingPeriodByExitData, portfolioValue]);
 
   const gainLossDistributionData = useMemo<HistogramDistributionEntry[]>(() => {
     const counts = HISTOGRAM_BUCKETS.reduce((acc, bin) => {
@@ -1220,13 +1233,12 @@ function PortfolioHero({
       return acc;
     }, {} as Record<HistogramBucketKey, number>);
 
-    positions.forEach((position) => {
-      if (!position.closedDate || position.netCost === 0) {
+    realizedExitRows.forEach((row) => {
+      if (row.kind !== 'exit' || row.netCost === 0) {
         return;
       }
 
-      const realizedGain = calculateRealizedGainForPosition(position);
-      const percentGain = (realizedGain / position.netCost) * 100;
+      const percentGain = (row.realizedGain / row.netCost) * 100;
       if (!Number.isFinite(percentGain)) {
         return;
       }
@@ -1241,7 +1253,7 @@ function PortfolioHero({
       trades: counts[bin.key] ?? 0,
       bucketType: bin.bucketType,
     }));
-  }, [positions]);
+  }, [realizedExitRows]);
 
   const realizedEquityDistributionData = useMemo<HistogramDistributionEntry<RealizedEquityBucketKey>[]>(() => {
     const counts = REALIZED_EQUITY_BUCKETS.reduce((acc, bin) => {
@@ -1250,16 +1262,15 @@ function PortfolioHero({
     }, {} as Record<RealizedEquityBucketKey, number>);
     const equityBase = currentBalance > 0 ? currentBalance : portfolioValue;
 
-    positions.forEach((position) => {
+    realizedExitRows.forEach((row) => {
       if (equityBase <= 0) {
         return;
       }
-      const realizedGain = calculateRealizedGainForPosition(position);
-      if (realizedGain === 0) {
+
+      if (row.kind !== 'exit') {
         return;
       }
-
-      const realizedEquityPct = (realizedGain / equityBase) * 100;
+      const realizedEquityPct = (row.realizedGain / equityBase) * 100;
       if (!Number.isFinite(realizedEquityPct)) {
         return;
       }
@@ -1274,7 +1285,7 @@ function PortfolioHero({
       trades: counts[bin.key] ?? 0,
       bucketType: bin.bucketType,
     }));
-  }, [positions, currentBalance, portfolioValue]);
+  }, [realizedExitRows, currentBalance, portfolioValue]);
 
   const openHistogramDrilldown = (
     histogramType: HistogramDrilldownType,
@@ -1288,11 +1299,11 @@ function PortfolioHero({
     });
   };
 
-  const openHoldingPeriodDrilldown = (entry: { positionId: string; positionLabel: string }) => {
+  const openHoldingPeriodDrilldown = (entry: { rowId: string; rowLabel: string }) => {
     setSelectedDrilldown({
       kind: 'holdingPeriod',
-      positionId: entry.positionId,
-      positionLabel: entry.positionLabel,
+      rowId: entry.rowId,
+      rowLabel: entry.rowLabel,
     });
   };
 
@@ -1311,7 +1322,7 @@ function PortfolioHero({
     });
   };
 
-  const selectedHistogramPositions = useMemo(() => {
+  const selectedHistogramRows = useMemo<PortfolioDrilldownRow[]>(() => {
     if (!selectedDrilldown) {
       return [];
     }
@@ -1319,35 +1330,33 @@ function PortfolioHero({
     const equityBase = currentBalance > 0 ? currentBalance : portfolioValue;
 
     if (selectedDrilldown.kind === 'holdingPeriod') {
-      const match = positions.find((position) => position.id === selectedDrilldown.positionId);
+      const match = realizedExitRows.find((row) => row.id === selectedDrilldown.rowId);
       return match ? [match] : [];
     }
 
     if (selectedDrilldown.kind === 'realizedSymbol') {
-      return positions.filter((position) =>
-        position.symbol === selectedDrilldown.symbol && calculateRealizedGainForPosition(position) !== 0,
+      return realizedExitRows.filter((row) =>
+        row.position.symbol === selectedDrilldown.symbol,
       );
     }
 
     if (selectedDrilldown.kind === 'realizedHoldingPeriod') {
-      return positions.filter((position) => {
-        const realizedGainValue = calculateRealizedGainForPosition(position);
-        if (realizedGainValue === 0) {
+      return realizedExitRows.filter((row) => {
+        const closedDate = row.kind === 'exit' ? row.exitDate : row.position.closedDate;
+        if (!closedDate) {
           return false;
         }
-
-        const holdingDays = calculateDaysInTrade(position.openDate, position.closedDate);
+        const holdingDays = calculateDaysInTrade(row.position.openDate, closedDate);
         return getHoldingPeriodBucketKey(holdingDays) === selectedDrilldown.bucketKey;
       });
     }
 
-    return positions.filter((position) => {
+    return realizedExitRows.filter((row) => {
       if (selectedDrilldown.histogramType === 'realizedGain') {
-        if (!position.closedDate || position.netCost === 0) {
+        if (row.kind !== 'exit' || row.netCost === 0) {
           return false;
         }
-        const realizedGainValue = calculateRealizedGainForPosition(position);
-        const percentGain = (realizedGainValue / position.netCost) * 100;
+        const percentGain = (row.realizedGain / row.netCost) * 100;
         if (!Number.isFinite(percentGain)) {
           return false;
         }
@@ -1358,17 +1367,16 @@ function PortfolioHero({
         return false;
       }
 
-      const realizedGainValue = calculateRealizedGainForPosition(position);
-      if (realizedGainValue === 0) {
+      if (row.kind !== 'exit') {
         return false;
       }
-      const realizedEquityPct = (realizedGainValue / equityBase) * 100;
+      const realizedEquityPct = (row.realizedGain / equityBase) * 100;
       if (!Number.isFinite(realizedEquityPct)) {
         return false;
       }
       return getRealizedEquityBinKeyForPercent(realizedEquityPct) === selectedDrilldown.binKey;
     });
-  }, [selectedDrilldown, positions, currentBalance, portfolioValue]);
+  }, [selectedDrilldown, realizedExitRows, currentBalance, portfolioValue]);
 
   const selectedHistogramTitle = useMemo(() => {
     if (!selectedDrilldown) {
@@ -1382,7 +1390,7 @@ function PortfolioHero({
     }
 
     if (selectedDrilldown.kind === 'holdingPeriod') {
-      return `Holding Period by Position - ${selectedDrilldown.positionLabel}`;
+      return `Holding Period by Exit - ${selectedDrilldown.rowLabel}`;
     }
 
     if (selectedDrilldown.kind === 'realizedHoldingPeriod') {
@@ -1391,87 +1399,26 @@ function PortfolioHero({
 
     return `Realized Gain/Loss by Symbol - ${selectedDrilldown.symbol}`;
   }, [selectedDrilldown]);
-
-  useEffect(() => {
-    if (!selectedDrilldown) {
-      return;
-    }
-
-    setDrilldownSortColumn('closedDate');
-    setDrilldownSortDirection('desc');
-    setDrilldownFilterInput('');
-  }, [selectedDrilldown]);
-
-  const filteredHistogramPositions = useMemo(() => {
-    const rawFilter = drilldownFilterInput.trim();
-    if (!rawFilter) {
-      return selectedHistogramPositions;
-    }
-
-    const quotedMatch = rawFilter.match(/^(['"])(.*)\1$/);
-    if (quotedMatch) {
-      const exactSymbol = quotedMatch[2].trim().toUpperCase();
-      if (!exactSymbol) {
-        return selectedHistogramPositions;
-      }
-      return selectedHistogramPositions.filter((position) => position.symbol.toUpperCase() === exactSymbol);
-    }
-
-    const normalizedFilter = rawFilter.toUpperCase();
-    return selectedHistogramPositions.filter((position) =>
-      position.symbol.toUpperCase().startsWith(normalizedFilter),
-    );
-  }, [selectedHistogramPositions, drilldownFilterInput]);
-
   const drilldownRealizedEquityBase = currentBalance > 0 ? currentBalance : portfolioValue;
-
-  const sortedHistogramPositions = useMemo(() => {
-    const rows = [...filteredHistogramPositions];
-    rows.sort((a, b) => {
-      const aValue = getHistogramDrilldownSortValue(a, drilldownSortColumn, drilldownRealizedEquityBase);
-      const bValue = getHistogramDrilldownSortValue(b, drilldownSortColumn, drilldownRealizedEquityBase);
-
-      let result = 0;
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        result = aValue - bValue;
-      } else {
-        result = String(aValue).localeCompare(String(bValue), undefined, { numeric: true, sensitivity: 'base' });
-      }
-
-      return drilldownSortDirection === 'asc' ? result : -result;
-    });
-    return rows;
-  }, [filteredHistogramPositions, drilldownSortColumn, drilldownSortDirection, drilldownRealizedEquityBase]);
-
-  const drilldownRealizedGainTotal = useMemo(
-    () => sortedHistogramPositions.reduce((sum, position) => sum + calculateRealizedGainForPosition(position), 0),
-    [sortedHistogramPositions],
+  const statsDrilldownRows = useMemo<PortfolioDrilldownRow[]>(
+    () => selectedHistogramRows,
+    [selectedHistogramRows],
   );
-
-  const handleDrilldownSort = (column: string) => {
-    if (drilldownSortColumn === column) {
-      setDrilldownSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-      return;
-    }
-    setDrilldownSortColumn(column);
-    setDrilldownSortDirection('desc');
-  };
 
   const realizedGainsBySymbolData = useMemo(() => {
     const gainBySymbol = new Map<string, number>();
 
-    positions.forEach((position) => {
-      const realizedGain = calculateRealizedGainForPosition(position);
-      if (realizedGain === 0) {
+    realizedExitRows.forEach((row) => {
+      if (row.kind !== 'exit') {
         return;
       }
-      gainBySymbol.set(position.symbol, (gainBySymbol.get(position.symbol) ?? 0) + realizedGain);
+      gainBySymbol.set(row.position.symbol, (gainBySymbol.get(row.position.symbol) ?? 0) + row.realizedGain);
     });
 
     return Array.from(gainBySymbol.entries())
       .map(([symbol, realizedGain]) => ({ symbol, realizedGain }))
       .sort((a, b) => b.realizedGain - a.realizedGain);
-  }, [positions]);
+  }, [realizedExitRows]);
 
   const realizedGainByAvgHoldingPeriodData = useMemo(() => {
     const totals = HOLDING_PERIOD_BUCKETS.reduce((acc, bucket) => {
@@ -1484,15 +1431,14 @@ function PortfolioHero({
       return acc;
     }, {} as Record<HoldingPeriodBucketKey, number>);
 
-    positions.forEach((position) => {
-      const realizedGainValue = calculateRealizedGainForPosition(position);
-      if (realizedGainValue === 0) {
+    realizedExitRows.forEach((row) => {
+      if (row.kind !== 'exit') {
         return;
       }
 
-      const holdingDays = calculateDaysInTrade(position.openDate, position.closedDate);
+      const holdingDays = calculateDaysInTrade(row.position.openDate, row.exitDate);
       const bucketKey = getHoldingPeriodBucketKey(holdingDays);
-      totals[bucketKey] += realizedGainValue;
+      totals[bucketKey] += row.realizedGain;
       counts[bucketKey] += 1;
     });
 
@@ -1502,7 +1448,7 @@ function PortfolioHero({
       realizedGain: roundToTwoDecimals(totals[bucket.key] ?? 0),
       trades: counts[bucket.key] ?? 0,
     }));
-  }, [positions]);
+  }, [realizedExitRows]);
 
   if (isLoading) {
     return <PortfolioHeroSkeleton />;
@@ -1702,8 +1648,8 @@ function PortfolioHero({
                   <p className="text-lg font-bold font-mono">{tradeStatistics.totalClosed}</p>
                 </div>
                 <div className="space-y-1 rounded-md bg-muted/20 p-2.5">
-                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Total R</p>
-                  <p className="text-lg font-bold font-mono">{tradeStatistics.totalR.toFixed(2)}R</p>
+                  <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Average R</p>
+                  <p className="text-lg font-bold font-mono">{tradeStatistics.avgR.toFixed(2)}R</p>
                 </div>
                 <div className="space-y-1 rounded-md bg-muted/20 p-2.5">
                   <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Return per Trade</p>
@@ -1857,15 +1803,15 @@ function PortfolioHero({
           </div>
 
           <div className="mt-3 rounded-xl border border-border/60 bg-background/30 dark:bg-muted/20 p-3 md:p-4">
-            <p className="text-[10px] text-muted-foreground uppercase mb-1">Holding Period by Position</p>
+            <p className="text-[10px] text-muted-foreground uppercase mb-1">Holding Period by Exit</p>
             <div className="h-44">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={holdingPeriodByPositionData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <BarChart data={holdingPeriodByExitData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                   <XAxis
-                    dataKey="positionLabel"
+                    dataKey="rowLabel"
                     tick={{ fontSize: 10 }}
-                    interval={getAdaptiveXAxisInterval(holdingPeriodByPositionData.length, 12)}
+                    interval={getAdaptiveXAxisInterval(holdingPeriodByExitData.length, 12)}
                     angle={-45}
                     textAnchor="end"
                     height={66}
@@ -1891,10 +1837,6 @@ function PortfolioHero({
                       const pct = portfolioValue > 0 ? (dollarValue / portfolioValue) * 100 : 0;
                       return [`${formatCurrencyTwoDecimals(dollarValue)} (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)`, 'Portfolio Gain'];
                     }}
-                    labelFormatter={(label, payload) => {
-                      const row = payload?.[0]?.payload as { status?: string } | undefined;
-                      return `${label}${row?.status ? ` (${row.status})` : ''}`;
-                    }}
                   />
                   <Bar
                     yAxisId="pnlDollar"
@@ -1902,16 +1844,16 @@ function PortfolioHero({
                     name="Portfolio Gain"
                     radius={[4, 4, 0, 0]}
                     onClick={(_, index) => {
-                      const entry = holdingPeriodByPositionData[index];
+                      const entry = holdingPeriodByExitData[index];
                       if (!entry) {
                         return;
                       }
                       openHoldingPeriodDrilldown(entry);
                     }}
                   >
-                    {holdingPeriodByPositionData.map((entry) => (
+                    {holdingPeriodByExitData.map((entry) => (
                       <Cell
-                        key={`${entry.positionLabel}-pnl`}
+                        key={`${entry.rowLabel}-pnl`}
                         cursor="pointer"
                         fill={entry.totalGainLoss >= 0 ? CHART_POSITIVE_BAR_COLOR : CHART_NEGATIVE_BAR_COLOR}
                       />
@@ -2125,117 +2067,451 @@ function PortfolioHero({
         </div>
       )}
 
-      <Dialog
+      <PortfolioDrilldownModal
         open={Boolean(selectedDrilldown)}
         onOpenChange={(open) => {
           if (!open) {
             setSelectedDrilldown(null);
           }
         }}
-      >
-        <DialogContent className="max-w-5xl">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedHistogramTitle}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedHistogramPositions.length} position{selectedHistogramPositions.length === 1 ? '' : 's'} in this bucket.
-              {drilldownFilterInput.trim() ? ` Showing ${sortedHistogramPositions.length} after filter.` : ''}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex items-center justify-between gap-2">
-            <Input
-              value={drilldownFilterInput}
-              onChange={(e) => setDrilldownFilterInput(e.target.value.toUpperCase())}
-              placeholder="Filter"
-              aria-label="Filter drilldown positions by symbol"
-              className="h-8 w-full text-xs bg-background/50 sm:w-[320px]"
-            />
-          </div>
-          <div className="max-h-[70vh] overflow-auto [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
-            <Table>
-              <TableHeader className="sticky top-0 z-30 bg-background [&_th]:bg-background [&_th]:border-b [&_th]:border-border">
-                <TableRow className="border-b-2">
+        title={selectedHistogramTitle}
+        description={`${statsDrilldownRows.length} exit row${statsDrilldownRows.length === 1 ? '' : 's'} in this bucket.`}
+        rows={statsDrilldownRows}
+        emptyStateMessage="No positions found for this bucket."
+        realizedEquityBase={drilldownRealizedEquityBase}
+      />
+    </div>
+  );
+}
+
+type PortfolioDrilldownRow =
+  | {
+      kind: 'position';
+      id: string;
+      position: StockPosition;
+    }
+  | {
+      kind: 'exit';
+      id: string;
+      position: StockPosition;
+      exitDate: Date;
+      exitShares: number;
+      exitPrice: number;
+      realizedGain: number;
+      netCost: number;
+    };
+
+function PortfolioDrilldownModal({
+  open,
+  onOpenChange,
+  title,
+  description,
+  rows,
+  emptyStateMessage,
+  realizedEquityBase,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  rows: PortfolioDrilldownRow[];
+  emptyStateMessage: string;
+  realizedEquityBase: number;
+}) {
+  const [sortColumn, setSortColumn] = useState<string>('closedDate');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [filterInput, setFilterInput] = useState<string>('');
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    setSortColumn('closedDate');
+    setSortDirection('desc');
+    setFilterInput('');
+  }, [open, title]);
+
+  const filteredPositions = useMemo(() => {
+    const rawFilter = filterInput.trim();
+    if (!rawFilter) {
+      return rows;
+    }
+
+    const quotedMatch = rawFilter.match(/^(['"])(.*)\1$/);
+    if (quotedMatch) {
+      const exactSymbol = quotedMatch[2].trim().toUpperCase();
+      if (!exactSymbol) {
+        return rows;
+      }
+      return rows.filter((row) => row.position.symbol.toUpperCase() === exactSymbol);
+    }
+
+    const normalizedFilter = rawFilter.toUpperCase();
+    return rows.filter((row) => row.position.symbol.toUpperCase().startsWith(normalizedFilter));
+  }, [rows, filterInput]);
+
+  const sortedRows = useMemo(() => {
+    const rows = [...filteredPositions];
+    rows.sort((a, b) => {
+      const aValue = getHistogramDrilldownSortValue(a, sortColumn, realizedEquityBase);
+      const bValue = getHistogramDrilldownSortValue(b, sortColumn, realizedEquityBase);
+
+      let result = 0;
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        result = aValue - bValue;
+      } else {
+        result = String(aValue).localeCompare(String(bValue), undefined, { numeric: true, sensitivity: 'base' });
+      }
+
+      return sortDirection === 'asc' ? result : -result;
+    });
+    return rows;
+  }, [filteredPositions, sortColumn, sortDirection, realizedEquityBase]);
+
+  const realizedGainTotal = useMemo(
+    () => sortedRows.reduce((sum, row) => sum + getDrilldownRowRealizedGain(row), 0),
+    [sortedRows],
+  );
+
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      return;
+    }
+    setSortColumn(column);
+    setSortDirection('desc');
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>
+            {description}
+            {filterInput.trim() ? ` Showing ${sortedRows.length} after filter.` : ''}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex items-center justify-between gap-2">
+          <Input
+            value={filterInput}
+            onChange={(e) => setFilterInput(e.target.value.toUpperCase())}
+            placeholder="Filter"
+            aria-label="Filter drilldown positions by symbol"
+            className="h-8 w-full text-xs bg-background/50 sm:w-[320px]"
+          />
+        </div>
+        <div className="max-h-[70vh] overflow-auto [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
+          <Table>
+            <TableHeader className="sticky top-0 z-30 bg-background [&_th]:bg-background [&_th]:border-b [&_th]:border-border">
+              <TableRow className="border-b-2">
+                {HISTOGRAM_DRILLDOWN_COLUMNS.map((column) => (
+                  <SortableHeader
+                    key={column.id}
+                    column={column.id}
+                    label={column.label}
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                    onSort={handleSort}
+                    className={cn(column.id === 'symbol' ? 'sticky left-0 z-30 !bg-background border-r border-border' : 'border-r', column.id === HISTOGRAM_DRILLDOWN_COLUMNS[HISTOGRAM_DRILLDOWN_COLUMNS.length - 1]?.id && 'border-r-0')}
+                  />
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedRows.length > 0 ? (
+                sortedRows.map((row) => {
+                  return (
+                    <TableRow key={row.id} className="border-b even:bg-muted/20 hover:bg-muted/40 transition-colors">
+                      {HISTOGRAM_DRILLDOWN_COLUMNS.map((column) => (
+                        <TableCell
+                          key={`${row.id}-${column.id}`}
+                          className={cn(
+                            column.id === 'symbol'
+                              ? 'font-medium border-r font-mono sticky left-0 z-20 !bg-background'
+                              : 'border-r font-mono',
+                            column.id === HISTOGRAM_DRILLDOWN_COLUMNS[HISTOGRAM_DRILLDOWN_COLUMNS.length - 1]?.id && 'border-r-0',
+                          )}
+                        >
+                          {renderHistogramDrilldownCell(
+                            column.id,
+                            row,
+                            realizedEquityBase,
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={HISTOGRAM_DRILLDOWN_COLUMNS.length}
+                    className="text-center text-sm text-muted-foreground py-6"
+                  >
+                    {emptyStateMessage}
+                  </TableCell>
+                </TableRow>
+              )}
+              {sortedRows.length > 0 && (
+                <TableRow className="border-t-2 bg-muted/20">
                   {HISTOGRAM_DRILLDOWN_COLUMNS.map((column) => (
-                    <SortableHeader
-                      key={column.id}
-                      column={column.id}
-                      label={column.label}
-                      sortColumn={drilldownSortColumn}
-                      sortDirection={drilldownSortDirection}
-                      onSort={handleDrilldownSort}
-                      className={cn(column.id === 'symbol' ? 'sticky left-0 z-30 !bg-background border-r border-border' : 'border-r', column.id === HISTOGRAM_DRILLDOWN_COLUMNS[HISTOGRAM_DRILLDOWN_COLUMNS.length - 1]?.id && 'border-r-0')}
-                    />
+                    <TableCell
+                      key={`summary-${column.id}`}
+                      className={cn(
+                        column.id === 'symbol'
+                          ? 'font-semibold border-r font-mono sticky left-0 z-20 !bg-background'
+                          : 'border-r font-mono',
+                        column.id === HISTOGRAM_DRILLDOWN_COLUMNS[HISTOGRAM_DRILLDOWN_COLUMNS.length - 1]?.id && 'border-r-0',
+                      )}
+                    >
+                      {column.id === 'symbol' ? (
+                        <span className="text-xs text-muted-foreground uppercase tracking-wide">Summary</span>
+                      ) : column.id === 'realizedGain' ? (
+                        <span className={cn('font-semibold', realizedGainTotal >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-400')}>
+                          {formatCurrency(realizedGainTotal)}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                   ))}
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sortedHistogramPositions.length > 0 ? (
-                  sortedHistogramPositions.map((position) => {
-                    const realizedGainValue = calculateRealizedGainForPosition(position);
-                    return (
-                      <TableRow key={position.id} className="border-b even:bg-muted/20 hover:bg-muted/40 transition-colors">
-                        {HISTOGRAM_DRILLDOWN_COLUMNS.map((column) => (
-                          <TableCell
-                            key={`${position.id}-${column.id}`}
-                            className={cn(
-                              column.id === 'symbol'
-                                ? 'font-medium border-r font-mono sticky left-0 z-20 !bg-background'
-                                : 'border-r font-mono',
-                              column.id === HISTOGRAM_DRILLDOWN_COLUMNS[HISTOGRAM_DRILLDOWN_COLUMNS.length - 1]?.id && 'border-r-0',
-                            )}
-                          >
-                            {renderHistogramDrilldownCell(
-                              column.id,
-                              position,
-                              realizedGainValue,
-                              drilldownRealizedEquityBase,
-                            )}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    );
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={HISTOGRAM_DRILLDOWN_COLUMNS.length}
-                      className="text-center text-sm text-muted-foreground py-6"
-                    >
-                      No positions found for this bucket.
-                    </TableCell>
-                  </TableRow>
-                )}
-                {sortedHistogramPositions.length > 0 && (
-                  <TableRow className="border-t-2 bg-muted/20">
-                    {HISTOGRAM_DRILLDOWN_COLUMNS.map((column) => (
-                      <TableCell
-                        key={`summary-${column.id}`}
-                        className={cn(
-                          column.id === 'symbol'
-                            ? 'font-semibold border-r font-mono sticky left-0 z-20 !bg-background'
-                            : 'border-r font-mono',
-                          column.id === HISTOGRAM_DRILLDOWN_COLUMNS[HISTOGRAM_DRILLDOWN_COLUMNS.length - 1]?.id && 'border-r-0',
-                        )}
-                      >
-                        {column.id === 'symbol' ? (
-                          <span className="text-xs text-muted-foreground uppercase tracking-wide">Summary</span>
-                        ) : column.id === 'realizedGain' ? (
-                          <span className={cn('font-semibold', drilldownRealizedGainTotal >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-400')}>
-                            {formatCurrency(drilldownRealizedGainTotal)}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">-</span>
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PortfolioCalendarTab({
+  positions,
+  portfolioValue,
+  isLoading,
+}: {
+  positions: StockPosition[];
+  portfolioValue: number;
+  isLoading: boolean;
+}) {
+  const [currentMonth, setCurrentMonth] = useState(() => normalizeToLocalMidnight(new Date()));
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+
+  const calendarDays = useMemo(() => {
+    const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+    const startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - firstDay.getDay());
+
+    const days: Date[] = [];
+    for (let i = 0; i < 42; i += 1) {
+      days.push(new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + i));
+    }
+    return days;
+  }, [currentMonth]);
+
+  const dayEventsMap = useMemo(() => {
+    const map = new Map<string, {
+      date: Date;
+      dayRealizedGain: number;
+      exitRows: PortfolioDrilldownRow[];
+    }>();
+
+    const getOrCreateDay = (date: Date) => {
+      const normalized = normalizeToLocalMidnight(date);
+      const key = format(normalized, 'yyyy-MM-dd');
+      const existing = map.get(key);
+      if (existing) {
+        return { key, bucket: existing };
+      }
+
+      const created = {
+        date: normalized,
+        dayRealizedGain: 0,
+        exitRows: [] as PortfolioDrilldownRow[],
+      };
+      map.set(key, created);
+      return { key, bucket: created };
+    };
+
+    positions.forEach((position) => {
+      position.exits.forEach((exit) => {
+        if (!exit.exitDate) {
+          return;
+        }
+        const realizedGain = calculateGainLoss(
+          exit.price,
+          position.cost,
+          exit.shares,
+          position.type,
+        );
+        if (realizedGain === 0) {
+          return;
+        }
+        const exitDay = getOrCreateDay(exit.exitDate);
+        exitDay.bucket.dayRealizedGain += realizedGain;
+        exitDay.bucket.exitRows.push({
+          kind: 'exit',
+          id: `${position.id}-exit-${exit.id}`,
+          position,
+          exitDate: exit.exitDate,
+          exitShares: exit.shares,
+          exitPrice: exit.price,
+          realizedGain,
+          netCost: position.cost * exit.shares,
+        });
+      });
+    });
+
+    return map;
+  }, [positions]);
+
+  const selectedDayEntry = useMemo(() => {
+    if (!selectedDayKey) {
+      return null;
+    }
+    const entry = dayEventsMap.get(selectedDayKey);
+    if (!entry) {
+      return null;
+    }
+    return {
+      ...entry,
+      rows: entry.exitRows,
+      exitCount: entry.exitRows.length,
+    };
+  }, [selectedDayKey, dayEventsMap]);
+
+  const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const totalRealizedGain = useMemo(
+    () => positions.reduce((sum, position) => sum + calculateRealizedGainForPosition(position), 0),
+    [positions],
+  );
+  const realizedEquityBase = portfolioValue + totalRealizedGain > 0 ? portfolioValue + totalRealizedGain : portfolioValue;
+
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border border-border/50 bg-card/80 p-4">
+        <div className="space-y-3">
+          <Skeleton className="h-6 w-56" />
+          <Skeleton className="h-80 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-border/50 bg-card/80 overflow-hidden">
+      <div className="border-b border-border/50 px-4 py-3">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h3 className="text-base font-semibold">Portfolio Activity Calendar</h3>
+            <p className="text-xs text-muted-foreground">
+              Click a day to view realized exits on that date.
+            </p>
           </div>
-        </DialogContent>
-      </Dialog>
+          <div className="flex items-center gap-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-2"
+              onClick={() => setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+              aria-label="Previous month"
+            >
+              <ChevronsLeft className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 px-2"
+              onClick={() => setCurrentMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+              aria-label="Next month"
+            >
+              <ChevronsRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+        <p className="mt-2 text-sm font-medium">{format(currentMonth, 'MMMM yyyy')}</p>
+      </div>
+
+      <div className="p-3">
+        <div className="grid grid-cols-7 gap-1 pb-1">
+          {weekDays.map((day) => (
+            <div key={day} className="px-2 py-1 text-center text-xs font-medium text-muted-foreground">
+              {day}
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {calendarDays.map((day) => {
+            const normalized = normalizeToLocalMidnight(day);
+            const key = format(normalized, 'yyyy-MM-dd');
+            const dayEntry = dayEventsMap.get(key);
+            const isCurrentMonth = normalized.getMonth() === currentMonth.getMonth();
+            const isToday = normalized.getTime() === normalizeToLocalMidnight(new Date()).getTime();
+            const totalEvents = dayEntry?.exitRows.length ?? 0;
+            const hasEvents = totalEvents > 0;
+
+            return (
+              <button
+                type="button"
+                key={key}
+                className={cn(
+                  "min-h-[92px] rounded-md border border-border/40 bg-background p-2 text-left transition-colors",
+                  !isCurrentMonth && "opacity-35",
+                  isToday && "ring-1 ring-primary/40",
+                  hasEvents ? "hover:bg-muted/35" : "cursor-default",
+                )}
+                onClick={() => {
+                  if (!hasEvents) {
+                    return;
+                  }
+                  setSelectedDayKey(key);
+                }}
+              >
+                <div className={cn("text-xs font-medium", isToday && "text-primary")}>
+                  {normalized.getDate()}
+                </div>
+                {hasEvents && (
+                  <div className="mt-2 text-[10px]">
+                    <div
+                      className={cn(
+                        "rounded px-1.5 py-0.5 font-medium",
+                        (dayEntry?.dayRealizedGain ?? 0) > 0
+                          ? "bg-green-500/10 text-green-700 dark:text-green-300"
+                          : (dayEntry?.dayRealizedGain ?? 0) < 0
+                            ? "bg-red-500/10 text-red-700 dark:text-red-300"
+                            : "bg-muted/60 text-muted-foreground",
+                      )}
+                    >
+                      {formatCurrency(dayEntry?.dayRealizedGain ?? 0)}
+                    </div>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <PortfolioDrilldownModal
+        open={Boolean(selectedDayEntry)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedDayKey(null);
+          }
+        }}
+        title={selectedDayEntry ? `Calendar Activity - ${format(selectedDayEntry.date, 'MMM dd, yyyy')}` : 'Calendar Activity'}
+        description={
+          selectedDayEntry
+            ? `${selectedDayEntry.exitCount} realized exit${selectedDayEntry.exitCount === 1 ? '' : 's'}`
+            : 'No day selected.'
+        }
+        rows={selectedDayEntry?.rows ?? []}
+        emptyStateMessage="No positions found for this day."
+        realizedEquityBase={realizedEquityBase}
+      />
     </div>
   );
 }
@@ -2255,39 +2531,75 @@ type PortfolioTableRow =
       positions: StockPosition[];
     };
 
+const getDrilldownRowRealizedGain = (row: PortfolioDrilldownRow) =>
+  row.kind === 'exit' ? row.realizedGain : calculateRealizedGainForPosition(row.position);
+
+const getDrilldownRowQuantity = (row: PortfolioDrilldownRow) =>
+  row.kind === 'exit' ? row.exitShares : row.position.quantity;
+
+const getDrilldownRowNetCost = (row: PortfolioDrilldownRow) =>
+  row.kind === 'exit' ? row.netCost : row.position.netCost;
+
+const getDrilldownRowClosedDate = (row: PortfolioDrilldownRow) =>
+  row.kind === 'exit' ? row.exitDate : row.position.closedDate;
+
+const getDrilldownRowRMultiple = (row: PortfolioDrilldownRow): number | null => {
+  if (row.kind === 'position') {
+    return calculateDisplayedRMultipleForPosition(row.position);
+  }
+
+  if (!hasConfiguredStopLoss(row.position.cost, row.position.initialStopLoss)) {
+    return null;
+  }
+
+  const initialRiskPerShare = Math.abs(row.position.cost - row.position.initialStopLoss);
+  const rowInitialRisk = initialRiskPerShare * row.exitShares;
+  if (rowInitialRisk <= 0) {
+    return null;
+  }
+
+  return row.realizedGain / rowInitialRisk;
+};
+
 function getHistogramDrilldownSortValue(
-  position: StockPosition,
+  row: PortfolioDrilldownRow,
   columnId: string,
   realizedEquityBase: number,
 ): number | string {
-  const realizedGainValue = calculateRealizedGainForPosition(position);
+  const position = row.position;
+  const realizedGainValue = getDrilldownRowRealizedGain(row);
+  const rowQuantity = getDrilldownRowQuantity(row);
+  const rowNetCost = getDrilldownRowNetCost(row);
+  const rowClosedDate = getDrilldownRowClosedDate(row);
   switch (columnId) {
     case 'symbol':
       return position.symbol.toUpperCase();
     case 'type':
       return position.type;
     case 'quantity':
-      return position.quantity;
+      return rowQuantity;
     case 'cost':
       return position.cost;
     case 'netCost':
-      return position.netCost;
+      return rowNetCost;
     case 'stopLoss':
       return position.stopLoss;
     case 'realizedGain':
       return realizedGainValue;
     case 'realizedPercent':
-      return position.netCost !== 0 ? (realizedGainValue / position.netCost) * 100 : Number.NEGATIVE_INFINITY;
+      return rowNetCost !== 0 ? (realizedGainValue / rowNetCost) * 100 : Number.NEGATIVE_INFINITY;
     case 'realizedEquityPercent':
       return realizedEquityBase > 0 && Number.isFinite(realizedEquityBase)
         ? (realizedGainValue / realizedEquityBase) * 100
         : Number.NEGATIVE_INFINITY;
     case 'rMultiple':
-      return calculateDisplayedRMultipleForPosition(position);
+      return getDrilldownRowRMultiple(row);
+    case 'openDate':
+      return position.openDate.getTime();
     case 'closedDate':
-      return position.closedDate ? position.closedDate.getTime() : Number.NEGATIVE_INFINITY;
+      return rowClosedDate ? rowClosedDate.getTime() : Number.NEGATIVE_INFINITY;
     case 'holdingPeriod':
-      return calculateDaysInTrade(position.openDate, position.closedDate);
+      return rowClosedDate ? calculateDaysInTrade(position.openDate, rowClosedDate) : Number.NEGATIVE_INFINITY;
     default:
       return '';
   }
@@ -2295,12 +2607,16 @@ function getHistogramDrilldownSortValue(
 
 function renderHistogramDrilldownCell(
   columnId: string,
-  position: StockPosition,
-  realizedGain: number,
+  row: PortfolioDrilldownRow,
   realizedEquityBase: number,
 ) {
-  const realizedPercent = position.netCost !== 0 ? (realizedGain / position.netCost) * 100 : null;
+  const position = row.position;
+  const realizedGain = getDrilldownRowRealizedGain(row);
+  const rowNetCost = getDrilldownRowNetCost(row);
+  const rowClosedDate = getDrilldownRowClosedDate(row);
+  const realizedPercent = rowNetCost !== 0 ? (realizedGain / rowNetCost) * 100 : null;
   const realizedEquityPercent = realizedEquityBase > 0 ? (realizedGain / realizedEquityBase) * 100 : null;
+  const rowRMultiple = getDrilldownRowRMultiple(row);
 
   switch (columnId) {
     case 'symbol':
@@ -2319,11 +2635,11 @@ function renderHistogramDrilldownCell(
         </span>
       );
     case 'quantity':
-      return position.quantity;
+      return getDrilldownRowQuantity(row);
     case 'cost':
       return <span className="font-medium">{formatCurrency(position.cost)}</span>;
     case 'netCost':
-      return <span className="font-medium">{formatCurrency(position.netCost)}</span>;
+      return <span className="font-medium">{formatCurrency(rowNetCost)}</span>;
     case 'stopLoss':
       return <span className="font-medium">{formatCurrency(position.stopLoss)}</span>;
     case 'realizedGain':
@@ -2349,14 +2665,24 @@ function renderHistogramDrilldownCell(
         </span>
       );
     case 'rMultiple':
-      return <RMultipleCell symbol={position.symbol} positions={[position]} />;
+      return row.kind === 'position' ? (
+        <RMultipleCell symbol={position.symbol} positions={[position]} />
+      ) : rowRMultiple === null ? (
+        <span className="text-muted-foreground">-</span>
+      ) : (
+        <span className={cn('font-medium', rowRMultiple >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-400')}>
+          {`${rowRMultiple.toFixed(2)}R`}
+        </span>
+      );
+    case 'openDate':
+      return format(position.openDate, 'MM/dd/yy');
     case 'closedDate':
-      return position.closedDate ? format(position.closedDate, 'MM/dd/yy') : <span className="text-muted-foreground">-</span>;
+      return rowClosedDate ? format(rowClosedDate, 'MM/dd/yy') : <span className="text-muted-foreground">-</span>;
     case 'holdingPeriod': {
-      if (!position.closedDate) {
+      if (!rowClosedDate) {
         return <span className="text-muted-foreground">-</span>;
       }
-      const daysHeld = calculateDaysInTrade(position.openDate, position.closedDate);
+      const daysHeld = calculateDaysInTrade(position.openDate, rowClosedDate);
       return <span className="font-medium tabular-nums">{`${daysHeld}d`}</span>;
     }
     default:
@@ -3220,19 +3546,28 @@ export default function Portfolio() {
   const totalOpenRiskPercentOfPortfolio =
     portfolioValueNumber > 0 ? (totalOpenRiskDollar / portfolioValueNumber) * 100 : 0;
 
-  // Compute trade statistics from closed positions only
+  // Compute trade statistics from realized exits (per-exit-row basis)
   const tradeStatistics = useMemo(() => {
-    if (closedPositions.length === 0 || portfolioValueNumber <= 0) return null;
+    if (portfolioValueNumber <= 0) return null;
 
-    const trades = closedPositions.map(pos => {
-      const realizedGain = calculateRealizedGainForPosition(pos);
-      const percentGain = pos.netCost !== 0 ? (realizedGain / pos.netCost) * 100 : 0;
-      const equityContribution = (realizedGain / portfolioValueNumber) * 100;
-      const days = calculateDaysInTrade(pos.openDate, pos.closedDate);
-      const initialRisk = calculateInitialRiskAmount(pos.cost, pos.initialStopLoss, pos.quantity);
-      const rMultiple = initialRisk > 0 ? realizedGain / initialRisk : 0;
-      return { realizedGain, percentGain, equityContribution, days, rMultiple, netCost: pos.netCost };
-    });
+    const trades = positions.flatMap((pos) =>
+      pos.exits
+        .filter((exit) => exit.exitDate !== null && exit.shares > 0)
+        .map((exit) => {
+          const realizedGain = calculateGainLoss(exit.price, pos.cost, exit.shares, pos.type);
+          const netCost = pos.cost * exit.shares;
+          const percentGain = netCost !== 0 ? (realizedGain / netCost) * 100 : 0;
+          const equityContribution = (realizedGain / portfolioValueNumber) * 100;
+          const days = calculateDaysInTrade(pos.openDate, exit.exitDate);
+          const initialRisk = calculateInitialRiskAmount(pos.cost, pos.initialStopLoss, exit.shares);
+          const rMultiple = initialRisk > 0 ? realizedGain / initialRisk : 0;
+          return { realizedGain, percentGain, equityContribution, days, rMultiple, netCost };
+        }),
+    );
+
+    if (trades.length === 0) {
+      return null;
+    }
 
     const winners = trades.filter(t => t.realizedGain > 0);
     const losers = trades.filter(t => t.realizedGain < 0);
@@ -3264,7 +3599,7 @@ export default function Portfolio() {
 
     const avgWinnerDays = r2(avg(winners.map(t => t.days)));
     const avgLoserDays = r2(avg(losers.map(t => t.days)));
-    const totalR = r2(trades.reduce((sum, trade) => sum + trade.rMultiple, 0));
+    const avgR = r2(avg(trades.map(t => t.rMultiple)));
     const avgEquityPerTrade = r2(avg(trades.map(t => t.equityContribution)));
     const avgNetCost = r2(avg(trades.map(t => t.netCost)));
 
@@ -3289,14 +3624,14 @@ export default function Portfolio() {
       maxLossEquity,
       avgWinnerR,
       avgLoserR,
-      totalR,
+      avgR,
       avgEquityPerTrade,
       avgNetCost,
       avgWinnerDays,
       avgLoserDays,
       riskRewardRatio,
     };
-  }, [closedPositions, portfolioValueNumber]);
+  }, [positions, portfolioValueNumber]);
 
   const allocationSummary = useMemo(() => {
     const equityBySymbol = new Map<string, number>();
@@ -4074,6 +4409,14 @@ export default function Portfolio() {
           </div>
         </aside>
             </div>
+          </TabsContent>
+
+          <TabsContent value="calendar" className="px-3 sm:px-4">
+            <PortfolioCalendarTab
+              positions={positions}
+              portfolioValue={portfolio?.portfolio_value ?? (portfolioValue ? parseFloat(portfolioValue) : 0)}
+              isLoading={isPortfolioLoading}
+            />
           </TabsContent>
 
           <TabsContent value="backtest" className="px-3 sm:px-4">
