@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { CalendarIcon, InfoIcon, X, Loader2, Pencil, PlusCircle, Star } from 'lucide-react';
+import { CalendarIcon, InfoIcon, X, Loader2, Pencil, PlusCircle, Star, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { Tabs, TabsContent } from '@/components/ui/Tabs';
 import { useSortableTable } from '@/hooks/useSortableTable';
@@ -2480,6 +2480,7 @@ export default function Portfolio() {
 
   // Position Percentage Calculator state
   const [adrPercent, setAdrPercent] = useState<string>('');
+  const [isPositionsSidebarCollapsed, setIsPositionsSidebarCollapsed] = useState(false);
 
   // Create Portfolio state
   const [showCreatePortfolioDialog, setShowCreatePortfolioDialog] = useState(false);
@@ -3519,270 +3520,292 @@ export default function Portfolio() {
         </div>
 
         {/* Right Sidebar */}
-        <aside className="w-full xl:w-80 shrink-0 space-y-2.5">
-          {/* ADR & max position (portfolio value) */}
-          <div className="rounded-lg border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
-            <div className="px-3 py-2.5 text-sm font-semibold border-b border-border/50">
-              Max Position based on ADR
-            </div>
-            <div className="px-3 pb-3 pt-3 space-y-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">ADR %</label>
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="2.50"
-                  value={adrPercent}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9.]/g, '');
-                    const parts = value.split('.');
-                    const formattedValue = parts.length > 2
-                      ? parts[0] + '.' + parts.slice(1).join('')
-                      : value;
-                    if (parts.length === 2 && parts[1].length > 2) return;
-                    setAdrPercent(formattedValue);
-                  }}
-                  className="h-8 w-full text-sm font-mono bg-background/50"
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Max Position %</p>
-                  <p className="text-sm font-bold font-mono">
-                    {adrPercent && parseFloat(adrPercent) > 0 ? `${((1 / parseFloat(adrPercent)) * 100).toFixed(1)}%` : '—'}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs font-medium text-muted-foreground">Max Amount</p>
-                  <p className="text-sm font-bold font-mono">
-                    {adrPercent && parseFloat(adrPercent) > 0
-                      ? formatCurrencyTwoDecimals((parseFloat(portfolioValue) || 0) * (1 / parseFloat(adrPercent)))
-                      : '—'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Add Position Panel */}
-          <div className="rounded-lg border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
-            <div className="px-3 py-2.5 text-sm font-semibold border-b border-border/50">
-              + Add Position
-            </div>
-            <div className="px-3 pb-3 pt-3 space-y-2.5">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Symbol</label>
-                  <Input
-                    type="text"
-                    placeholder={positionInstrument === 'option' ? 'AAPL240621C00180000' : 'AAPL'}
-                    value={symbol}
-                    onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                    className="h-8 text-sm font-mono bg-background/50"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Type</label>
-                  <Select value={type} onValueChange={(value: 'Long' | 'Short') => setType(value)}>
-                    <SelectTrigger className="h-8 text-sm bg-background/50">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Long">Long</SelectItem>
-                      <SelectItem value="Short">Short</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Instrument</label>
-                <Select value={positionInstrument} onValueChange={(value: 'stock' | 'option') => setPositionInstrument(value)}>
-                  <SelectTrigger className="h-8 text-sm bg-background/50">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="stock">Stock</SelectItem>
-                    <SelectItem value="option">Option</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">Cost</label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0.00"
-                    value={cost}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9.]/g, '');
-                      const parts = value.split('.');
-                      const formattedValue = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : value;
-                      setCost(formattedValue);
-                    }}
-                    className="h-8 text-sm font-mono bg-background/50"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    {positionInstrument === 'option' ? 'Contracts' : 'Quantity'}
-                  </label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder={positionInstrument === 'option' ? '1' : '0'}
-                    value={quantity}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/[^0-9.]/g, '');
-                      const parts = value.split('.');
-                      const formattedValue = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : value;
-                      setQuantity(formattedValue);
-                    }}
-                    className="h-8 text-sm font-mono bg-background/50"
-                  />
-                </div>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">
-                  Initial Stop Loss {positionInstrument === 'option' ? '(Optional)' : ''}
-                </label>
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  placeholder={positionInstrument === 'option' ? '0.00 (defaults to 0)' : '0.00'}
-                  value={initialStopLoss}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9.]/g, '');
-                    const parts = value.split('.');
-                    const formattedValue = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : value;
-                    setInitialStopLoss(formattedValue);
-                  }}
-                  className="h-8 text-sm font-mono bg-background/50"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium text-muted-foreground">Open Date</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full h-8 justify-start text-left text-sm font-normal bg-background/50",
-                        !openDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                      {openDate ? format(openDate, "MM/dd/yyyy") : "Select"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={openDate}
-                      onSelect={(date) => date && setOpenDate(date)}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
+        <aside className={cn("w-full shrink-0", isPositionsSidebarCollapsed ? "xl:w-auto" : "xl:w-80")}>
+          <div className="rounded-xl border border-border/40 bg-card/60 p-2">
+            <div className="flex items-center justify-end">
               <Button
-                onClick={handleAddStock}
-                disabled={isAddButtonDisabled}
-                className="w-full h-8 text-sm"
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsPositionsSidebarCollapsed((prev) => !prev)}
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                aria-label={isPositionsSidebarCollapsed ? 'Expand positions sidebar cards' : 'Collapse positions sidebar cards'}
               >
-                Add Position
+                {isPositionsSidebarCollapsed ? (
+                  <ChevronsLeft className="h-4 w-4" />
+                ) : (
+                  <ChevronsRight className="h-4 w-4" />
+                )}
               </Button>
             </div>
-          </div>
 
-          {/* Allocation Panel */}
-          <div className="rounded-lg border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
-            <div className="px-3 py-2.5 text-sm font-semibold border-b border-border/50">
-              Allocation
-            </div>
-            <div className="px-3 pb-3 pt-3">
-              {isPortfolioLoading ? (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    <Skeleton className="h-14 rounded-lg" />
-                    <Skeleton className="h-14 rounded-lg" />
+            {!isPositionsSidebarCollapsed && (
+              <div className="space-y-3 pt-1">
+                {/* ADR & max position (portfolio value) */}
+                <section className="rounded-lg border border-border/35 bg-background/70 p-3">
+                  <div className="text-sm font-semibold">
+                    Max Position based on ADR
                   </div>
-                  <Skeleton className="mx-auto h-40 max-w-[220px] rounded-lg" />
-                  <Skeleton className="h-28 w-full rounded-lg" />
-                </div>
-              ) : allocationSummary.total === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">No allocation data</p>
-              ) : (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-lg border border-border/50 bg-background/50 p-2.5">
-                      <p className="text-xs font-medium text-muted-foreground">Open equity</p>
-                      <p className="text-sm font-bold font-mono tabular-nums text-foreground">
-                        {formatCurrency(openEquityValue)}
-                      </p>
+                  <div className="space-y-3 pt-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">ADR %</label>
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="2.50"
+                        value={adrPercent}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9.]/g, '');
+                          const parts = value.split('.');
+                          const formattedValue = parts.length > 2
+                            ? parts[0] + '.' + parts.slice(1).join('')
+                            : value;
+                          if (parts.length === 2 && parts[1].length > 2) return;
+                          setAdrPercent(formattedValue);
+                        }}
+                        className="h-8 w-full text-sm font-mono bg-background/50"
+                      />
                     </div>
-                    <div className="rounded-lg border border-border/60 bg-muted/45 p-2.5 dark:bg-muted/35">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className="h-2 w-2 shrink-0 rounded-sm ring-1 ring-border/50"
-                          style={{ backgroundColor: 'hsl(var(--allocation-cash))' }}
-                          aria-hidden
-                        />
-                        <p className="text-xs font-medium text-muted-foreground">Cash</p>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground">Max Position %</p>
+                        <p className="text-sm font-bold font-mono">
+                          {adrPercent && parseFloat(adrPercent) > 0 ? `${((1 / parseFloat(adrPercent)) * 100).toFixed(1)}%` : '—'}
+                        </p>
                       </div>
-                      <p className="mt-0.5 text-sm font-bold font-mono tabular-nums text-foreground">
-                        {formatCurrency(cashAllocationValue)}
-                      </p>
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-muted-foreground">Max Amount</p>
+                        <p className="text-sm font-bold font-mono">
+                          {adrPercent && parseFloat(adrPercent) > 0
+                            ? formatCurrencyTwoDecimals((parseFloat(portfolioValue) || 0) * (1 / parseFloat(adrPercent)))
+                            : '—'}
+                        </p>
+                      </div>
                     </div>
                   </div>
+                </section>
 
-                  <div className="mx-auto h-[168px] w-full max-w-[220px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsPieChart>
-                        <Pie
-                          data={allocationRowsWithColors}
-                          dataKey="value"
-                          nameKey="name"
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={34}
-                          outerRadius={62}
-                          paddingAngle={3}
-                          stroke="hsl(var(--card))"
-                          strokeWidth={2}
-                        >
-                          {allocationRowsWithColors.map((row) => (
-                            <Cell key={row.name} fill={row.fill} />
-                          ))}
-                        </Pie>
-                        <RechartsTooltip content={renderAllocationTooltip} />
-                      </RechartsPieChart>
-                    </ResponsiveContainer>
+                {/* Add Position Panel */}
+                <section className="rounded-lg border border-border/35 bg-background/70 p-3">
+                  <div className="text-sm font-semibold">
+                    + Add Position
                   </div>
-
-                  <ul
-                    className="grid grid-cols-2 gap-x-2 gap-y-1.5 overflow-y-auto rounded-lg border border-border/40 bg-muted/15 px-2 py-2 text-xs dark:bg-muted/10 sm:text-sm max-h-40"
-                    aria-label="Allocation by position"
-                  >
-                    {allocationLegendRows.map((row) => (
-                      <li
-                        key={row.name}
-                        className="flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 hover:bg-muted/40"
-                      >
-                        <span
-                          className="h-2.5 w-2.5 shrink-0 rounded-sm ring-1 ring-border/60"
-                          style={{ backgroundColor: row.fill }}
-                          aria-hidden
+                  <div className="space-y-2.5 pt-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">Symbol</label>
+                        <Input
+                          type="text"
+                          placeholder={positionInstrument === 'option' ? 'AAPL240621C00180000' : 'AAPL'}
+                          value={symbol}
+                          onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                          className="h-8 text-sm font-mono bg-background/50"
                         />
-                        <span className="min-w-0 truncate font-medium text-foreground">{row.name}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">Type</label>
+                        <Select value={type} onValueChange={(value: 'Long' | 'Short') => setType(value)}>
+                          <SelectTrigger className="h-8 text-sm bg-background/50">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Long">Long</SelectItem>
+                            <SelectItem value="Short">Short</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">Instrument</label>
+                      <Select value={positionInstrument} onValueChange={(value: 'stock' | 'option') => setPositionInstrument(value)}>
+                        <SelectTrigger className="h-8 text-sm bg-background/50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="stock">Stock</SelectItem>
+                          <SelectItem value="option">Option</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">Cost</label>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={cost}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/[^0-9.]/g, '');
+                            const parts = value.split('.');
+                            const formattedValue = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : value;
+                            setCost(formattedValue);
+                          }}
+                          className="h-8 text-sm font-mono bg-background/50"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-muted-foreground">
+                          {positionInstrument === 'option' ? 'Contracts' : 'Quantity'}
+                        </label>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder={positionInstrument === 'option' ? '1' : '0'}
+                          value={quantity}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/[^0-9.]/g, '');
+                            const parts = value.split('.');
+                            const formattedValue = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : value;
+                            setQuantity(formattedValue);
+                          }}
+                          className="h-8 text-sm font-mono bg-background/50"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Initial Stop Loss {positionInstrument === 'option' ? '(Optional)' : ''}
+                      </label>
+                      <Input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder={positionInstrument === 'option' ? '0.00 (defaults to 0)' : '0.00'}
+                        value={initialStopLoss}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/[^0-9.]/g, '');
+                          const parts = value.split('.');
+                          const formattedValue = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : value;
+                          setInitialStopLoss(formattedValue);
+                        }}
+                        className="h-8 text-sm font-mono bg-background/50"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-muted-foreground">Open Date</label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full h-8 justify-start text-left text-sm font-normal bg-background/50",
+                              !openDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                            {openDate ? format(openDate, "MM/dd/yyyy") : "Select"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={openDate}
+                            onSelect={(date) => date && setOpenDate(date)}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <Button
+                      onClick={handleAddStock}
+                      disabled={isAddButtonDisabled}
+                      className="w-full h-8 text-sm"
+                    >
+                      Add Position
+                    </Button>
+                  </div>
+                </section>
 
+                {/* Allocation Panel */}
+                <section className="rounded-lg border border-border/35 bg-background/70 p-3">
+                  <div className="text-sm font-semibold">
+                    Allocation
+                  </div>
+                  <div className="pt-3">
+                    {isPortfolioLoading ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <Skeleton className="h-14 rounded-lg" />
+                          <Skeleton className="h-14 rounded-lg" />
+                        </div>
+                        <Skeleton className="mx-auto h-40 max-w-[220px] rounded-lg" />
+                        <Skeleton className="h-28 w-full rounded-lg" />
+                      </div>
+                    ) : allocationSummary.total === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">No allocation data</p>
+                    ) : (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="rounded-lg border border-border/50 bg-background/50 p-2.5">
+                            <p className="text-xs font-medium text-muted-foreground">Open equity</p>
+                            <p className="text-sm font-bold font-mono tabular-nums text-foreground">
+                              {formatCurrency(openEquityValue)}
+                            </p>
+                          </div>
+                          <div className="rounded-lg border border-border/60 bg-muted/45 p-2.5 dark:bg-muted/35">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className="h-2 w-2 shrink-0 rounded-sm ring-1 ring-border/50"
+                                style={{ backgroundColor: 'hsl(var(--allocation-cash))' }}
+                                aria-hidden
+                              />
+                              <p className="text-xs font-medium text-muted-foreground">Cash</p>
+                            </div>
+                            <p className="mt-0.5 text-sm font-bold font-mono tabular-nums text-foreground">
+                              {formatCurrency(cashAllocationValue)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mx-auto h-[168px] w-full max-w-[220px]">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <RechartsPieChart>
+                              <Pie
+                                data={allocationRowsWithColors}
+                                dataKey="value"
+                                nameKey="name"
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={34}
+                                outerRadius={62}
+                                paddingAngle={3}
+                                stroke="hsl(var(--card))"
+                                strokeWidth={2}
+                              >
+                                {allocationRowsWithColors.map((row) => (
+                                  <Cell key={row.name} fill={row.fill} />
+                                ))}
+                              </Pie>
+                              <RechartsTooltip content={renderAllocationTooltip} />
+                            </RechartsPieChart>
+                          </ResponsiveContainer>
+                        </div>
+
+                        <ul
+                          className="grid grid-cols-2 gap-x-2 gap-y-1.5 overflow-y-auto rounded-lg border border-border/40 bg-muted/15 px-2 py-2 text-xs dark:bg-muted/10 sm:text-sm max-h-40"
+                          aria-label="Allocation by position"
+                        >
+                          {allocationLegendRows.map((row) => (
+                            <li
+                              key={row.name}
+                              className="flex min-w-0 items-center gap-2 rounded-md px-1 py-0.5 hover:bg-muted/40"
+                            >
+                              <span
+                                className="h-2.5 w-2.5 shrink-0 rounded-sm ring-1 ring-border/60"
+                                style={{ backgroundColor: row.fill }}
+                                aria-hidden
+                              />
+                              <span className="min-w-0 truncate font-medium text-foreground">{row.name}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              </div>
+            )}
+          </div>
         </aside>
             </div>
           </TabsContent>
