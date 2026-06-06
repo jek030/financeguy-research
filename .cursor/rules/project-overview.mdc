@@ -16,7 +16,7 @@ Finance research tool: portfolio tracking, watchlists, sector/earnings data, CAN
 - **Tables**: TanStack Table v8
 - **Forms**: React Hook Form + Zod
 - **Charts**: Recharts, Lightweight Charts
-- **Market data**: Financial Modeling Prep (FMP) via internal Next.js API proxy at `app/api/fmp/`
+- **Market data**: Financial Modeling Prep (FMP) via internal Next.js API routes (`app/api/fmp/`, `app/api/earnings/`)
 - **Backend job server**: `server/` — Express + Prisma 6 (separate subproject, excluded from root tsconfig)
 
 ## Key Directory Layout
@@ -42,7 +42,7 @@ server/               # Express + Prisma job server (own tsconfig + package.json
 ## Conventions
 
 - Path alias `@/` maps to the project root.
-- All FMP market data goes through `app/api/fmp/` proxy — never call FMP from the browser directly (protects the API key).
+- All FMP market data goes through internal Next.js API routes — never call FMP from the browser directly (protects the API key).
 - Supabase writes always include the authenticated user's `user_id`.
 - `service_role` key is server/CI-only; never expose it in client code or `NEXT_PUBLIC_*` env vars.
 

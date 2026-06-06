@@ -99,6 +99,31 @@ function calculateDCR(price: number, dayLow: number, dayHigh: number): number | 
   return ((price - dayLow) / range) * 100;
 }
 
+type SortValue = number | string | null | undefined;
+
+function compareSortValues(aVal: SortValue, bVal: SortValue, direction: 'asc' | 'desc') {
+  const aMissing = aVal === null || aVal === undefined || aVal === '';
+  const bMissing = bVal === null || bVal === undefined || bVal === '';
+
+  if (aMissing && bMissing) return 0;
+  if (aMissing) return 1;
+  if (bMissing) return -1;
+
+  if (typeof aVal === 'string' && typeof bVal === 'string') {
+    const result = aVal.localeCompare(bVal);
+    return direction === 'asc' ? result : -result;
+  }
+
+  const aNum = typeof aVal === 'number' ? aVal : Number(aVal);
+  const bNum = typeof bVal === 'number' ? bVal : Number(bVal);
+
+  if (Number.isNaN(aNum) && Number.isNaN(bNum)) return 0;
+  if (Number.isNaN(aNum)) return 1;
+  if (Number.isNaN(bNum)) return -1;
+
+  return direction === 'asc' ? aNum - bNum : bNum - aNum;
+}
+
 // ---------------------------------------------------------------------------
 // Data types
 // ---------------------------------------------------------------------------
@@ -302,23 +327,21 @@ function renderCell(
 // Loading row
 // ---------------------------------------------------------------------------
 
-function LoadingRow({ visibleCount, isSortActive }: { visibleCount: number; isSortActive?: boolean }) {
+function LoadingRow({ visibleCount }: { visibleCount: number }) {
   return (
-    <TableRow>
-      <TableCell className="sticky left-0 z-20 !bg-background px-0 border-r border-border">
-        <div className={cn("grid items-center", isSortActive ? "grid-cols-[auto]" : "grid-cols-[40px,auto]")}>
-          {!isSortActive && (
-            <div className="w-10 flex items-center justify-center">
-              <Skeleton className="h-4 w-4" />
-            </div>
-          )}
+    <TableRow className="h-9 border-b border-border/60">
+      <TableCell className="sticky left-0 z-20 !bg-background px-0 border-r border-border/60">
+        <div className="grid grid-cols-[40px,auto] items-center">
+          <div className="w-10 flex items-center justify-center">
+            <Skeleton className="h-4 w-4" />
+          </div>
           <div className="px-2">
             <Skeleton className="h-4 w-16" />
           </div>
         </div>
       </TableCell>
       {Array(visibleCount - 1).fill(0).map((_, i) => (
-        <TableCell key={i}>
+        <TableCell key={i} className="h-9 py-1.5">
           <Skeleton className="h-4 w-16" />
         </TableCell>
       ))}
@@ -360,29 +383,32 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker, data, isSortActive, ena
   };
 
   if (data.isQuoteLoading) {
-    return <LoadingRow visibleCount={visibleColumns.length} isSortActive={isSortActive} />;
+    return <LoadingRow visibleCount={visibleColumns.length} />;
   }
 
   if (!data.quote) return null;
 
-  const showDragHandle = enableRowReorder && !isSortActive;
+  const showDragHandle = enableRowReorder;
 
   return (
     <TableRow
       ref={setNodeRef}
       style={style}
-      className={cn("group", "even:bg-muted/40", isDragging && "opacity-50 bg-muted/80")}
+      className={cn("group h-9 border-b border-border/60 transition-colors hover:bg-muted/35", "even:bg-muted/20", isDragging && "opacity-50 bg-muted/80")}
     >
       {visibleColumns.map(col => {
         if (col.isAnchor) {
           return (
-            <TableCell key={col.id} className="sticky left-0 z-20 !bg-background px-0 border-r border-border">
+            <TableCell key={col.id} className="sticky left-0 z-20 !bg-background px-0 border-r border-border/60">
               <div className={cn("grid items-center", showDragHandle ? "grid-cols-[40px,auto]" : "grid-cols-[auto]")}>
                 {showDragHandle && (
                   <div
                     {...attributes}
                     {...listeners}
-                    className="w-10 cursor-grab hover:text-foreground text-muted-foreground/50 flex items-center justify-center"
+                    className={cn(
+                      "w-10 flex items-center justify-center text-muted-foreground/50",
+                      isSortActive ? "cursor-default" : "cursor-grab hover:text-foreground"
+                    )}
                   >
                     <GripVertical className="h-4 w-4" />
                   </div>
@@ -401,7 +427,7 @@ function QuoteRow({ symbol, watchlistId, onRemoveTicker, data, isSortActive, ena
         }
 
         return (
-          <TableCell key={col.id} className={col.id === 'actions' ? 'text-xs sm:text-sm' : ''}>
+          <TableCell key={col.id} className={cn("h-9 py-1.5", col.id === 'actions' ? 'text-xs sm:text-sm' : '')}>
             {renderCell(col.id, data, symbol, watchlistId, onRemoveTicker)}
           </TableCell>
         );
@@ -610,7 +636,7 @@ function ExportButton({ watchlist, visibleColumns }: ExportButtonProps) {
   };
 
   return (
-    <Button variant="ghost" size="icon" onClick={handleExport} className="h-7 w-7 sm:h-8 sm:w-8" title="Export watchlist">
+    <Button variant="ghost" size="icon" onClick={handleExport} className="h-8 w-8 rounded-none" title="Export watchlist">
       <Download className="h-3 w-3 sm:h-4 sm:w-4" />
     </Button>
   );
@@ -650,31 +676,31 @@ function WatchlistHeader({
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false);
   return (
     <>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1 sm:pb-3 sm:px-6 px-3">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 px-3 py-2">
         {watchlist.isEditing ? (
           <div className="flex items-center gap-1 sm:gap-2 w-full">
             <Input
               value={editNameInput}
               onChange={(e) => onEditNameChange(e.target.value)}
               onKeyDown={(e) => onKeyPress(e, onSaveWatchlistName)}
-              className="text-sm sm:text-xl font-semibold h-7 sm:h-8 py-0.5"
+              className="h-8 rounded-none py-0.5 text-sm font-semibold"
               autoFocus
             />
-            <Button variant="ghost" size="icon" onClick={onSaveWatchlistName} className="shrink-0 h-7 w-7 sm:h-8 sm:w-8">
+            <Button variant="ghost" size="icon" onClick={onSaveWatchlistName} className="shrink-0 h-8 w-8 rounded-none">
               <Check className="h-3 w-3 sm:h-4 sm:w-4" />
             </Button>
           </div>
         ) : (
           <div className="flex items-center justify-between w-full">
             <div className="min-w-0 mr-2">
-              <h2 className="text-base sm:text-xl font-semibold text-foreground truncate">{watchlist.name}</h2>
+              <h2 className="text-base font-semibold text-foreground truncate">{watchlist.name}</h2>
             </div>
             <div className="flex items-center gap-1 flex-shrink-0">
               <ExportButton watchlist={watchlist} visibleColumns={visibleColumns} />
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" onClick={onToggleEditMode} className="h-7 w-7 sm:h-8 sm:w-8 flex-shrink-0">
+                    <Button variant="ghost" size="icon" onClick={onToggleEditMode} className="h-8 w-8 rounded-none flex-shrink-0">
                       <Pencil className="h-3 w-3 sm:h-4 sm:w-4" />
                     </Button>
                   </TooltipTrigger>
@@ -686,7 +712,7 @@ function WatchlistHeader({
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <DialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 flex-shrink-0 text-muted-foreground hover:text-destructive">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-none flex-shrink-0 text-muted-foreground hover:text-destructive">
                           <X className="h-3 w-3 sm:h-4 sm:w-4" />
                         </Button>
                       </DialogTrigger>
@@ -694,7 +720,7 @@ function WatchlistHeader({
                     <TooltipContent><p>Delete Watchlist</p></TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-                <DialogContent>
+                <DialogContent className="rounded-none">
                   <DialogHeader>
                     <DialogTitle>Delete Watchlist</DialogTitle>
                     <DialogDescription>
@@ -702,8 +728,8 @@ function WatchlistHeader({
                     </DialogDescription>
                   </DialogHeader>
                   <DialogFooter>
-                    <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>Cancel</Button>
-                    <Button variant="destructive" onClick={() => { onRemoveWatchlist(watchlist.id); setShowDeleteDialog(false); }}>Delete</Button>
+                    <Button variant="outline" onClick={() => setShowDeleteDialog(false)} className="rounded-none">Cancel</Button>
+                    <Button variant="destructive" onClick={() => { onRemoveWatchlist(watchlist.id); setShowDeleteDialog(false); }} className="rounded-none">Delete</Button>
                   </DialogFooter>
                 </DialogContent>
               </Dialog>
@@ -711,16 +737,16 @@ function WatchlistHeader({
           </div>
         )}
       </CardHeader>
-      <CardContent className="sm:px-6 px-3 pb-3">
-        <div className="flex gap-1 sm:gap-2 mb-3 sm:mb-4">
+      <CardContent className="px-3 py-2">
+        <div className="flex gap-1.5">
           <Input
             placeholder="Enter tickers (e.g. AAPL, MSFT, TSLA)"
             value={newTickerInput}
             onChange={(e) => onNewTickerChange(e.target.value)}
             onKeyDown={(e) => onKeyPress(e, onAddTicker)}
-            className="text-xs sm:text-sm h-7 sm:h-8"
+            className="h-8 rounded-none border-0 bg-muted/50 text-xs sm:text-sm shadow-none focus-visible:ring-1"
           />
-          <Button onClick={onAddTicker} title="Add ticker" className="h-7 sm:h-8 whitespace-nowrap flex-shrink-0 min-w-0 px-2 sm:px-3">
+          <Button onClick={onAddTicker} title="Add ticker" className="h-8 rounded-none whitespace-nowrap flex-shrink-0 min-w-0 px-2 sm:px-3">
             <Plus className="h-3 w-3 sm:h-4 sm:w-4 md:mr-1" />
             <span className="hidden md:inline">Add Ticker</span>
             <span className="inline md:hidden ml-0.5">Add</span>
@@ -740,12 +766,11 @@ function renderColumnHeader(
   sortColumn: string | null,
   sortDirection: 'asc' | 'desc',
   handleSort: (column: string) => void,
-  isSortActive: boolean,
   enableRowReorder: boolean,
   anchorExtra?: React.ReactNode,
 ) {
   if (col.isAnchor) {
-    const showDragSpace = enableRowReorder && !isSortActive;
+    const showDragSpace = enableRowReorder;
     return (
       <SortableHeader
         key={col.id}
@@ -759,13 +784,13 @@ function renderColumnHeader(
         sortColumn={sortColumn}
         sortDirection={sortDirection}
         onSort={handleSort}
-        className="sticky left-0 z-20 !bg-background border-r border-border"
+        className="sticky left-0 z-20 !bg-background border-r border-border/60"
       />
     );
   }
 
   if (col.id === 'actions') {
-    return <TableHead key={col.id} className="text-center">Actions</TableHead>;
+    return <TableHead key={col.id} className="border-r border-border/60 text-center text-xs font-normal uppercase tracking-wide text-muted-foreground">Actions</TableHead>;
   }
 
   const sortable = col.sortable !== false;
@@ -795,7 +820,7 @@ function renderColumnHeader(
         sortColumn={sortColumn}
         sortDirection={sortDirection}
         onSort={sortable ? handleSort : () => {}}
-        className="border-r"
+        className="border-r border-border/60"
       />
     );
   }
@@ -808,7 +833,7 @@ function renderColumnHeader(
       sortColumn={sortColumn}
       sortDirection={sortDirection}
       onSort={sortable ? handleSort : () => {}}
-      className="border-r"
+      className="border-r border-border/60"
     />
   );
 }
@@ -921,63 +946,56 @@ function WatchlistTable({ watchlist, onRemoveTicker, visibleColumns, sortColumn,
       const aQuote = aData?.quote;
       const bQuote = bData?.quote;
 
-      let aVal: number | string = 0;
-      let bVal: number | string = 0;
+      let aVal: SortValue = null;
+      let bVal: SortValue = null;
 
       switch (sortColumn) {
         case 'symbol': aVal = a.symbol; bVal = b.symbol; break;
-        case 'price': aVal = aQuote?.price ?? 0; bVal = bQuote?.price ?? 0; break;
-        case 'change': aVal = aQuote?.change ?? 0; bVal = bQuote?.change ?? 0; break;
-        case 'changePercent': aVal = aQuote?.changesPercentage ?? 0; bVal = bQuote?.changesPercentage ?? 0; break;
-        case 'volume': aVal = aQuote?.volume ?? 0; bVal = bQuote?.volume ?? 0; break;
-        case 'avgVol20D': aVal = aData?.priceChanges?.avgVolume20D ?? -Infinity; bVal = bData?.priceChanges?.avgVolume20D ?? -Infinity; break;
-        case 'volRunRate': aVal = aData?.volumeRunRate ?? -Infinity; bVal = bData?.volumeRunRate ?? -Infinity; break;
-        case '1yChange': aVal = aData?.priceChanges?.oneYear?.changePercent ?? -Infinity; bVal = bData?.priceChanges?.oneYear?.changePercent ?? -Infinity; break;
-        case '3yChange': aVal = aData?.priceChanges?.threeYear?.changePercent ?? -Infinity; bVal = bData?.priceChanges?.threeYear?.changePercent ?? -Infinity; break;
-        case '5yChange': aVal = aData?.priceChanges?.fiveYear?.changePercent ?? -Infinity; bVal = bData?.priceChanges?.fiveYear?.changePercent ?? -Infinity; break;
-        case 'marketCap': aVal = aQuote?.marketCap ?? 0; bVal = bQuote?.marketCap ?? 0; break;
-        case 'sector': aVal = aData?.profile?.sector ?? ''; bVal = bData?.profile?.sector ?? ''; break;
-        case 'industry': aVal = aData?.profile?.industry ?? ''; bVal = bData?.profile?.industry ?? ''; break;
-        case 'peRatio': aVal = aQuote?.pe ?? -Infinity; bVal = bQuote?.pe ?? -Infinity; break;
-        case 'divYield': aVal = aData?.dividendYield ?? -Infinity; bVal = bData?.dividendYield ?? -Infinity; break;
+        case 'price': aVal = aQuote?.price; bVal = bQuote?.price; break;
+        case 'change': aVal = aQuote?.change; bVal = bQuote?.change; break;
+        case 'changePercent': aVal = aQuote?.changesPercentage; bVal = bQuote?.changesPercentage; break;
+        case 'volume': aVal = aQuote?.volume; bVal = bQuote?.volume; break;
+        case 'avgVol20D': aVal = aData?.priceChanges?.avgVolume20D; bVal = bData?.priceChanges?.avgVolume20D; break;
+        case 'volRunRate': aVal = aData?.volumeRunRate; bVal = bData?.volumeRunRate; break;
+        case '1yChange': aVal = aData?.priceChanges?.oneYear?.changePercent; bVal = bData?.priceChanges?.oneYear?.changePercent; break;
+        case '3yChange': aVal = aData?.priceChanges?.threeYear?.changePercent; bVal = bData?.priceChanges?.threeYear?.changePercent; break;
+        case '5yChange': aVal = aData?.priceChanges?.fiveYear?.changePercent; bVal = bData?.priceChanges?.fiveYear?.changePercent; break;
+        case 'marketCap': aVal = aQuote?.marketCap; bVal = bQuote?.marketCap; break;
+        case 'sector': aVal = aData?.profile?.sector; bVal = bData?.profile?.sector; break;
+        case 'industry': aVal = aData?.profile?.industry; bVal = bData?.profile?.industry; break;
+        case 'peRatio': aVal = aQuote?.pe; bVal = bQuote?.pe; break;
+        case 'divYield': aVal = aData?.dividendYield; bVal = bData?.dividendYield; break;
         case 'dcr': {
           const aDcr = aQuote ? calculateDCR(aQuote.price, aQuote.dayLow, aQuote.dayHigh) : null;
           const bDcr = bQuote ? calculateDCR(bQuote.price, bQuote.dayLow, bQuote.dayHigh) : null;
-          aVal = aDcr ?? -Infinity; bVal = bDcr ?? -Infinity; break;
+          aVal = aDcr; bVal = bDcr; break;
         }
         case 'earnings': {
-          aVal = aQuote?.earningsAnnouncement ? new Date(aQuote.earningsAnnouncement).getTime() : 0;
-          bVal = bQuote?.earningsAnnouncement ? new Date(bQuote.earningsAnnouncement).getTime() : 0;
+          aVal = aQuote?.earningsAnnouncement ? new Date(aQuote.earningsAnnouncement).getTime() : null;
+          bVal = bQuote?.earningsAnnouncement ? new Date(bQuote.earningsAnnouncement).getTime() : null;
           break;
         }
         default: return 0;
       }
 
-      if (typeof aVal === 'string' && typeof bVal === 'string') {
-        const cmp = aVal.localeCompare(bVal);
-        return sortDirection === 'asc' ? cmp : -cmp;
-      }
-
-      const aNum = typeof aVal === 'number' ? aVal : Number(aVal);
-      const bNum = typeof bVal === 'number' ? bVal : Number(bVal);
-      return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+      return compareSortValues(aVal, bVal, sortDirection);
     });
   }, [watchlist.tickers, sortColumn, sortDirection, tickerDataMap]);
 
   return (
-    <CardContent className="sm:px-6 px-3 pt-0">
+    <CardContent className="min-h-0 flex-1 overflow-hidden px-3 pt-0 pb-3">
       <SortableContext
         items={sortedTickers.map(t => `${t.symbol}-${watchlist.id}`)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="rounded-xl border border-border/50 bg-card/80 backdrop-blur-sm overflow-hidden">
-          <div className="overflow-x-auto [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
+        <div className="h-full min-h-0 bg-card/80 backdrop-blur-sm overflow-hidden">
+          <div className="h-full overflow-auto [&_th]:!h-9 [&_th]:!px-2 [&_th]:!py-1.5 [&_th]:!text-xs [&_th]:!font-normal [&_th]:!uppercase [&_th]:!tracking-wide [&_td]:!px-2 [&_td]:!text-xs">
             <Table>
-              <TableHeader>
-                <TableRow className="border-b-2">
+              <TableHeader className="sticky top-0 z-30 bg-background">
+                <TableRow className="border-b border-border/70 bg-muted/40 hover:bg-muted/40">
                   {visibleColumns.map(col =>
                     renderColumnHeader(
-                      col, sortColumn, sortDirection, handleSort, isSortActive, enableRowReorder,
+                      col, sortColumn, sortDirection, handleSort, enableRowReorder,
                       col.isAnchor ? (
                         <ColumnSettingsPopover
                           columns={orderedColumns}
@@ -1079,10 +1097,11 @@ export function WatchlistDetail({
     columns: WATCHLIST_COLUMNS,
     tableId: 'watchlist-detail',
     enableRowReorder: true,
+    enableClearSort: true,
   });
 
   return (
-    <Card className="border-0 shadow-none w-full">
+    <Card className="flex h-full min-h-0 w-full flex-col rounded-none border-0 bg-card/80 shadow-none">
       <WatchlistHeader
         watchlist={watchlist}
         editNameInput={editNameInput}

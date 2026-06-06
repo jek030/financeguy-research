@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
 interface EarningsConfirmed {
   id?: number;
@@ -13,9 +14,7 @@ interface EarningsConfirmed {
   revenueActual?: number | null;
   revenue: number | null;
   revenueEstimated: number | null;
-  updatedAt?: string;
   updatedFromDate: string;
-  createdAt?: string;
   fiscalDateEnding: string;
   exchange?: string;
   when?: string;
@@ -42,7 +41,7 @@ async function fetchEarningsConfirmed(from: string, to: string, symbols?: string
 
   // Fallback: GET without symbol filtering
   const response = await fetch(
-    `/api/earnings/calendar?from=${from}&to=${to}`
+    `/api/earnings/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
   );
 
   if (!response.ok) {
@@ -53,12 +52,19 @@ async function fetchEarningsConfirmed(from: string, to: string, symbols?: string
 }
 
 export function useEarningsConfirmed(from: string, to: string, symbols?: string[]) {
+  const normalizedSymbols = useMemo(() => {
+    if (!symbols) return undefined;
+    return Array.from(new Set(symbols.map((symbol) => symbol.trim().toUpperCase()).filter(Boolean))).sort();
+  }, [symbols]);
+
+  const symbolsKey = normalizedSymbols ? normalizedSymbols.join(',') : 'all';
+
   return useQuery({
-    queryKey: ['earnings-confirmed', from, to, symbols?.length ?? 0],
-    queryFn: () => fetchEarningsConfirmed(from, to, symbols),
+    queryKey: ['earnings-confirmed', from, to, symbolsKey],
+    queryFn: () => fetchEarningsConfirmed(from, to, normalizedSymbols),
     // Only fetch when symbols are available (if symbols param is used)
-    enabled: (symbols === undefined || symbols.length > 0) && from !== '' && to !== '',
-    staleTime: 24 * 60 * 60 * 1000, // Consider data fresh for 24 hours
-    gcTime: 7 * 24 * 60 * 60 * 1000, // Keep data in cache for 7 days
+    enabled: (normalizedSymbols === undefined || normalizedSymbols.length > 0) && from !== '' && to !== '',
+    staleTime: 15 * 60 * 1000, // Earnings actuals can update during the trading day
+    gcTime: 24 * 60 * 60 * 1000,
   });
 }

@@ -12,9 +12,10 @@ export interface SortableHeaderProps {
   sortDirection: 'asc' | 'desc';
   onSort: (column: string) => void;
   className?: string;
+  align?: 'left' | 'center' | 'right';
 }
 
-export function SortableHeader({ column, label, sortColumn, sortDirection, onSort, className }: SortableHeaderProps) {
+export function SortableHeader({ column, label, sortColumn, sortDirection, onSort, className, align = 'left' }: SortableHeaderProps) {
   const isActive = sortColumn === column;
   const currentSort = isActive ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none';
 
@@ -24,7 +25,11 @@ export function SortableHeader({ column, label, sortColumn, sortDirection, onSor
       onClick={() => onSort(column)}
       aria-sort={currentSort}
     >
-      <div className="flex items-center gap-1">
+      <div className={cn(
+        "flex items-center gap-1",
+        align === 'right' && "justify-end",
+        align === 'center' && "justify-center",
+      )}>
         <span>{label}</span>
         {isActive ? (
           sortDirection === 'asc' ? (

@@ -39,7 +39,7 @@ await supabase.from('tblPortfolio').insert({ ...data });
 ```
 
 User-owned tables: `tblPortfolio`, `tblPortfolioPositions`, `watchlists`, `watchlist_tickers`, `user_preferences`.
-Reference/market data tables (`sectors`, `earnings_calendar`, `income_statements`) are public-read, service_role-write.
+Reference/market data tables (`sectors`) are public-read, service_role-write.
 
 ## Never Expose
 

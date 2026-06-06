@@ -10,6 +10,7 @@ interface UseSortableTableOptions {
   columns?: TableColumnDef[];
   tableId?: string;
   enableRowReorder?: boolean;
+  enableClearSort?: boolean;
 }
 
 interface UseSortableTableReturn {
@@ -39,21 +40,32 @@ export function useSortableTable(options?: UseSortableTableOptions): UseSortable
     columns,
     tableId,
     enableRowReorder = false,
+    enableClearSort = false,
   } = options ?? {};
 
   const [sortColumn, setSortColumn] = useState<string | null>(defaultColumn);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(defaultDirection);
 
   const handleSort = useCallback((column: string) => {
-    setSortColumn(prev => {
-      if (prev === column) {
-        setSortDirection(d => d === 'asc' ? 'desc' : 'asc');
-        return prev;
+    if (sortColumn === column) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+        return;
       }
+
+      if (enableClearSort) {
+        setSortColumn(null);
+        setSortDirection(defaultDirection);
+        return;
+      }
+
       setSortDirection('asc');
-      return column;
-    });
-  }, []);
+      return;
+    }
+
+    setSortColumn(column);
+    setSortDirection('asc');
+  }, [defaultDirection, enableClearSort, sortColumn, sortDirection]);
 
   const resetSort = useCallback(() => {
     setSortColumn(defaultColumn);

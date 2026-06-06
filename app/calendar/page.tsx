@@ -13,17 +13,45 @@ import { supabase } from '@/lib/supabase';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
+import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/Table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { SortableHeader } from '@/components/ui/SortableHeader';
 import { useRouter } from 'next/navigation';
 import { pageStyles } from '@/components/ui/CompanyHeader';
+import { cn } from '@/lib/utils';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type FilterMode = 'all' | 'sp500' | 'dow' | 'nasdaq100' | 'watchlist';
 type SelectableFilterMode = Exclude<FilterMode, 'all'>;
 type ViewMode = 'monthly' | 'weekly' | 'table';
+type SortDirection = 'asc' | 'desc';
+type EarningsTableSortColumn =
+  | 'symbol'
+  | 'reportTime'
+  | 'reportDate'
+  | 'fiscalDateEnding'
+  | 'epsActual'
+  | 'epsEstimated'
+  | 'epsBeatPercentage'
+  | 'revenueActual'
+  | 'revenueEstimated'
+  | 'revenueBeatPercentage';
+
 const DEFAULT_ACTIVE_FILTERS: SelectableFilterMode[] = ['sp500', 'dow', 'nasdaq100', 'watchlist'];
+
+const EARNINGS_TABLE_COLUMNS: { id: EarningsTableSortColumn; label: string; align?: 'left' | 'right' }[] = [
+  { id: 'symbol', label: 'Symbol' },
+  { id: 'reportTime', label: 'Report Time' },
+  { id: 'reportDate', label: 'Report Date' },
+  { id: 'fiscalDateEnding', label: 'Fiscal Date Ending' },
+  { id: 'epsActual', label: 'EPS Actual', align: 'right' },
+  { id: 'epsEstimated', label: 'EPS Estimated', align: 'right' },
+  { id: 'epsBeatPercentage', label: 'EPS Beat %', align: 'right' },
+  { id: 'revenueActual', label: 'Revenue Actual', align: 'right' },
+  { id: 'revenueEstimated', label: 'Revenue Estimated', align: 'right' },
+  { id: 'revenueBeatPercentage', label: 'Revenue Beat %', align: 'right' },
+];
 
 interface CalendarEvent {
   title: string;
@@ -111,6 +139,8 @@ const CalendarPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('previous');
   const [activeFilters, setActiveFilters] = useState<Set<SelectableFilterMode>>(new Set(DEFAULT_ACTIVE_FILTERS));
   const [viewMode, setViewMode] = useState<ViewMode>('monthly');
+  const [tableSortColumn, setTableSortColumn] = useState<EarningsTableSortColumn | null>(null);
+  const [tableSortDirection, setTableSortDirection] = useState<SortDirection>('asc');
 
   // ── Auth ────────────────────────────────────────────────────────────────────
   const { user } = useAuth();
@@ -195,6 +225,7 @@ const CalendarPage: React.FC = () => {
 
   // ── Fetch earnings ─────────────────────────────────────────────────────────
   const { data: earnings } = useEarningsConfirmed(dateRange.from, dateRange.to, selectedSymbols);
+  const normalizedSearchQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
 
   // ─── Formatting helpers ────────────────────────────────────────────────────
 
@@ -241,13 +272,6 @@ const CalendarPage: React.FC = () => {
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
-  const formatDateTime = (dateStr: string | undefined): string => {
-    if (!dateStr) return '\u2014';
-    const d = new Date(dateStr);
-    if (Number.isNaN(d.getTime())) return dateStr;
-    return d.toLocaleString('en-US');
-  };
-
   const getOrdinalSuffix = (day: number): string => {
     if (day >= 11 && day <= 13) return 'th';
     switch (day % 10) {
@@ -281,6 +305,22 @@ const CalendarPage: React.FC = () => {
     return 3;
   };
 
+  const handleTableSort = (column: string) => {
+    const nextColumn = column as EarningsTableSortColumn;
+    if (tableSortColumn === nextColumn) {
+      if (tableSortDirection === 'asc') {
+        setTableSortDirection('desc');
+      } else {
+        setTableSortColumn(null);
+        setTableSortDirection('asc');
+      }
+      return;
+    }
+
+    setTableSortColumn(nextColumn);
+    setTableSortDirection('asc');
+  };
+
   const getDaysUntil = (dateStr: string | undefined): string => {
     if (!dateStr) return '';
     const eventDate = parseLocalDate(dateStr);
@@ -295,13 +335,24 @@ const CalendarPage: React.FC = () => {
 
   // ─── Build events from earnings (pure derivation, no side effects) ─────────
 
-  const events: EventsState = useMemo(() => {
-    if (!earnings || earnings.length === 0) return {};
-
+  const { events, allEventsSorted } = useMemo(() => {
     const newEvents: EventsState = {};
+    const flatEvents: CalendarEvent[] = [];
+
+    if (!earnings || earnings.length === 0) {
+      return { events: newEvents, allEventsSorted: flatEvents };
+    }
+
+    const seenEvents = new Set<string>();
 
     earnings.forEach(earning => {
       const dateKey = earning.date;
+      if (!dateKey || !earning.symbol) return;
+
+      const eventKey = `${dateKey}:${earning.symbol}`;
+      if (seenEvents.has(eventKey)) return;
+      seenEvents.add(eventKey);
+
       const earningTime = formatTime(earning.time);
 
       let epsBeatPercentage = null;
@@ -340,24 +391,22 @@ const CalendarPage: React.FC = () => {
       };
 
       if (!newEvents[dateKey]) newEvents[dateKey] = [];
-      const eventExists = newEvents[dateKey].some(e => e.symbol === earningEvent.symbol);
-      if (!eventExists) newEvents[dateKey].push(earningEvent);
+      newEvents[dateKey].push(earningEvent);
+      flatEvents.push(earningEvent);
     });
 
-    return newEvents;
+    flatEvents.sort((a, b) => {
+      const dateCompare = (a.date || '').localeCompare(b.date || '');
+      if (dateCompare !== 0) return dateCompare;
+      const reportTimeCompare = getReportTimeSortRank(a.time) - getReportTimeSortRank(b.time);
+      if (reportTimeCompare !== 0) return reportTimeCompare;
+      return (a.symbol || '').localeCompare(b.symbol || '');
+    });
+
+    return { events: newEvents, allEventsSorted: flatEvents };
   }, [earnings, dowDataMap, spDataMap, nasdaq100DataMap]);
 
   // ─── Derived data ──────────────────────────────────────────────────────────
-
-  const allEventsSorted = useMemo(() => {
-    const flatEvents: CalendarEvent[] = [];
-    Object.entries(events).forEach(([date, dayEvents]) => {
-      dayEvents.forEach(event => {
-        flatEvents.push({ ...event, date });
-      });
-    });
-    return flatEvents.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-  }, [events]);
 
   const today = useMemo(() => {
     const d = new Date();
@@ -380,27 +429,73 @@ const CalendarPage: React.FC = () => {
   }, [allEventsSorted, today]);
 
   const filteredPreviousEvents = useMemo(() => {
-    if (!searchQuery) return previousEvents;
+    if (!normalizedSearchQuery) return previousEvents;
     return previousEvents.filter(event =>
-      event.symbol?.toLowerCase().includes(searchQuery.toLowerCase())
+      event.symbol?.toLowerCase().includes(normalizedSearchQuery)
     );
-  }, [previousEvents, searchQuery]);
+  }, [previousEvents, normalizedSearchQuery]);
 
   const filteredUpcomingEvents = useMemo(() => {
-    if (!searchQuery) return upcomingEvents;
+    if (!normalizedSearchQuery) return upcomingEvents;
     return upcomingEvents.filter(event =>
-      event.symbol?.toLowerCase().includes(searchQuery.toLowerCase())
+      event.symbol?.toLowerCase().includes(normalizedSearchQuery)
     );
-  }, [upcomingEvents, searchQuery]);
+  }, [upcomingEvents, normalizedSearchQuery]);
 
   const filteredTableRows = useMemo(() => {
     if (!earnings || earnings.length === 0) return [];
-    const filtered = !searchQuery
+    const filtered = !normalizedSearchQuery
       ? earnings
       : earnings.filter(event =>
-          event.symbol?.toLowerCase().includes(searchQuery.toLowerCase())
+          event.symbol?.toLowerCase().includes(normalizedSearchQuery)
         );
+
+    const getSortValue = (row: (typeof filtered)[number], column: EarningsTableSortColumn): number | string | null => {
+      switch (column) {
+        case 'symbol':
+          return row.symbol || null;
+        case 'reportTime':
+          return getReportTimeSortRank(row.reportTime || row.time);
+        case 'reportDate':
+          return row.reportDate || row.date || null;
+        case 'fiscalDateEnding':
+          return row.fiscalDateEnding || null;
+        case 'epsActual':
+          return row.epsActual ?? row.eps ?? null;
+        case 'epsEstimated':
+          return row.epsEstimated ?? null;
+        case 'epsBeatPercentage':
+          return getBeatPercentage(row.epsActual ?? row.eps ?? null, row.epsEstimated ?? null);
+        case 'revenueActual':
+          return row.revenueActual ?? row.revenue ?? null;
+        case 'revenueEstimated':
+          return row.revenueEstimated ?? null;
+        case 'revenueBeatPercentage':
+          return getBeatPercentage(row.revenueActual ?? row.revenue ?? null, row.revenueEstimated ?? null);
+      }
+    };
+
+    const compareSortValues = (aValue: number | string | null, bValue: number | string | null): number => {
+      const aMissing = aValue === null || aValue === '';
+      const bMissing = bValue === null || bValue === '';
+      if (aMissing && bMissing) return 0;
+      if (aMissing) return 1;
+      if (bMissing) return -1;
+      const valueCompare = typeof aValue === 'number' && typeof bValue === 'number'
+        ? aValue - bValue
+        : String(aValue).localeCompare(String(bValue));
+      return tableSortDirection === 'asc' ? valueCompare : -valueCompare;
+    };
+
     return [...filtered].sort((a, b) => {
+      if (tableSortColumn) {
+        const requestedSortCompare = compareSortValues(
+          getSortValue(a, tableSortColumn),
+          getSortValue(b, tableSortColumn),
+        );
+        if (requestedSortCompare !== 0) return requestedSortCompare;
+      }
+
       const dateCompare = (a.reportDate || a.date || '').localeCompare(b.reportDate || b.date || '');
       if (dateCompare !== 0) return dateCompare;
       const reportTimeCompare = getReportTimeSortRank(a.reportTime || a.time) - getReportTimeSortRank(b.reportTime || b.time);
@@ -409,7 +504,7 @@ const CalendarPage: React.FC = () => {
       if (timeLabelCompare !== 0) return timeLabelCompare;
       return (a.symbol || '').localeCompare(b.symbol || '');
     });
-  }, [earnings, searchQuery]);
+  }, [earnings, normalizedSearchQuery, tableSortColumn, tableSortDirection]);
 
   const todayDividerRef = useRef<HTMLTableRowElement | null>(null);
   const hasAutoScrolledToTodayRef = useRef<boolean>(false);
@@ -429,14 +524,22 @@ const CalendarPage: React.FC = () => {
   }, [viewMode, filteredTableRows]);
 
   const stats = useMemo(() => {
-    const reported = previousEvents.filter(e => e.eps !== null);
-    const beats = reported.filter(e => e.epsBeatPercentage && e.epsBeatPercentage > 0);
-    const misses = reported.filter(e => e.epsBeatPercentage && e.epsBeatPercentage < 0);
+    let reportedCount = 0;
+    let beatCount = 0;
+    let missCount = 0;
+
+    previousEvents.forEach(event => {
+      if (event.eps === null) return;
+      reportedCount += 1;
+      if (event.epsBeatPercentage && event.epsBeatPercentage > 0) beatCount += 1;
+      if (event.epsBeatPercentage && event.epsBeatPercentage < 0) missCount += 1;
+    });
+
     return {
       totalUpcoming: upcomingEvents.length,
-      beatRate: reported.length > 0 ? (beats.length / reported.length * 100).toFixed(0) : '0',
-      missCount: misses.length,
-      beatCount: beats.length,
+      beatRate: reportedCount > 0 ? (beatCount / reportedCount * 100).toFixed(0) : '0',
+      missCount,
+      beatCount,
     };
   }, [previousEvents, upcomingEvents]);
 
@@ -496,16 +599,16 @@ const CalendarPage: React.FC = () => {
         tabIndex={0}
         onClick={(e) => { e.stopPropagation(); handleGoToTicker(event.symbol); }}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); handleGoToTicker(event.symbol); } }}
-        className={`group relative flex items-center gap-1.5 p-2 mb-1 rounded-lg bg-card/80 hover:bg-card border border-border/50 hover:border-primary/30 hover:shadow-sm border-l-2 ${timingClass} transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}
+        className={`group relative flex items-center gap-1.5 px-1.5 py-1 mb-px bg-background/70 hover:bg-muted/50 border border-border/40 border-l-2 ${timingClass} transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring`}
       >
         {timeIcon}
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-xs truncate">{event.symbol}</div>
+          <div className="font-semibold text-[11px] leading-tight truncate">{event.symbol}</div>
           {event.name && <div className="text-[10px] text-muted-foreground truncate">{event.name}</div>}
         </div>
         {event.url && (
           <button type="button" onClick={(e) => { e.stopPropagation(); handleOpenExternal(event.url); }}
-            className="p-1 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+            className="p-0.5 hover:bg-primary/10 text-muted-foreground hover:text-primary opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
             aria-label={`Open external earnings link for ${event.symbol}`}>
             <ExternalLink className="w-3 h-3" />
           </button>
@@ -515,16 +618,16 @@ const CalendarPage: React.FC = () => {
   };
 
   const renderCategoryLegend = () => (
-    <div className="flex flex-wrap gap-3 items-center">
-      <div className="flex items-center gap-1.5">
-        <div className="w-3 h-3 rounded-sm bg-info/10" />
+    <div className="flex flex-wrap gap-2 items-center justify-center">
+      <div className="flex items-center gap-1">
+        <div className="w-2.5 h-2.5 border border-border bg-info/10" />
         <span className="text-xs">Earnings</span>
       </div>
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
         <Sun className="w-3 h-3 text-amber-500" />
         <span className="text-xs">Before Open</span>
       </div>
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
         <Moon className="w-3 h-3 text-indigo-400" />
         <span className="text-xs">After Close</span>
       </div>
@@ -543,11 +646,11 @@ const CalendarPage: React.FC = () => {
         role="button" tabIndex={0}
         onClick={() => handleGoToTicker(event.symbol)}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleGoToTicker(event.symbol); } }}
-        className="group relative p-3 rounded-xl bg-card/50 border border-border/50 hover:border-primary/30 hover:bg-accent/30 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="group relative border border-border/50 bg-background/60 px-3 py-2 hover:border-primary/30 hover:bg-muted/40 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0 flex-1">
-            <div className="font-bold text-base tracking-tight flex-shrink-0">{event.symbol}</div>
+            <div className="font-bold text-sm tracking-tight flex-shrink-0">{event.symbol}</div>
             {event.name && <div className="text-xs text-muted-foreground truncate">{event.name}</div>}
             <div className="flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
               {getTimeIcon(event.time)}
@@ -561,17 +664,17 @@ const CalendarPage: React.FC = () => {
           </div>
           {event.url && (
             <button type="button" onClick={(e) => { e.stopPropagation(); handleOpenExternal(event.url); }}
-              className="flex-shrink-0 p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+              className="flex-shrink-0 p-1 hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
               aria-label={`Open external earnings link for ${event.symbol}`}>
               <ExternalLink className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
+        <div className="mt-2 grid grid-cols-1 gap-1.5 text-xs sm:grid-cols-2">
+          <div className="flex items-center justify-between gap-2 border-t border-border/40 pt-1.5 sm:border-t-0 sm:pt-0">
             <div className="flex items-center gap-2">
               <div className="text-[10px] text-muted-foreground uppercase tracking-wide">EPS</div>
-              <div className="flex items-center gap-1.5 text-sm">
+              <div className="flex items-center gap-1.5">
                 <span className="font-semibold">{event.eps !== null && event.eps !== undefined ? event.eps.toFixed(2) : '\u2014'}</span>
                 <span className="text-muted-foreground text-xs">/</span>
                 <span className="text-muted-foreground">{event.epsEstimated !== null && event.epsEstimated !== undefined ? event.epsEstimated.toFixed(2) : '\u2014'}</span>
@@ -579,17 +682,17 @@ const CalendarPage: React.FC = () => {
             </div>
             {isReported && (
               <Badge variant={isBeat ? 'default' : isMiss ? 'destructive' : 'secondary'}
-                className={`text-[10px] h-5 ${isBeat ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30' : isMiss ? 'bg-red-500/20 text-red-500 border-red-500/30' : ''}`}>
+                className={`h-4 rounded-none px-1 text-[10px] ${isBeat ? 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30' : isMiss ? 'bg-red-500/15 text-red-500 border-red-500/30' : ''}`}>
                 {isBeat && <ArrowUpRight className="w-2.5 h-2.5 mr-0.5" />}
                 {isMiss && <ArrowDownRight className="w-2.5 h-2.5 mr-0.5" />}
                 {formatPercentage(event.epsBeatPercentage ?? null)}
               </Badge>
             )}
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <div className="text-[10px] text-muted-foreground uppercase tracking-wide">REV</div>
-              <div className="flex items-center gap-1.5 text-sm">
+              <div className="flex items-center gap-1.5">
                 <span className="font-semibold">{formatCurrency(event.revenue ?? null)}</span>
                 <span className="text-muted-foreground text-xs">/</span>
                 <span className="text-muted-foreground">{formatCurrency(event.revenueEstimated ?? null)}</span>
@@ -597,7 +700,7 @@ const CalendarPage: React.FC = () => {
             </div>
             {isReported && event.revenueBeatPercentage !== null && (
               <Badge variant={isRevenueBeat ? 'default' : isRevenueMiss ? 'destructive' : 'secondary'}
-                className={`text-[10px] h-5 ${isRevenueBeat ? 'bg-emerald-500/20 text-emerald-500 border-emerald-500/30' : isRevenueMiss ? 'bg-red-500/20 text-red-500 border-red-500/30' : ''}`}>
+                className={`h-4 rounded-none px-1 text-[10px] ${isRevenueBeat ? 'bg-emerald-500/15 text-emerald-500 border-emerald-500/30' : isRevenueMiss ? 'bg-red-500/15 text-red-500 border-red-500/30' : ''}`}>
                 {isRevenueBeat && <ArrowUpRight className="w-2.5 h-2.5 mr-0.5" />}
                 {isRevenueMiss && <ArrowDownRight className="w-2.5 h-2.5 mr-0.5" />}
                 {formatPercentage(event.revenueBeatPercentage ?? null)}
@@ -621,14 +724,14 @@ const CalendarPage: React.FC = () => {
       <Dialog key={formatDateStr(dayDate)}>
         <DialogTrigger asChild>
           <div
-            className={`h-36 p-2 border border-border/40 ${
-              dayDate.toDateString() === new Date().toDateString() ? 'bg-accent/10 ring-1 ring-primary' : ''
+            className={`h-32 border border-border/40 bg-background/40 p-1.5 ${
+              dayDate.toDateString() === new Date().toDateString() ? 'bg-primary/5 ring-1 ring-primary/60' : ''
             } hover:bg-muted/30 cursor-pointer transition-colors relative`}
           >
-            <div className="flex justify-between items-start mb-1.5">
-              <span className={`font-semibold text-lg ${dayDate.toDateString() === new Date().toDateString() ? 'text-primary' : ''}`}>{dayNum}</span>
+            <div className="flex justify-between items-start mb-1">
+              <span className={`font-semibold text-sm leading-none ${dayDate.toDateString() === new Date().toDateString() ? 'text-primary' : ''}`}>{dayNum}</span>
               {sortedEvents.length > 0 && (
-                <span className="bg-muted text-muted-foreground text-xs px-1.5 py-0.5 rounded-full">{sortedEvents.length}</span>
+                <span className="border border-border/60 bg-muted/40 px-1 text-[10px] leading-4 text-muted-foreground">{sortedEvents.length}</span>
               )}
             </div>
             <div className="overflow-y-auto max-h-[calc(100%-2rem)]">
@@ -638,20 +741,20 @@ const CalendarPage: React.FC = () => {
             </div>
           </div>
         </DialogTrigger>
-        <DialogContent className="max-w-2xl max-h-[85vh] p-0 gap-0 overflow-hidden flex flex-col">
-          <DialogHeader className="pb-4 pt-6 px-6 border-b border-border/50 flex-shrink-0">
+        <DialogContent className="max-w-2xl max-h-[85vh] p-0 gap-0 overflow-hidden flex flex-col rounded-none">
+          <DialogHeader className="px-4 py-3 border-b border-border/50 flex-shrink-0">
             <DialogTitle className="flex items-center gap-3">
-              <div className="p-2 rounded-xl bg-primary/10"><Calendar className="w-5 h-5 text-primary" /></div>
+              <div className="border border-border/60 bg-muted/30 p-1.5"><Calendar className="w-4 h-4 text-primary" /></div>
               <div>
-                <div className="text-xl font-bold">{monthNames[monthIdx]} {dayNum}, {year}</div>
-                <div className="text-sm text-muted-foreground font-normal">{sortedEvents.length} {sortedEvents.length === 1 ? 'company' : 'companies'} reporting</div>
+                <div className="text-base font-bold">{monthNames[monthIdx]} {dayNum}, {year}</div>
+                <div className="text-xs text-muted-foreground font-normal">{sortedEvents.length} {sortedEvents.length === 1 ? 'company' : 'companies'} reporting</div>
               </div>
             </DialogTitle>
             <DialogDescription className="sr-only">Earnings reports for {monthNames[monthIdx]} {dayNum}, {year}</DialogDescription>
           </DialogHeader>
-          <div className="overflow-y-auto flex-1 px-6" style={{ maxHeight: 'calc(85vh - 140px)' }}>
+          <div className="overflow-y-auto flex-1 px-4" style={{ maxHeight: 'calc(85vh - 120px)' }}>
             {sortedEvents.length > 0 ? (
-              <div className="space-y-3 py-4">
+              <div className="space-y-2 py-3">
                 {sortedEvents.map((event, idx) => {
                   const isReported = event.eps !== null;
                   const isBeat = event.epsBeatPercentage && event.epsBeatPercentage > 0;
@@ -662,66 +765,65 @@ const CalendarPage: React.FC = () => {
                     <div key={idx} role="button" tabIndex={0}
                       onClick={() => handleGoToTicker(event.symbol)}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleGoToTicker(event.symbol); } }}
-                      className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-card to-card/50 border border-border/50 hover:border-primary/30 transition-all duration-300 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                      <div className="flex items-center justify-between p-4 pb-2">
-                        <div className="flex items-center gap-3">
-                          <div className="text-2xl font-bold tracking-tight">{event.symbol}</div>
-                          <Badge variant="outline" className="text-xs flex items-center gap-1">{getTimeIcon(event.time)}{formatTime(event.time)}</Badge>
+                      className="group relative overflow-hidden border border-border/50 bg-background/60 hover:border-primary/30 hover:bg-muted/30 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+                      <div className="flex items-center justify-between px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <div className="text-lg font-bold tracking-tight">{event.symbol}</div>
+                          <Badge variant="outline" className="h-5 rounded-none text-[10px] flex items-center gap-1">{getTimeIcon(event.time)}{formatTime(event.time)}</Badge>
                           {isReported && (
-                            <Badge className={`text-xs ${isBeat ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : isMiss ? 'bg-red-500/20 text-red-400 border-red-500/30' : 'bg-muted'}`}>
+                            <Badge className={`h-5 rounded-none text-[10px] ${isBeat ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : isMiss ? 'bg-red-500/15 text-red-400 border-red-500/30' : 'bg-muted'}`}>
                               {isBeat ? 'Beat' : isMiss ? 'Missed' : 'Met'}
                             </Badge>
                           )}
                         </div>
                         {event.url && (
                           <button type="button" onClick={(e) => { e.stopPropagation(); handleOpenExternal(event.url); }}
-                            className="p-2 rounded-xl hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                            className="p-1 hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
                             aria-label={`Open external earnings link for ${event.symbol}`}><ExternalLink className="w-4 h-4" /></button>
                         )}
                       </div>
                       {(event.name || event.sector || event.subSector) && (
-                        <div className="px-4 pb-3 space-y-1">
-                          {event.name && <div className="text-sm font-medium text-muted-foreground">{event.name}</div>}
+                        <div className="px-3 pb-2 space-y-1">
+                          {event.name && <div className="text-xs font-medium text-muted-foreground">{event.name}</div>}
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            {event.sector && <span className="px-2 py-0.5 rounded-md bg-muted/50">{event.sector}</span>}
-                            {event.subSector && <span className="px-2 py-0.5 rounded-md bg-muted/30">{event.subSector}</span>}
+                            {event.sector && <span className="border border-border/40 bg-muted/40 px-1.5 py-0.5">{event.sector}</span>}
+                            {event.subSector && <span className="border border-border/40 bg-muted/20 px-1.5 py-0.5">{event.subSector}</span>}
                           </div>
                         </div>
                       )}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 pt-0">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 px-3 py-2 border-t border-border/40">
                         <div className="space-y-1">
                           <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1"><Target className="w-3 h-3" />EPS Actual</div>
-                          <div className={`text-lg font-bold ${isBeat ? 'text-emerald-400' : isMiss ? 'text-red-400' : ''}`}>{event.eps !== null && event.eps !== undefined ? `$${event.eps.toFixed(2)}` : '\u2014'}</div>
+                          <div className={`text-sm font-bold ${isBeat ? 'text-emerald-400' : isMiss ? 'text-red-400' : ''}`}>{event.eps !== null && event.eps !== undefined ? `$${event.eps.toFixed(2)}` : '\u2014'}</div>
                         </div>
                         <div className="space-y-1">
                           <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1"><BarChart3 className="w-3 h-3" />EPS Est.</div>
-                          <div className="text-lg font-bold text-muted-foreground">{event.epsEstimated !== null && event.epsEstimated !== undefined ? `$${event.epsEstimated.toFixed(2)}` : '\u2014'}</div>
+                          <div className="text-sm font-bold text-muted-foreground">{event.epsEstimated !== null && event.epsEstimated !== undefined ? `$${event.epsEstimated.toFixed(2)}` : '\u2014'}</div>
                         </div>
                         <div className="space-y-1">
                           <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1"><Sparkles className="w-3 h-3" />EPS Surprise</div>
-                          <div className={`text-lg font-bold flex items-center gap-1 ${isBeat ? 'text-emerald-400' : isMiss ? 'text-red-400' : ''}`}>
+                          <div className={`text-sm font-bold flex items-center gap-1 ${isBeat ? 'text-emerald-400' : isMiss ? 'text-red-400' : ''}`}>
                             {isReported && (isBeat ? <TrendingUp className="w-4 h-4" /> : isMiss ? <TrendingDown className="w-4 h-4" /> : null)}
                             {formatPercentage(event.epsBeatPercentage ?? null)}
                           </div>
                         </div>
                         <div className="space-y-1">
                           <div className="text-[10px] uppercase tracking-wider text-muted-foreground flex items-center gap-1"><Calendar className="w-3 h-3" />Fiscal Period</div>
-                          <div className="text-sm font-medium">{event.fiscalDateEnding || '\u2014'}</div>
+                          <div className="text-xs font-medium">{event.fiscalDateEnding || '\u2014'}</div>
                         </div>
                       </div>
-                      <div className="border-t border-border/30 mx-4" />
-                      <div className="grid grid-cols-3 gap-4 p-4 pt-3">
+                      <div className="grid grid-cols-3 gap-3 px-3 py-2 border-t border-border/40">
                         <div className="space-y-1">
                           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Revenue</div>
-                          <div className={`text-base font-bold ${isRevenueBeat ? 'text-emerald-400' : isRevenueMiss ? 'text-red-400' : ''}`}>{formatCurrency(event.revenue ?? null)}</div>
+                          <div className={`text-sm font-bold ${isRevenueBeat ? 'text-emerald-400' : isRevenueMiss ? 'text-red-400' : ''}`}>{formatCurrency(event.revenue ?? null)}</div>
                         </div>
                         <div className="space-y-1">
                           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Revenue Est.</div>
-                          <div className="text-base font-bold text-muted-foreground">{formatCurrency(event.revenueEstimated ?? null)}</div>
+                          <div className="text-sm font-bold text-muted-foreground">{formatCurrency(event.revenueEstimated ?? null)}</div>
                         </div>
                         <div className="space-y-1">
                           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">Rev. Surprise</div>
-                          <div className={`text-base font-bold ${isRevenueBeat ? 'text-emerald-400' : isRevenueMiss ? 'text-red-400' : ''}`}>{formatPercentage(event.revenueBeatPercentage ?? null)}</div>
+                          <div className={`text-sm font-bold ${isRevenueBeat ? 'text-emerald-400' : isRevenueMiss ? 'text-red-400' : ''}`}>{formatPercentage(event.revenueBeatPercentage ?? null)}</div>
                         </div>
                       </div>
                     </div>
@@ -729,9 +831,9 @@ const CalendarPage: React.FC = () => {
                 })}
               </div>
             ) : (
-              <div className="py-12 text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-muted/50 mb-4"><Calendar className="w-8 h-8 text-muted-foreground" /></div>
-                <div className="text-muted-foreground">No earnings scheduled for this day</div>
+              <div className="py-10 text-center">
+                <div className="inline-flex items-center justify-center border border-border/60 bg-muted/30 p-2 mb-3"><Calendar className="w-5 h-5 text-muted-foreground" /></div>
+                <div className="text-sm text-muted-foreground">No earnings scheduled for this day</div>
               </div>
             )}
           </div>
@@ -763,7 +865,7 @@ const CalendarPage: React.FC = () => {
     const startDay = startOfMonth(currentDate);
 
     for (let i = 0; i < startDay; i++) {
-      days.push(<div key={`empty-${i}`} className="h-36 border border-border/40" />);
+      days.push(<div key={`empty-${i}`} className="h-32 border border-border/40 bg-muted/10" />);
     }
 
     for (let day = 1; day <= totalDays; day++) {
@@ -786,7 +888,7 @@ const CalendarPage: React.FC = () => {
     return (
       <div className="grid grid-cols-5 gap-px">
         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(d => (
-          <div key={d} className="h-8 p-2 font-semibold text-center text-sm text-muted-foreground border-b border-border/40">{d}</div>
+          <div key={d} className="h-7 border-b border-border/50 bg-muted/20 px-2 py-1 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">{d}</div>
         ))}
         {days.map(dayDate => {
           const dateKey = formatDateStr(dayDate);
@@ -797,14 +899,14 @@ const CalendarPage: React.FC = () => {
           return (
             <Dialog key={dateKey}>
               <DialogTrigger asChild>
-                <div className={`min-h-[16rem] p-2 border border-border/40 ${isToday ? 'bg-accent/10 ring-1 ring-primary' : ''} hover:bg-muted/30 cursor-pointer transition-colors`}>
-                  <div className="flex justify-between items-start mb-1.5">
+                <div className={`min-h-[13rem] border border-border/40 bg-background/40 p-1.5 ${isToday ? 'bg-primary/5 ring-1 ring-primary/60' : ''} hover:bg-muted/30 cursor-pointer transition-colors`}>
+                  <div className="flex justify-between items-start mb-1">
                     <div>
-                      <span className={`font-semibold text-lg ${isToday ? 'text-primary' : ''}`}>{dayDate.getDate()}</span>
+                      <span className={`font-semibold text-sm leading-none ${isToday ? 'text-primary' : ''}`}>{dayDate.getDate()}</span>
                       <span className="ml-1 text-xs text-muted-foreground">{monthNames[dayDate.getMonth()].slice(0, 3)}</span>
                     </div>
                     {sortedEvents.length > 0 && (
-                      <span className="bg-muted text-muted-foreground text-xs px-1.5 py-0.5 rounded-full">{sortedEvents.length}</span>
+                      <span className="border border-border/60 bg-muted/40 px-1 text-[10px] leading-4 text-muted-foreground">{sortedEvents.length}</span>
                     )}
                   </div>
                   <div className="overflow-y-auto max-h-[calc(100%-2rem)]">
@@ -814,28 +916,28 @@ const CalendarPage: React.FC = () => {
                   </div>
                 </div>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl max-h-[85vh] p-0 gap-0 overflow-hidden flex flex-col">
-                <DialogHeader className="pb-4 pt-6 px-6 border-b border-border/50 flex-shrink-0">
+              <DialogContent className="max-w-2xl max-h-[85vh] p-0 gap-0 overflow-hidden flex flex-col rounded-none">
+                <DialogHeader className="px-4 py-3 border-b border-border/50 flex-shrink-0">
                   <DialogTitle className="flex items-center gap-3">
-                    <div className="p-2 rounded-xl bg-primary/10"><Calendar className="w-5 h-5 text-primary" /></div>
+                    <div className="border border-border/60 bg-muted/30 p-1.5"><Calendar className="w-4 h-4 text-primary" /></div>
                     <div>
-                      <div className="text-xl font-bold">{monthNames[dayDate.getMonth()]} {dayDate.getDate()}, {dayDate.getFullYear()}</div>
-                      <div className="text-sm text-muted-foreground font-normal">{sortedEvents.length} {sortedEvents.length === 1 ? 'company' : 'companies'} reporting</div>
+                      <div className="text-base font-bold">{monthNames[dayDate.getMonth()]} {dayDate.getDate()}, {dayDate.getFullYear()}</div>
+                      <div className="text-xs text-muted-foreground font-normal">{sortedEvents.length} {sortedEvents.length === 1 ? 'company' : 'companies'} reporting</div>
                     </div>
                   </DialogTitle>
                   <DialogDescription className="sr-only">Earnings reports for {monthNames[dayDate.getMonth()]} {dayDate.getDate()}, {dayDate.getFullYear()}</DialogDescription>
                 </DialogHeader>
-                <div className="overflow-y-auto flex-1 px-6" style={{ maxHeight: 'calc(85vh - 140px)' }}>
+                <div className="overflow-y-auto flex-1 px-4" style={{ maxHeight: 'calc(85vh - 120px)' }}>
                   {sortedEvents.length > 0 ? (
-                    <div className="space-y-3 py-4">
+                    <div className="space-y-2 py-3">
                       {sortedEvents.map((event, idx) => (
                         <React.Fragment key={`${event.symbol}-${idx}`}>{renderEarningsListItem(event, false)}</React.Fragment>
                       ))}
                     </div>
                   ) : (
-                    <div className="py-12 text-center">
-                      <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-muted/50 mb-4"><Calendar className="w-8 h-8 text-muted-foreground" /></div>
-                      <div className="text-muted-foreground">No earnings scheduled for this day</div>
+                    <div className="py-10 text-center">
+                      <div className="inline-flex items-center justify-center border border-border/60 bg-muted/30 p-2 mb-3"><Calendar className="w-5 h-5 text-muted-foreground" /></div>
+                      <div className="text-sm text-muted-foreground">No earnings scheduled for this day</div>
                     </div>
                   )}
                 </div>
@@ -848,26 +950,29 @@ const CalendarPage: React.FC = () => {
   };
 
   const renderTableView = (): React.ReactElement => {
-    const tableColumnCount = 12;
+    const tableColumnCount = EARNINGS_TABLE_COLUMNS.length;
 
     return (
-      <div className="rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm shadow-sm overflow-hidden">
-        <div className="max-h-[76vh] overflow-auto">
-          <Table className="min-w-[1180px]">
-            <TableHeader className="sticky top-0 z-20 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-              <TableRow className="border-b border-border/60">
-                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Symbol</TableHead>
-                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Report Time</TableHead>
-                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Report Date</TableHead>
-                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Fiscal Date Ending</TableHead>
-                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground text-right">EPS Actual</TableHead>
-                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground text-right">EPS Estimated</TableHead>
-                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground text-right">EPS Beat %</TableHead>
-                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground text-right">Revenue Actual</TableHead>
-                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground text-right">Revenue Estimated</TableHead>
-                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground text-right">Revenue Beat %</TableHead>
-                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Updated At</TableHead>
-                <TableHead className="whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground">Created At</TableHead>
+      <div className="overflow-auto max-h-[76vh] border-y border-l border-border bg-card/60 shadow-sm [&_th]:!text-xs [&_td]:!text-xs [&_th]:!px-2 [&_td]:!px-2">
+        <div className="min-w-[1040px]">
+          <Table>
+            <TableHeader className="!border-b-0 sticky top-0 z-30 bg-background [&_th]:bg-background [&_th]:border-b [&_th]:border-border">
+              <TableRow>
+                {EARNINGS_TABLE_COLUMNS.map((column) => (
+                  <SortableHeader
+                    key={column.id}
+                    column={column.id}
+                    label={column.label}
+                    sortColumn={tableSortColumn}
+                    sortDirection={tableSortDirection}
+                    onSort={handleTableSort}
+                    align={column.align}
+                    className={cn(
+                      "border-r whitespace-nowrap text-[11px] uppercase tracking-wide text-muted-foreground",
+                      column.align === 'right' && "text-right",
+                    )}
+                  />
+                ))}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -892,8 +997,8 @@ const CalendarPage: React.FC = () => {
                           </TableCell>
                         </TableRow>
                       )}
-                      <TableRow className="odd:bg-background/20 even:bg-muted/10 hover:!bg-accent/30">
-                        <TableCell className="font-semibold">
+                      <TableRow className="border-b even:bg-muted/20 hover:bg-muted/40 transition-colors">
+                        <TableCell className="border-r font-medium font-mono">
                           <button
                             type="button"
                             onClick={() => handleGoToTicker(row.symbol)}
@@ -902,22 +1007,20 @@ const CalendarPage: React.FC = () => {
                             {row.symbol}
                           </button>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="border-r font-mono">
                           <span className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/30 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide">
                             {getTimeIcon(reportTimeValue)}
                             {reportTimeValue || '\u2014'}
                           </span>
                         </TableCell>
-                        <TableCell className="whitespace-nowrap text-muted-foreground">{row.reportDate || row.date || '\u2014'}</TableCell>
-                        <TableCell className="whitespace-nowrap text-muted-foreground">{row.fiscalDateEnding || '\u2014'}</TableCell>
-                        <TableCell className="text-right tabular-nums">{row.epsActual !== null && row.epsActual !== undefined ? row.epsActual.toFixed(4) : '\u2014'}</TableCell>
-                        <TableCell className="text-right tabular-nums">{row.epsEstimated !== null && row.epsEstimated !== undefined ? row.epsEstimated.toFixed(4) : '\u2014'}</TableCell>
-                        <TableCell className={`text-right tabular-nums font-semibold ${epsBeatClass}`}>{formatPercentage(epsBeatPct)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatCurrency(row.revenueActual ?? null)}</TableCell>
-                        <TableCell className="text-right tabular-nums">{formatCurrency(row.revenueEstimated ?? null)}</TableCell>
-                        <TableCell className={`text-right tabular-nums font-semibold ${revenueBeatClass}`}>{formatPercentage(revenueBeatPct)}</TableCell>
-                        <TableCell className="whitespace-nowrap text-muted-foreground">{formatDateTime(row.updatedAt)}</TableCell>
-                        <TableCell className="whitespace-nowrap text-muted-foreground">{formatDateTime(row.createdAt)}</TableCell>
+                        <TableCell className="border-r font-mono whitespace-nowrap text-muted-foreground">{row.reportDate || row.date || '\u2014'}</TableCell>
+                        <TableCell className="border-r font-mono whitespace-nowrap text-muted-foreground">{row.fiscalDateEnding || '\u2014'}</TableCell>
+                        <TableCell className="border-r font-mono text-right tabular-nums">{row.epsActual !== null && row.epsActual !== undefined ? row.epsActual.toFixed(4) : '\u2014'}</TableCell>
+                        <TableCell className="border-r font-mono text-right tabular-nums">{row.epsEstimated !== null && row.epsEstimated !== undefined ? row.epsEstimated.toFixed(4) : '\u2014'}</TableCell>
+                        <TableCell className={`border-r font-mono text-right tabular-nums font-semibold ${epsBeatClass}`}>{formatPercentage(epsBeatPct)}</TableCell>
+                        <TableCell className="border-r font-mono text-right tabular-nums">{formatCurrency(row.revenueActual ?? null)}</TableCell>
+                        <TableCell className="border-r font-mono text-right tabular-nums">{formatCurrency(row.revenueEstimated ?? null)}</TableCell>
+                        <TableCell className={`border-r font-mono text-right tabular-nums font-semibold ${revenueBeatClass}`}>{formatPercentage(revenueBeatPct)}</TableCell>
                       </TableRow>
                     </React.Fragment>
                   );
@@ -970,7 +1073,7 @@ const CalendarPage: React.FC = () => {
   };
 
   const renderFilterButtons = () => (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-1.5">
       {filterOptions.map(opt => {
         if (opt.authRequired && !user) return null;
         const isActive = opt.value === 'all'
@@ -982,7 +1085,7 @@ const CalendarPage: React.FC = () => {
             variant={isActive ? 'default' : 'outline'}
             size="sm"
             onClick={() => toggleFilter(opt.value)}
-            className={isActive ? '' : 'text-muted-foreground'}
+            className={cn("h-7 rounded-none px-2 text-xs", isActive ? '' : 'text-muted-foreground')}
           >
             {opt.label}
           </Button>
@@ -992,54 +1095,57 @@ const CalendarPage: React.FC = () => {
   );
 
   const renderViewModeToggle = () => (
-    <div className="flex items-center gap-1 bg-muted/30 rounded-lg p-1 border border-border/50 w-fit">
-      <Button
-        variant={viewMode === 'monthly' ? 'default' : 'ghost'}
-        size="sm"
+    <div className="flex items-center border border-border/60 bg-background/60 w-fit">
+      <button
+        type="button"
         onClick={() => setViewMode('monthly')}
-        className="gap-1.5"
+        className={cn(
+          "inline-flex h-8 w-[86px] items-center justify-center gap-1.5 border-r border-border/50 px-2 text-xs font-medium transition-colors",
+          viewMode === 'monthly' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+        )}
       >
         <Calendar className="w-3.5 h-3.5" />
         Monthly
-      </Button>
-      <Button
-        variant={viewMode === 'weekly' ? 'default' : 'ghost'}
-        size="sm"
+      </button>
+      <button
+        type="button"
         onClick={() => setViewMode('weekly')}
-        className="gap-1.5"
+        className={cn(
+          "inline-flex h-8 w-[78px] items-center justify-center gap-1.5 border-r border-border/50 px-2 text-xs font-medium transition-colors",
+          viewMode === 'weekly' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+        )}
       >
         <List className="w-3.5 h-3.5" />
         Weekly
-      </Button>
-      <Button
-        variant={viewMode === 'table' ? 'default' : 'ghost'}
-        size="sm"
+      </button>
+      <button
+        type="button"
         onClick={() => setViewMode('table')}
-        className="gap-1.5"
+        className={cn(
+          "inline-flex h-8 w-[70px] items-center justify-center gap-1.5 px-2 text-xs font-medium transition-colors",
+          viewMode === 'table' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+        )}
       >
         <BarChart3 className="w-3.5 h-3.5" />
         Table
-      </Button>
+      </button>
     </div>
   );
 
   return (
     <div className={`flex flex-col min-h-screen ${pageStyles.gradientBg}`}>
       <main className="w-full p-4 md:p-6">
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4">
           {/* Page Header */}
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <div>
-                <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-                  <div className="p-2 rounded-xl bg-primary/10">
-                    <Calendar className="w-7 h-7 text-primary" />
+                <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+                  <div className="border border-border/60 bg-muted/30 p-1.5">
+                    <Calendar className="w-5 h-5 text-primary" />
                   </div>
                   Earnings Calendar
                 </h1>
-                <p className="text-muted-foreground mt-1">
-                  Click on a day to view detailed earnings reports for that day. Click on a company to redirect to the company profile.
-                </p>
               </div>
 
               {/* View Mode Toggle */}
@@ -1055,47 +1161,47 @@ const CalendarPage: React.FC = () => {
           ) : (
             <>
               {/* Stats Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <Card className={pageStyles.card}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-xl bg-primary/10"><Clock className="w-5 h-5 text-primary" /></div>
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                <Card className="rounded-none border-border/60 bg-card/60 shadow-none">
+                  <CardContent className="p-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="border border-border/50 bg-muted/30 p-1"><Clock className="w-3.5 h-3.5 text-primary" /></div>
                       <div>
-                        <div className="text-2xl font-bold">{stats.totalUpcoming}</div>
-                        <div className="text-xs text-muted-foreground uppercase tracking-wide">Upcoming</div>
+                        <div className="text-lg font-bold leading-none">{stats.totalUpcoming}</div>
+                        <div className="mt-1 text-[10px] text-muted-foreground uppercase tracking-wide">Upcoming</div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-                <Card className={pageStyles.card}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-xl bg-emerald-500/10"><TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /></div>
+                <Card className="rounded-none border-border/60 bg-card/60 shadow-none">
+                  <CardContent className="p-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="border border-emerald-500/30 bg-emerald-500/10 p-1"><TrendingUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /></div>
                       <div>
-                        <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.beatCount}</div>
-                        <div className="text-xs text-muted-foreground uppercase tracking-wide">Beats</div>
+                        <div className="text-lg font-bold leading-none text-emerald-600 dark:text-emerald-400">{stats.beatCount}</div>
+                        <div className="mt-1 text-[10px] text-muted-foreground uppercase tracking-wide">Beats</div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-                <Card className={pageStyles.card}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-xl bg-rose-500/10"><TrendingDown className="w-5 h-5 text-rose-600 dark:text-rose-400" /></div>
+                <Card className="rounded-none border-border/60 bg-card/60 shadow-none">
+                  <CardContent className="p-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="border border-rose-500/30 bg-rose-500/10 p-1"><TrendingDown className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" /></div>
                       <div>
-                        <div className="text-2xl font-bold text-rose-600 dark:text-rose-400">{stats.missCount}</div>
-                        <div className="text-xs text-muted-foreground uppercase tracking-wide">Misses</div>
+                        <div className="text-lg font-bold leading-none text-rose-600 dark:text-rose-400">{stats.missCount}</div>
+                        <div className="mt-1 text-[10px] text-muted-foreground uppercase tracking-wide">Misses</div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-                <Card className={pageStyles.card}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-xl bg-amber-500/10"><Target className="w-5 h-5 text-amber-500" /></div>
+                <Card className="rounded-none border-border/60 bg-card/60 shadow-none">
+                  <CardContent className="p-2.5">
+                    <div className="flex items-center gap-2">
+                      <div className="border border-amber-500/30 bg-amber-500/10 p-1"><Target className="w-3.5 h-3.5 text-amber-500" /></div>
                       <div>
-                        <div className="text-2xl font-bold">{stats.beatRate}%</div>
-                        <div className="text-xs text-muted-foreground uppercase tracking-wide">Beat Rate</div>
+                        <div className="text-lg font-bold leading-none">{stats.beatRate}%</div>
+                        <div className="mt-1 text-[10px] text-muted-foreground uppercase tracking-wide">Beat Rate</div>
                       </div>
                     </div>
                   </CardContent>
@@ -1103,33 +1209,33 @@ const CalendarPage: React.FC = () => {
               </div>
 
               {/* Main Content Grid */}
-              <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                 {/* Calendar / Week Section */}
-                <Card className={`xl:col-span-2 ${pageStyles.card}`}>
-                  <CardHeader className="pb-2">
+                <Card className="xl:col-span-2 rounded-none border-border/60 bg-card/60 shadow-none">
+                  <CardHeader className="border-b border-border/50 px-3 py-2">
                     <div className="flex items-center justify-between">
-                      <button onClick={navigateBack} className="p-2 hover:bg-muted/50 rounded-xl transition-colors">
-                        <ChevronLeft className="w-5 h-5" />
+                      <button onClick={navigateBack} className="border border-border/60 p-1.5 hover:bg-muted/50 transition-colors">
+                        <ChevronLeft className="w-4 h-4" />
                       </button>
                       <div className="text-center">
-                        <CardTitle className="mb-1 flex items-center justify-center gap-2 text-xl">
+                        <CardTitle className="mb-1 flex items-center justify-center gap-2 text-base">
                           {headerTitle}
                         </CardTitle>
-                        <p className="text-sm text-muted-foreground mb-3">
+                        <p className="text-xs text-muted-foreground mb-2">
                           Click any day to view detailed earnings reports
                         </p>
                         {renderCategoryLegend()}
                       </div>
-                      <button onClick={navigateForward} className="p-2 hover:bg-muted/50 rounded-xl transition-colors">
-                        <ChevronRight className="w-5 h-5" />
+                      <button onClick={navigateForward} className="border border-border/60 p-1.5 hover:bg-muted/50 transition-colors">
+                        <ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
                   </CardHeader>
-                  <CardContent className="px-2 pt-0">
+                  <CardContent className="p-2">
                     {viewMode === 'monthly' ? (
                       <div className="grid grid-cols-5 gap-px">
                         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(day => (
-                          <div key={day} className="h-8 p-2 font-semibold text-center text-sm text-muted-foreground border-b border-border/40">{day}</div>
+                          <div key={day} className="h-7 border-b border-border/50 bg-muted/20 px-2 py-1 text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">{day}</div>
                         ))}
                         {renderMonthlyCalendar()}
                       </div>
@@ -1142,24 +1248,24 @@ const CalendarPage: React.FC = () => {
                 </Card>
 
                 {/* Earnings List Section */}
-                <Card className={`${pageStyles.card} flex flex-col max-h-[1000px] overflow-hidden`}>
-                  <CardHeader className="pb-3 flex-shrink-0">
+                <Card className="flex flex-col max-h-[1000px] overflow-hidden rounded-none border-border/60 bg-card/60 shadow-none">
+                  <CardHeader className="border-b border-border/50 px-3 py-2 flex-shrink-0">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg">Earnings Reports</CardTitle>
+                      <CardTitle className="text-base">Earnings Reports</CardTitle>
                     </div>
-                    <div className="relative mt-3">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                      <Input placeholder="Search by symbol..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 bg-muted/30 border-border/50" />
+                    <div className="relative mt-2">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                      <Input placeholder="Search by symbol..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="h-8 rounded-none pl-8 bg-background/50 border-border/60 text-sm" />
                     </div>
                   </CardHeader>
                   <CardContent className="p-0 flex-1 flex flex-col min-h-0">
                     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-1 min-h-0">
-                      <div className="px-4 flex-shrink-0">
-                        <TabsList className="w-full grid grid-cols-2 bg-muted/30">
-                          <TabsTrigger value="upcoming" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                      <div className="px-3 py-2 flex-shrink-0">
+                        <TabsList className="w-full grid grid-cols-2 rounded-none bg-muted/30">
+                          <TabsTrigger value="upcoming" className="rounded-none text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                             Upcoming ({filteredUpcomingEvents.length})
                           </TabsTrigger>
-                          <TabsTrigger value="previous" className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                          <TabsTrigger value="previous" className="rounded-none text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                             Previous ({filteredPreviousEvents.length})
                           </TabsTrigger>
                         </TabsList>
@@ -1167,14 +1273,14 @@ const CalendarPage: React.FC = () => {
 
                       <TabsContent value="upcoming" className="mt-0 flex-1 min-h-0 data-[state=inactive]:hidden">
                         <div className="h-full overflow-y-auto">
-                          <div className="p-4 space-y-2">
+                          <div className="px-3 pb-3 space-y-1.5">
                             {filteredUpcomingEvents.length > 0 ? (
                               filteredUpcomingEvents.map((event, idx) => (
                                 <React.Fragment key={`${event.symbol}-${event.date}-${idx}`}>{renderEarningsListItem(event)}</React.Fragment>
                               ))
                             ) : (
-                              <div className="py-12 text-center">
-                                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted/50 mb-3"><Calendar className="w-6 h-6 text-muted-foreground" /></div>
+                              <div className="py-10 text-center">
+                                <div className="inline-flex items-center justify-center border border-border/60 bg-muted/30 p-2 mb-3"><Calendar className="w-5 h-5 text-muted-foreground" /></div>
                                 <div className="text-muted-foreground text-sm">{searchQuery ? 'No matching earnings found' : 'No upcoming earnings'}</div>
                               </div>
                             )}
@@ -1184,14 +1290,14 @@ const CalendarPage: React.FC = () => {
 
                       <TabsContent value="previous" className="mt-0 flex-1 min-h-0 data-[state=inactive]:hidden">
                         <div className="h-full overflow-y-auto">
-                          <div className="p-4 space-y-2">
+                          <div className="px-3 pb-3 space-y-1.5">
                             {filteredPreviousEvents.length > 0 ? (
                               filteredPreviousEvents.map((event, idx) => (
                                 <React.Fragment key={`${event.symbol}-${event.date}-${idx}`}>{renderEarningsListItem(event)}</React.Fragment>
                               ))
                             ) : (
-                              <div className="py-12 text-center">
-                                <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-muted/50 mb-3"><Calendar className="w-6 h-6 text-muted-foreground" /></div>
+                              <div className="py-10 text-center">
+                                <div className="inline-flex items-center justify-center border border-border/60 bg-muted/30 p-2 mb-3"><Calendar className="w-5 h-5 text-muted-foreground" /></div>
                                 <div className="text-muted-foreground text-sm">{searchQuery ? 'No matching earnings found' : 'No previous earnings'}</div>
                               </div>
                             )}

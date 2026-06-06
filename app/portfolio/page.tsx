@@ -2118,7 +2118,7 @@ function PortfolioDrilldownModal({
   emptyStateMessage: string;
   realizedEquityBase: number;
 }) {
-  const [sortColumn, setSortColumn] = useState<string>('closedDate');
+  const [sortColumn, setSortColumn] = useState<string | null>('closedDate');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [filterInput, setFilterInput] = useState<string>('');
 
@@ -2152,6 +2152,10 @@ function PortfolioDrilldownModal({
 
   const sortedRows = useMemo(() => {
     const rows = [...filteredPositions];
+    if (!sortColumn) {
+      return rows;
+    }
+
     rows.sort((a, b) => {
       const aValue = getHistogramDrilldownSortValue(a, sortColumn, realizedEquityBase);
       const bValue = getHistogramDrilldownSortValue(b, sortColumn, realizedEquityBase);
@@ -2175,7 +2179,12 @@ function PortfolioDrilldownModal({
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
-      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else {
+        setSortColumn(null);
+        setSortDirection('desc');
+      }
       return;
     }
     setSortColumn(column);
@@ -3053,6 +3062,7 @@ export default function Portfolio() {
     defaultDirection: 'desc',
     columns: PORTFOLIO_COLUMNS,
     tableId: 'portfolio-table',
+    enableClearSort: true,
   });
   
   // Delete confirmation state
@@ -3290,6 +3300,26 @@ export default function Portfolio() {
     );
   }, [positions, symbolFilterInput]);
 
+  const sortQuoteSymbols = useMemo(
+    () => Array.from(new Set(filteredPositions.map((position) => position.symbol))),
+    [filteredPositions],
+  );
+
+  const sortQuoteQueries = useQueries({
+    queries: sortQuoteSymbols.map((symbol) => quoteQueryOptions(symbol)),
+  });
+
+  const sortQuotePriceBySymbol = useMemo(() => {
+    const priceMap = new Map<string, number>();
+    sortQuoteSymbols.forEach((symbol, index) => {
+      const price = sortQuoteQueries[index]?.data?.price;
+      if (typeof price === 'number') {
+        priceMap.set(symbol, price);
+      }
+    });
+    return priceMap;
+  }, [sortQuoteSymbols, sortQuoteQueries]);
+
   const canSummarizeOpenPositions = useMemo(() => {
     const symbolCounts = new Map<string, number>();
     for (const position of filteredPositions) {
@@ -3310,13 +3340,58 @@ export default function Portfolio() {
       ? parsedPortfolioValue
       : (portfolio?.portfolio_value || 0);
 
+    const getMarkPrice = (position: StockPosition) =>
+      sortQuotePriceBySymbol.get(position.symbol) ?? position.currentPrice ?? position.cost;
+
+    const getPositionGainLossSortValue = (position: StockPosition) => {
+      if (isPositionFullyClosed(position)) {
+        return calculateRealizedGainForPosition(position);
+      }
+
+      return calculateGainLoss(getMarkPrice(position), position.cost, getRemainingShares(position), position.type);
+    };
+
+    const getOpenRiskSortValue = (position: StockPosition): number | null => {
+      if (position.closedDate) {
+        return 0;
+      }
+
+      if (!hasConfiguredStopLoss(position.cost, position.stopLoss)) {
+        return null;
+      }
+
+      return calculatePercentageChange(position.stopLoss, position.cost);
+    };
+
+    const getPortfolioPercentSortValue = (position: StockPosition): number | null => {
+      if (currentPortfolioValue <= 0) {
+        return null;
+      }
+
+      return (getMarkPrice(position) * getRemainingShares(position) / currentPortfolioValue) * 100;
+    };
+
+    const compareSortValues = (aValue: number | string | null, bValue: number | string | null): number => {
+      const aMissing = aValue === null || aValue === '';
+      const bMissing = bValue === null || bValue === '';
+      if (aMissing && bMissing) return 0;
+      if (aMissing) return 1;
+      if (bMissing) return -1;
+
+      const valueCompare = typeof aValue === 'number' && typeof bValue === 'number'
+        ? aValue - bValue
+        : String(aValue).localeCompare(String(bValue), undefined, { sensitivity: 'base' });
+
+      return sortDirection === 'asc' ? valueCompare : -valueCompare;
+    };
+
     if (!sortColumn) {
       return basePositions;
     }
 
     basePositions.sort((a, b) => {
-      let aValue: number | string = 0;
-      let bValue: number | string = 0;
+      let aValue: number | string | null = 0;
+      let bValue: number | string | null = 0;
 
       switch (sortColumn) {
         case 'symbol':
@@ -3324,8 +3399,8 @@ export default function Portfolio() {
           bValue = b.symbol;
           break;
         case 'price':
-          aValue = a.currentPrice || 0;
-          bValue = b.currentPrice || 0;
+          aValue = getMarkPrice(a);
+          bValue = getMarkPrice(b);
           break;
         case 'type':
           aValue = a.type;
@@ -3348,35 +3423,32 @@ export default function Portfolio() {
           bValue = b.netCost;
           break;
         case 'equity':
-          aValue = (a.currentPrice || a.cost) * getRemainingShares(a);
-          bValue = (b.currentPrice || b.cost) * getRemainingShares(b);
+          aValue = getMarkPrice(a) * getRemainingShares(a);
+          bValue = getMarkPrice(b) * getRemainingShares(b);
           break;
         case 'gainLoss':
-          aValue = calculateGainLoss(a.currentPrice || a.cost, a.cost, getRemainingShares(a), a.type);
-          bValue = calculateGainLoss(b.currentPrice || b.cost, b.cost, getRemainingShares(b), b.type);
+          aValue = getPositionGainLossSortValue(a);
+          bValue = getPositionGainLossSortValue(b);
           break;
         case 'portfolioGain':
           aValue = currentPortfolioValue > 0
-            ? (calculateProjectedGainForPosition(a, a.currentPrice) / currentPortfolioValue) * 100
-            : 0;
+            ? (calculateProjectedGainForPosition(a, getMarkPrice(a)) / currentPortfolioValue) * 100
+            : null;
           bValue = currentPortfolioValue > 0
-            ? (calculateProjectedGainForPosition(b, b.currentPrice) / currentPortfolioValue) * 100
-            : 0;
+            ? (calculateProjectedGainForPosition(b, getMarkPrice(b)) / currentPortfolioValue) * 100
+            : null;
           break;
         case 'realizedGain':
           aValue = a.realizedGain || 0;
           bValue = b.realizedGain || 0;
           break;
         case 'rMultiple':
-          aValue = calculateDisplayedRMultipleForPosition(a, a.currentPrice);
-          bValue = calculateDisplayedRMultipleForPosition(b, b.currentPrice);
+          aValue = calculateDisplayedRMultipleForPosition(a, getMarkPrice(a));
+          bValue = calculateDisplayedRMultipleForPosition(b, getMarkPrice(b));
           break;
         case 'portfolioPercent':
-          const aEquity = (a.currentPrice || a.cost) * getRemainingShares(a);
-          const bEquity = (b.currentPrice || b.cost) * getRemainingShares(b);
-          const totalValue = portfolio?.portfolio_value || 1;
-          aValue = (aEquity / totalValue) * 100;
-          bValue = (bEquity / totalValue) * 100;
+          aValue = getPortfolioPercentSortValue(a);
+          bValue = getPortfolioPercentSortValue(b);
           break;
         case 'initialStopLoss':
           aValue = a.initialStopLoss;
@@ -3387,32 +3459,20 @@ export default function Portfolio() {
           bValue = b.stopLoss;
           break;
         case 'openRisk':
-          aValue = hasConfiguredStopLoss(a.cost, a.stopLoss)
-            ? ((a.stopLoss - a.cost) / a.cost) * 100
-            : 0;
-          bValue = hasConfiguredStopLoss(b.cost, b.stopLoss)
-            ? ((b.stopLoss - b.cost) / b.cost) * 100
-            : 0;
+          aValue = getOpenRiskSortValue(a);
+          bValue = getOpenRiskSortValue(b);
           break;
         case 'openHeat':
-          const aRisk = hasConfiguredStopLoss(a.cost, a.stopLoss)
-            ? ((a.stopLoss - a.cost) / a.cost) * 100
-            : 0;
-          const bRisk = hasConfiguredStopLoss(b.cost, b.stopLoss)
-            ? ((b.stopLoss - b.cost) / b.cost) * 100
-            : 0;
-          const aPortPercent = ((a.currentPrice || a.cost) * getRemainingShares(a) / (portfolio?.portfolio_value || 1)) * 100;
-          const bPortPercent = ((b.currentPrice || b.cost) * getRemainingShares(b) / (portfolio?.portfolio_value || 1)) * 100;
-          aValue = (aRisk * aPortPercent) / 100;
-          bValue = (bRisk * bPortPercent) / 100;
+          aValue = getOpenHeatPercent(a, currentPortfolioValue);
+          bValue = getOpenHeatPercent(b, currentPortfolioValue);
           break;
         case 'openDate':
           aValue = a.openDate.getTime();
           bValue = b.openDate.getTime();
           break;
         case 'closedDate':
-          aValue = a.closedDate?.getTime() || 0;
-          bValue = b.closedDate?.getTime() || 0;
+          aValue = a.closedDate?.getTime() ?? null;
+          bValue = b.closedDate?.getTime() ?? null;
           break;
         case 'daysInTrade':
           const now = new Date();
@@ -3425,16 +3485,11 @@ export default function Portfolio() {
           return 0;
       }
 
-      if (typeof aValue === 'string' || typeof bValue === 'string') {
-        const stringComparison = String(aValue).localeCompare(String(bValue), undefined, { sensitivity: 'base' });
-        return sortDirection === 'asc' ? stringComparison : -stringComparison;
-      }
-
-      return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
+      return compareSortValues(aValue, bValue);
     });
 
     return basePositions;
-  }, [filteredPositions, sortColumn, sortDirection, portfolio?.portfolio_value, portfolioValue]);
+  }, [filteredPositions, sortColumn, sortDirection, portfolio?.portfolio_value, portfolioValue, sortQuotePriceBySymbol]);
 
   // Filter positions based on closed status (memoized to prevent unnecessary recalculations)
   const closedPositions = useMemo(() => positions.filter(pos => pos.closedDate), [positions]);

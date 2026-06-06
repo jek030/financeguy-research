@@ -57,8 +57,8 @@ function SidebarItem({
         ref={setNodeRef}
         style={style}
         className={cn(
-          "flex items-center justify-between p-3 rounded-lg border border-dashed border-primary/50 bg-accent/20 mb-1 opacity-50",
-          "h-[52px]" // Approximate height to match content
+          "flex items-center justify-between border border-dashed border-primary/50 bg-accent/20 px-2 py-1.5 mb-1 opacity-50",
+          "h-10" // Approximate height to match content
         )}
       />
     );
@@ -69,15 +69,15 @@ function SidebarItem({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "group flex items-center justify-between p-2 pl-3 rounded-lg cursor-pointer transition-all mb-1",
+        "group flex items-center justify-between border border-transparent px-2 py-1.5 cursor-pointer transition-colors mb-1",
         isSelected 
-            ? "bg-accent text-accent-foreground shadow-sm" 
-            : "hover:bg-muted/50 text-muted-foreground hover:text-foreground",
-        isOver && "bg-accent/50 ring-2 ring-primary/20"
+            ? "border-border bg-accent text-accent-foreground" 
+            : "hover:border-border/60 hover:bg-muted/50 text-muted-foreground hover:text-foreground",
+        isOver && "bg-accent/50 ring-1 ring-primary/30"
       )}
       onClick={onClick}
     >
-      <div className="flex items-center gap-3 truncate flex-1">
+      <div className="flex items-center gap-2 truncate flex-1">
         <div 
             {...attributes} 
             {...listeners} 
@@ -86,7 +86,7 @@ function SidebarItem({
         >
             <GripVertical className="h-4 w-4" />
         </div>
-        <span className="font-medium truncate text-sm">{watchlist.name}</span>
+        <span className="font-medium truncate text-sm leading-tight">{watchlist.name}</span>
         {isDefault && (
           <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
         )}
@@ -101,7 +101,7 @@ function SidebarItem({
                   onSetDefault();
                 }}
                 className={cn(
-                  "p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background/50",
+                  "p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background/50",
                   isDefault && "opacity-100"
                 )}
               >
@@ -119,7 +119,7 @@ function SidebarItem({
           </Tooltip>
         </TooltipProvider>
         <span className={cn(
-          "text-xs px-2 py-0.5 rounded-full bg-background/50 border",
+          "text-xs px-1.5 py-0.5 bg-background/50 border",
           isSelected ? "text-accent-foreground" : "text-muted-foreground"
         )}>
           {watchlist.tickers.length}
@@ -131,14 +131,14 @@ function SidebarItem({
 
 export function WatchlistSidebar({ watchlists, selectedId, defaultWatchlistId, onSelect, onAdd, onSetDefault }: WatchlistSidebarProps) {
   return (
-    <div className="flex flex-col h-full bg-card/30 border-r border-border/50">
-      <div className="p-4 border-b border-border/50 flex items-center justify-between bg-card/50">
-        <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">My Lists</h2>
-        <Button onClick={onAdd} size="icon" variant="ghost" className="h-8 w-8 hover:bg-background">
+    <div className="flex flex-col h-full bg-card/30 border-r border-border/60">
+      <div className="px-3 py-2 border-b border-border/60 flex items-center justify-between bg-card/50">
+        <h2 className="font-semibold text-xs uppercase tracking-wider text-muted-foreground">My Lists</h2>
+        <Button onClick={onAdd} size="icon" variant="ghost" className="h-7 w-7 rounded-none hover:bg-background">
           <Plus className="h-4 w-4" />
         </Button>
       </div>
-      <ScrollArea className="flex-1 p-3">
+      <ScrollArea className="flex-1 p-2">
         <SortableContext items={watchlists.map(w => w.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-1">
             {watchlists.map(watchlist => (
@@ -157,7 +157,7 @@ export function WatchlistSidebar({ watchlists, selectedId, defaultWatchlistId, o
         {watchlists.length === 0 && (
             <div className="text-center py-8 px-4">
                 <p className="text-sm text-muted-foreground mb-4">No watchlists yet</p>
-                <Button onClick={onAdd} variant="outline" size="sm" className="w-full">
+                <Button onClick={onAdd} variant="outline" size="sm" className="w-full rounded-none">
                     Create First List
                 </Button>
             </div>

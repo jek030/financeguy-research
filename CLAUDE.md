@@ -80,7 +80,7 @@ No test runner is configured. There is an optional backend in `/server` with its
 
 All external API calls are proxied through Next.js API routes — client components never call FMP or CNN directly.
 
-- **FMP (Financial Modeling Prep)** — 26+ proxy routes under `app/api/fmp/`, configured via `app/api/fmp/config.ts`. Key env var: `FMP_API_KEY`.
+- **FMP (Financial Modeling Prep)** — proxied through internal Next.js API routes, configured via `app/api/fmp/config.ts`. Key env var: `FMP_API_KEY`.
 - **Supabase** — PostgreSQL backend for auth, portfolios, watchlists, preferences, and NAAIM sentiment data. Client: `lib/supabase.ts`. Env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 - **CNN Fear & Greed** — proxied through `app/api/market/fear-greed/`, cached 5 minutes.
 - **NAAIM Exposure** — synced weekly via GitHub Actions (`naaim-job.yml`) using `scripts/sync_naaim_to_supabase.py`.
@@ -138,9 +138,8 @@ Brokerage JSON → `localStorage` (`transactions-data` key) → parsed by `utils
 
 ### Automation
 
-GitHub Actions in `.github/workflows/` run three scheduled jobs:
+GitHub Actions in `.github/workflows/` run two scheduled jobs:
 - `naaim-job.yml` — Wednesdays 23:30 UTC, runs `scripts/sync_naaim_to_supabase.py`
-- `earnings-job.yml` — earnings calendar sync
 - `sectors-job.yml` — sector data sync
 
 Required GitHub secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NAAIM_SOURCE_URL`.

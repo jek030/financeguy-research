@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { FMP_API_KEY, FMP_BASE_URL } from '../../fmp/config';
 
 function toNumberOrNull(value: unknown): number | null {
   if (value === null || value === undefined) return null;
@@ -7,57 +7,101 @@ function toNumberOrNull(value: unknown): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-function isMissingIsActiveColumn(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const err = error as { code?: string; message?: string };
-  return err.code === '42703' || (err.message || '').includes('is_active');
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+interface FmpCalendarRow {
+  date?: string;
+  symbol?: string;
+  eps?: unknown;
+  epsEstimated?: unknown;
+  time?: string;
+  revenue?: unknown;
+  revenueEstimated?: unknown;
+  fiscalDateEnding?: string;
 }
 
-async function queryCalendarRows(from: string, to: string, symbols?: string[]) {
-  const runQuery = async (useActiveFilter: boolean) => {
-    let query = supabase
-      .from('earnings_calendar')
-      .select('*')
-      .gte('report_date', from)
-      .lte('report_date', to)
-      .not('symbol', 'like', '%.%')
-      .order('report_date', { ascending: true });
-
-    if (symbols && symbols.length > 0) query = query.in('symbol', symbols);
-    if (useActiveFilter) query = query.eq('is_active', true);
-    if (!symbols || symbols.length === 0) query = query.range(0, 9999);
-
-    return query;
-  };
-
-  const primary = await runQuery(true);
-  if (!primary.error) return primary;
-  if (!isMissingIsActiveColumn(primary.error)) return primary;
-
-  console.warn('[earnings-calendar] is_active column missing; retrying without canonical filter.');
-  return runQuery(false);
+interface EarningsCalendarRow {
+  symbol: string;
+  reportDate: string;
+  date: string;
+  fiscalDateEnding: string;
+  epsActual: number | null;
+  eps: number | null;
+  epsEstimated: number | null;
+  revenueActual: number | null;
+  revenue: number | null;
+  revenueEstimated: number | null;
+  reportTime: string;
+  time: string;
+  updatedFromDate: string;
 }
 
-// Helper to map database rows to the shape the frontend expects
-function mapRows(data: Record<string, unknown>[]) {
-  return data.map((row) => ({
-    id: row.id,
-    symbol: row.symbol,
-    reportDate: (row.report_date as string) || '',
-    date: (row.report_date as string) || '',
-    fiscalDateEnding: (row.fiscal_date_ending as string) || '',
-    epsActual: toNumberOrNull(row.eps_actual),
-    eps: toNumberOrNull(row.eps_actual),
-    epsEstimated: toNumberOrNull(row.eps_estimated),
-    revenueActual: toNumberOrNull(row.revenue_actual),
-    revenue: toNumberOrNull(row.revenue_actual),
-    revenueEstimated: toNumberOrNull(row.revenue_estimated),
-    reportTime: (row.report_time as string) || '',
-    time: (row.report_time as string) || '',
-    updatedAt: (row.updated_at as string) || '',
-    updatedFromDate: row.updated_at ? (row.updated_at as string).split('T')[0] : '',
-    createdAt: (row.created_at as string) || '',
-  }));
+function validateDateRange(from?: string, to?: string): string | null {
+  if (!from || !to) return 'From and to dates are required';
+  if (!DATE_PATTERN.test(from) || !DATE_PATTERN.test(to)) return 'From and to dates must be YYYY-MM-DD';
+  if (from > to) return 'From date must be before or equal to to date';
+  return null;
+}
+
+async function fetchFmpCalendar(from: string, to: string): Promise<FmpCalendarRow[]> {
+  if (!FMP_API_KEY) {
+    throw new Error('FMP API key is not configured');
+  }
+
+  const url = `${FMP_BASE_URL}/v3/earning_calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&apikey=${FMP_API_KEY}`;
+  const response = await fetch(url, { cache: 'no-store' });
+
+  if (!response.ok) {
+    throw new Error(`FMP earnings calendar request failed: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+function createSymbolSet(symbols?: string[]): Set<string> | null {
+  if (!symbols || symbols.length === 0) return null;
+
+  return new Set(
+    symbols
+      .map((symbol) => symbol.trim().toUpperCase())
+      .filter(Boolean)
+  );
+}
+
+function mapRows(data: FmpCalendarRow[], symbols?: string[]): EarningsCalendarRow[] {
+  const symbolSet = createSymbolSet(symbols);
+  const rows: EarningsCalendarRow[] = [];
+
+  for (const row of data) {
+    const symbol = row.symbol?.trim().toUpperCase();
+    if (!row.date || !symbol || symbol.includes('.')) continue;
+    if (symbolSet && !symbolSet.has(symbol)) continue;
+
+    const epsActual = toNumberOrNull(row.eps);
+    const revenueActual = toNumberOrNull(row.revenue);
+
+    rows.push({
+      symbol,
+      reportDate: row.date,
+      date: row.date,
+      fiscalDateEnding: row.fiscalDateEnding || '',
+      epsActual,
+      eps: epsActual,
+      epsEstimated: toNumberOrNull(row.epsEstimated),
+      revenueActual,
+      revenue: revenueActual,
+      revenueEstimated: toNumberOrNull(row.revenueEstimated),
+      reportTime: row.time || '',
+      time: row.time || '',
+      updatedFromDate: row.date,
+    });
+  }
+
+  return rows.sort((a, b) => {
+    const dateCompare = a.date.localeCompare(b.date);
+    if (dateCompare !== 0) return dateCompare;
+    return a.symbol.localeCompare(b.symbol);
+  });
 }
 
 // GET handler (no symbol filtering - returns all US-exchange earnings)
@@ -65,26 +109,18 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const from = searchParams.get('from');
   const to = searchParams.get('to');
+  const validationError = validateDateRange(from || undefined, to || undefined);
 
-  if (!from || !to) {
+  if (validationError) {
     return NextResponse.json(
-      { error: 'From and to dates are required' },
+      { error: validationError },
       { status: 400 }
     );
   }
 
   try {
-    const { data, error } = await queryCalendarRows(from, to);
-
-    if (error) {
-      console.error('Supabase query error:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch earnings calendar data' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json(mapRows(data ?? []));
+    const data = await fetchFmpCalendar(from!, to!);
+    return NextResponse.json(mapRows(data));
   } catch (error) {
     console.error('Error fetching earnings calendar data:', error);
     return NextResponse.json(
@@ -103,10 +139,11 @@ export async function POST(request: NextRequest) {
       to?: string;
       symbols?: string[];
     };
+    const validationError = validateDateRange(from, to);
 
-    if (!from || !to) {
+    if (validationError) {
       return NextResponse.json(
-        { error: 'From and to dates are required' },
+        { error: validationError },
         { status: 400 }
       );
     }
@@ -118,17 +155,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data, error } = await queryCalendarRows(from, to, symbols);
-
-    if (error) {
-      console.error('Supabase query error:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch earnings calendar data' },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json(mapRows(data ?? []));
+    const data = await fetchFmpCalendar(from!, to!);
+    return NextResponse.json(mapRows(data, symbols));
   } catch (error) {
     console.error('Error fetching earnings calendar data:', error);
     return NextResponse.json(

@@ -2,7 +2,6 @@ import express from 'express';
 import { env } from './config/env';
 import { corsMiddleware } from './middleware/cors';
 import { healthRouter } from './routes/health';
-import { earningsRouter } from './routes/earnings';
 
 const app = express();
 
@@ -12,7 +11,6 @@ app.use(express.json());
 
 // Routes
 app.use('/api', healthRouter);
-app.use('/api/earnings', earningsRouter);
 
 // Start server
 const port = parseInt(env.PORT, 10);

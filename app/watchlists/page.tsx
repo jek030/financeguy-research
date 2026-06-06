@@ -31,14 +31,14 @@ import { pageStyles } from '@/components/ui/CompanyHeader';
 
 function WatchlistSidebarSkeleton() {
   return (
-    <div className="w-full md:w-[280px] border-r border-border bg-background flex-shrink-0 p-3 space-y-3">
-      <Skeleton className="h-9 w-full rounded-md" />
-      <Skeleton className="h-9 w-full rounded-md" />
+    <div className="w-full md:w-[280px] border-r border-border/60 bg-background flex-shrink-0 p-2 space-y-2">
+      <Skeleton className="h-8 w-full rounded-none" />
+      <Skeleton className="h-8 w-full rounded-none" />
       <div className="space-y-2">
-        <Skeleton className="h-14 w-full rounded-md" />
-        <Skeleton className="h-14 w-full rounded-md" />
-        <Skeleton className="h-14 w-full rounded-md" />
-        <Skeleton className="h-14 w-full rounded-md" />
+        <Skeleton className="h-10 w-full rounded-none" />
+        <Skeleton className="h-10 w-full rounded-none" />
+        <Skeleton className="h-10 w-full rounded-none" />
+        <Skeleton className="h-10 w-full rounded-none" />
       </div>
     </div>
   );
@@ -47,19 +47,19 @@ function WatchlistSidebarSkeleton() {
 function WatchlistDetailSkeleton() {
   return (
     <div className="flex-1 overflow-hidden flex flex-col bg-background">
-      <div className="flex-1 overflow-y-auto p-2 sm:p-4">
-        <div className="space-y-4">
-          <Skeleton className="h-10 w-64 rounded-md" />
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
-            <Skeleton className="h-10 w-full rounded-md" />
-            <Skeleton className="h-10 w-28 rounded-md" />
+      <div className="flex-1 overflow-y-auto p-2">
+        <div className="space-y-3">
+          <Skeleton className="h-9 w-64 rounded-none" />
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
+            <Skeleton className="h-8 w-full rounded-none" />
+            <Skeleton className="h-8 w-28 rounded-none" />
           </div>
           <div className="space-y-2">
-            <Skeleton className="h-12 w-full rounded-md" />
-            <Skeleton className="h-12 w-full rounded-md" />
-            <Skeleton className="h-12 w-full rounded-md" />
-            <Skeleton className="h-12 w-full rounded-md" />
-            <Skeleton className="h-12 w-full rounded-md" />
+            <Skeleton className="h-9 w-full rounded-none" />
+            <Skeleton className="h-9 w-full rounded-none" />
+            <Skeleton className="h-9 w-full rounded-none" />
+            <Skeleton className="h-9 w-full rounded-none" />
+            <Skeleton className="h-9 w-full rounded-none" />
           </div>
         </div>
       </div>
@@ -262,7 +262,7 @@ export default function WatchlistPage() {
       <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] gap-4">
         <h1 className="text-2xl font-bold">You need to be logged in to view watchlists</h1>
         <p className="text-lg text-muted-foreground">Sign in to create and manage your watchlists</p>
-        <Button asChild>
+        <Button asChild className="rounded-none">
           <Link href="/login">Sign in</Link>
         </Button>
       </div>
@@ -280,7 +280,7 @@ export default function WatchlistPage() {
       <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] gap-4">
         <h1 className="text-2xl font-bold text-destructive">Error loading watchlists</h1>
         <p className="text-lg text-muted-foreground">{error}</p>
-        <Button onClick={() => window.location.reload()}>Try again</Button>
+        <Button onClick={() => window.location.reload()} className="rounded-none">Try again</Button>
       </div>
     );
   }
@@ -296,7 +296,7 @@ export default function WatchlistPage() {
         <div className="flex flex-1 overflow-hidden">
             {/* Sidebar */}
             <div className={cn(
-                "w-full md:w-[280px] border-r border-border bg-background flex-shrink-0 flex flex-col transition-all duration-300",
+                "w-full md:w-[280px] border-r border-border/60 bg-background flex-shrink-0 flex flex-col transition-all duration-300",
                 selectedWatchlist ? "hidden md:flex" : "flex"
             )}>
                 <WatchlistSidebar 
@@ -317,13 +317,13 @@ export default function WatchlistPage() {
                 {selectedWatchlist && watchlists.find(w => w.id === selectedWatchlist) ? (
                     <div className="flex flex-col h-full">
                          {/* Mobile Back Button */}
-                         <div className="md:hidden p-2 border-b bg-card">
-                            <Button variant="ghost" size="sm" onClick={() => setSelectedWatchlist(null)} className="gap-2">
+                         <div className="md:hidden p-2 border-b border-border/60 bg-card">
+                            <Button variant="ghost" size="sm" onClick={() => setSelectedWatchlist(null)} className="gap-2 rounded-none">
                                 <ArrowLeft className="h-4 w-4" /> Back to Lists
                             </Button>
                          </div>
                          
-                         <div className="flex-1 overflow-y-auto p-2 sm:p-4">
+                         <div className="flex-1 min-h-0 overflow-hidden p-2">
                             <WatchlistDetail
                                 watchlist={watchlists.find(w => w.id === selectedWatchlist)!}
                                 editNameInput={editNameInputs[selectedWatchlist] || ''}
@@ -347,7 +347,7 @@ export default function WatchlistPage() {
                     </div>
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full text-muted-foreground p-4 text-center">
-                        <div className="bg-muted/50 p-6 rounded-full mb-4">
+                        <div className="bg-muted/50 p-4 mb-3">
                             <Loader2 className="h-8 w-8 animate-spin" />
                         </div>
                         <p className="font-medium">Select a watchlist to view details</p>
@@ -358,7 +358,7 @@ export default function WatchlistPage() {
 
         <DragOverlay>
           {activeId && draggedTicker ? (
-            <div className="bg-card p-2 rounded shadow-lg border text-sm font-medium">
+            <div className="bg-card p-2 shadow-lg border text-sm font-medium">
               {draggedTicker.symbol}
             </div>
           ) : null}
