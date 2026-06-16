@@ -62,7 +62,7 @@ export default function TransactionsPage() {
     "h-7 rounded-md text-[11px] text-indigo-200/60 data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white";
 
   return (
-    <div className="min-h-screen w-full bg-[#0b0e1f] p-4 font-sans text-slate-100">
+    <div className="dark min-h-screen w-full bg-[#0b0e1f] p-4 font-sans text-slate-100">
       <div className="mx-auto max-w-[1800px] space-y-5">
         <div className="rounded-xl border border-indigo-500/15 bg-gradient-to-br from-[#1b1f3b] to-[#14172c] p-4 shadow-lg shadow-black/20">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
