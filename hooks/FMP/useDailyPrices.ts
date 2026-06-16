@@ -42,7 +42,7 @@ async function fetchDailyPrices(
   }
 
   const data: DailyPriceResponse = await response.json();
-  return data.historical;
+  return data.historical ?? [];
 }
 
 export function useDailyPrices({ 

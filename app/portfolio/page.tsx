@@ -40,6 +40,7 @@ import { getRemainingShares, getRealizedGain, isFullyClosed } from '@/utils/port
 import { ExitsCell } from '@/components/portfolio/ExitsCell';
 import { EditPositionModal } from '@/components/portfolio/EditPositionModal';
 import { PositionChartModal } from '@/components/portfolio/PositionChartModal';
+import { PositionSizingCalculator } from '@/components/portfolio/PositionSizingCalculator';
 import Link from 'next/link';
 import type { TableColumnDef } from '@/lib/table-types';
 
@@ -3082,8 +3083,6 @@ export default function Portfolio() {
   const [chartPosition, setChartPosition] = useState<StockPosition | null>(null);
   const [showChartModal, setShowChartModal] = useState(false);
 
-  // Position Percentage Calculator state
-  const [adrPercent, setAdrPercent] = useState<string>('');
   const [isPositionsSidebarCollapsed, setIsPositionsSidebarCollapsed] = useState(false);
 
   // Create Portfolio state
@@ -3598,6 +3597,26 @@ export default function Portfolio() {
     }
     return portfolio?.portfolio_value ?? 0;
   }, [portfolioValue, portfolio]);
+
+  const isUnrealizedBalanceLoading = allocationQuoteQueries.some((query) => query.isLoading);
+
+  const unrealizedBalance = useMemo(() => {
+    const totalRealizedGain = positions.reduce(
+      (sum, position) => sum + calculateRealizedGainForPosition(position),
+      0,
+    );
+    const currentBalance = portfolioValueNumber + totalRealizedGain;
+
+    const unrealizedGain = openPositionsForAllocation.reduce((total, position, index) => {
+      const currentPrice = allocationQuoteQueries[index]?.data?.price;
+      if (typeof currentPrice !== 'number') {
+        return total;
+      }
+      return total + calculateGainLoss(currentPrice, position.cost, getRemainingShares(position), position.type);
+    }, 0);
+
+    return currentBalance + unrealizedGain;
+  }, [positions, portfolioValueNumber, openPositionsForAllocation, allocationQuoteQueries]);
 
   const totalOpenRiskDollar = useMemo(() => calculateTotalOpenRisk(positions), [positions]);
   const totalOpenRiskPercentOfPortfolio =
@@ -4199,49 +4218,10 @@ export default function Portfolio() {
 
             {!isPositionsSidebarCollapsed && (
               <div className="space-y-3 pt-1">
-                {/* ADR & max position (portfolio value) */}
-                <section className="rounded-lg border border-border/35 bg-background/70 p-3">
-                  <div className="text-sm font-semibold">
-                    Max Position based on ADR
-                  </div>
-                  <div className="space-y-3 pt-3">
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-muted-foreground">ADR %</label>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="2.50"
-                        value={adrPercent}
-                        onChange={(e) => {
-                          const value = e.target.value.replace(/[^0-9.]/g, '');
-                          const parts = value.split('.');
-                          const formattedValue = parts.length > 2
-                            ? parts[0] + '.' + parts.slice(1).join('')
-                            : value;
-                          if (parts.length === 2 && parts[1].length > 2) return;
-                          setAdrPercent(formattedValue);
-                        }}
-                        className="h-8 w-full text-sm font-mono bg-background/50"
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground">Max Position %</p>
-                        <p className="text-sm font-bold font-mono">
-                          {adrPercent && parseFloat(adrPercent) > 0 ? `${((1 / parseFloat(adrPercent)) * 100).toFixed(1)}%` : '—'}
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-xs font-medium text-muted-foreground">Max Amount</p>
-                        <p className="text-sm font-bold font-mono">
-                          {adrPercent && parseFloat(adrPercent) > 0
-                            ? formatCurrencyTwoDecimals((parseFloat(portfolioValue) || 0) * (1 / parseFloat(adrPercent)))
-                            : '—'}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </section>
+                <PositionSizingCalculator
+                  portfolioBalance={unrealizedBalance}
+                  isBalanceLoading={isUnrealizedBalanceLoading}
+                />
 
                 {/* Add Position Panel */}
                 <section className="rounded-lg border border-border/35 bg-background/70 p-3">

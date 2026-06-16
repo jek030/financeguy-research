@@ -23,7 +23,9 @@
       "Read(//tmp/**)",
       "Bash(git *)",
       "Bash(awk '/^  return \\\\{/,/^  \\\\};/')",
-      "Bash(curl *)"
+      "Bash(curl *)",
+      "mcp__plugin_context7_context7__query-docs",
+      "PowerShell(Get-NetTCPConnection *)"
     ]
   }
 }
