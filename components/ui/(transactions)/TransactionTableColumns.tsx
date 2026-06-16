@@ -1,11 +1,21 @@
 "use client";
 
-import { ColumnDef } from '@tanstack/react-table';
+import { ColumnDef, FilterFn } from '@tanstack/react-table';
 import { ArrowUpDown, ArrowUp, ArrowDown, FolderInput } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { BrokerageTransaction, getActionCategory, isOptionAction, isTradeAction } from '@/lib/types/transactions';
 import { formatCurrency } from '@/utils/transactionCalculations';
 import { cn } from '@/lib/utils';
+
+// Keep a row if no types are selected, otherwise only rows whose action is selected.
+export const multiIncludeFilter: FilterFn<BrokerageTransaction> = (
+  row,
+  columnId,
+  filterValue: string[]
+) => {
+  if (!filterValue || filterValue.length === 0) return true;
+  return filterValue.includes(row.getValue<string>(columnId));
+};
 
 function SortableHeader({ 
   column, 
@@ -96,7 +106,7 @@ export function getTransactionTableColumns(options?: ColumnOptions): ColumnDef<B
       accessorKey: 'action',
       header: ({ column }) => <SortableHeader column={column} label="Action" />,
       cell: ({ row }) => <ActionBadge action={row.original.action} />,
-      filterFn: 'equals',
+      filterFn: multiIncludeFilter,
     },
     {
       accessorKey: 'symbol',
