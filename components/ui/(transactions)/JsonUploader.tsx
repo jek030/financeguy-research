@@ -102,21 +102,21 @@ export default function JsonUploader({ onDataLoaded, className }: JsonUploaderPr
   }, []);
 
   return (
-    <Card className={cn("w-full border-border bg-background font-mono", className)}>
+    <Card className={cn("w-full rounded-xl border border-indigo-500/15 bg-[#14172c] font-sans", className)}>
       <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm tracking-wide">
+        <CardTitle className="flex items-center gap-2 text-sm tracking-wide text-slate-100">
           <FileJson className="h-4 w-4" />
           Data Feed
         </CardTitle>
       </CardHeader>
       <CardContent>
         {isLoaded && fileName ? (
-          <div className="flex items-center justify-between rounded-md border border-emerald-500/40 bg-emerald-500/10 p-3">
+          <div className="flex items-center justify-between rounded-lg border border-teal-500/40 bg-teal-500/10 p-3">
             <div className="flex items-center gap-3">
-              <CheckCircle className="h-4 w-4 text-emerald-500" />
+              <CheckCircle className="h-4 w-4 text-teal-300" />
               <div>
-                <p className="text-xs font-medium text-foreground">{fileName}</p>
-                <p className="text-[11px] text-emerald-500">Loaded</p>
+                <p className="text-xs font-medium text-slate-100">{fileName}</p>
+                <p className="text-[11px] text-teal-300">Loaded</p>
               </div>
             </div>
             <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleClear}>
@@ -126,10 +126,10 @@ export default function JsonUploader({ onDataLoaded, className }: JsonUploaderPr
         ) : (
           <div
             className={cn(
-              "relative rounded-md border border-dashed p-5 transition-colors",
+              "relative rounded-lg border border-dashed p-5 transition-colors",
               isDragging 
-                ? "border-primary bg-primary/5" 
-                : "border-border hover:border-foreground/40",
+                ? "border-violet-400 bg-violet-500/10" 
+                : "border-indigo-500/25 hover:border-indigo-400/50",
               error && "border-red-500/50 bg-red-500/5"
             )}
             onDrop={handleDrop}
@@ -145,18 +145,18 @@ export default function JsonUploader({ onDataLoaded, className }: JsonUploaderPr
             <div className="flex flex-col items-center gap-2 text-center">
               <div className={cn(
                 "flex h-9 w-9 items-center justify-center rounded-sm border border-border",
-                isDragging ? "bg-primary/20" : "bg-muted/50"
+                isDragging ? "bg-violet-500/20" : "bg-indigo-500/15"
               )}>
                 <Upload className={cn(
                   "h-4 w-4",
-                  isDragging ? "text-primary" : "text-muted-foreground"
+                  isDragging ? "text-violet-300" : "text-indigo-300/70"
                 )} />
               </div>
               <div>
-                <p className="text-xs font-medium text-foreground">
+                <p className="text-xs font-medium text-slate-100">
                   {isDragging ? "Drop JSON file" : "Drag JSON file"}
                 </p>
-                <p className="mt-1 text-[11px] text-muted-foreground">
+                <p className="mt-1 text-[11px] text-slate-400">
                   or click to browse
                 </p>
               </div>
@@ -165,8 +165,8 @@ export default function JsonUploader({ onDataLoaded, className }: JsonUploaderPr
         )}
         
         {error && (
-          <div className="mt-3 rounded-md border border-red-500/40 bg-red-500/10 p-2">
-            <p className="text-[11px] text-red-500">{error}</p>
+          <div className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 p-2">
+            <p className="text-[11px] text-red-300">{error}</p>
           </div>
         )}
       </CardContent>
