@@ -105,6 +105,11 @@ export default function TransactionTable({
     table.getColumn('action')?.setFilterValue(typeFilters.length ? typeFilters : undefined);
   }, [typeFilters, table]);
 
+  // Clear type selections when a new dataset is loaded.
+  React.useEffect(() => {
+    setTypeFilters([]);
+  }, [data]);
+
   React.useEffect(() => {
     table.getColumn('symbol')?.setFilterValue(symbol ?? undefined);
   }, [symbol, table]);
@@ -182,7 +187,7 @@ export default function TransactionTable({
                 <SelectTrigger className="h-9 w-[130px] border-indigo-500/20 bg-[#0f1226] text-xs text-slate-100">
                   <SelectValue placeholder="Symbol" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="border-indigo-500/20 bg-[#14172c] text-slate-100">
                   <SelectItem value="all">All Symbols</SelectItem>
                   {uniqueSymbols.map((s) => (
                     <SelectItem key={s} value={s}>
@@ -197,7 +202,7 @@ export default function TransactionTable({
                 <SelectTrigger className="h-9 w-[80px] border-indigo-500/20 bg-[#0f1226] text-xs text-slate-100">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="border-indigo-500/20 bg-[#14172c] text-slate-100">
                   <SelectItem value="25">25</SelectItem>
                   <SelectItem value="50">50</SelectItem>
                   <SelectItem value="100">100</SelectItem>
