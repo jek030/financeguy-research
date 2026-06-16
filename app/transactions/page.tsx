@@ -9,7 +9,6 @@ import {
   calculateActionSummaries,
 } from '@/utils/transactionCalculations';
 
-// Components
 import JsonUploader from '@/components/ui/(transactions)/JsonUploader';
 import TransactionSummaryCards from '@/components/ui/(transactions)/TransactionSummaryCards';
 import TransactionTable from '@/components/ui/(transactions)/TransactionTable';
@@ -20,16 +19,13 @@ export default function TransactionsPage() {
   const [transactionData, setTransactionData] = useState<TransactionFile | null>(null);
   const [activeTab, setActiveTab] = useState('all');
   const [symbolFilter, setSymbolFilter] = useState<string | null>(null);
-  const [actionFilters, setActionFilters] = useState<string[]>([]);
 
-  // Load from localStorage on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
         const stored = localStorage.getItem('transactions-data');
         if (stored) {
-          const parsed = JSON.parse(stored) as TransactionFile;
-          setTransactionData(parsed);
+          setTransactionData(JSON.parse(stored) as TransactionFile);
         }
       } catch (error) {
         console.warn('Could not load from localStorage:', error);
@@ -37,152 +33,93 @@ export default function TransactionsPage() {
     }
   }, []);
 
-  // Calculate derived data
-  const summary = useMemo(() => {
-    if (!transactionData) return null;
-    return calculateTransactionSummary(transactionData.transactions);
-  }, [transactionData]);
+  const summary = useMemo(
+    () => (transactionData ? calculateTransactionSummary(transactionData.transactions) : null),
+    [transactionData]
+  );
 
-  const symbolSummaries = useMemo(() => {
-    if (!transactionData) return [];
-    return calculateSymbolSummaries(transactionData.transactions);
-  }, [transactionData]);
+  const symbolSummaries = useMemo(
+    () => (transactionData ? calculateSymbolSummaries(transactionData.transactions) : []),
+    [transactionData]
+  );
 
-  const actionSummaries = useMemo(() => {
-    if (!transactionData) return [];
-    return calculateActionSummaries(transactionData.transactions);
-  }, [transactionData]);
-
-  // Filter transactions based on symbol and action selections
-  const filteredTransactions = useMemo(() => {
-    if (!transactionData) return [];
-    let filtered = transactionData.transactions;
-    
-    if (symbolFilter) {
-      filtered = filtered.filter((t) => t.symbol === symbolFilter);
-    }
-    
-    if (actionFilters.length > 0) {
-      filtered = filtered.filter((t) => actionFilters.includes(t.action));
-    }
-    
-    return filtered;
-  }, [transactionData, symbolFilter, actionFilters]);
+  const actionSummaries = useMemo(
+    () => (transactionData ? calculateActionSummaries(transactionData.transactions) : []),
+    [transactionData]
+  );
 
   const handleSymbolClick = (symbol: string) => {
     setSymbolFilter(symbol);
     setActiveTab('all');
   };
 
-  const handleActionClick = (action: string) => {
-    setActionFilters((prev) =>
-      prev.includes(action)
-        ? prev.filter((existing) => existing !== action)
-        : [...prev, action]
-    );
-    setActiveTab('all');
-  };
-
-  const clearFilters = () => {
-    setSymbolFilter(null);
-    setActionFilters([]);
-  };
-
   const handleDataLoaded = (data: TransactionFile) => {
     setTransactionData(data);
-    clearFilters();
+    setSymbolFilter(null);
   };
 
+  const tabTriggerClass =
+    "h-7 rounded-md text-[11px] text-indigo-200/60 data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white";
+
   return (
-    <div className="min-h-screen w-full bg-background p-4 font-mono">
+    <div className="min-h-screen w-full bg-[#0b0e1f] p-4 font-sans text-slate-100">
       <div className="mx-auto max-w-[1800px] space-y-5">
-        <div className="rounded-md border border-border bg-background/95 p-4 shadow-sm">
+        <div className="rounded-xl border border-indigo-500/15 bg-gradient-to-br from-[#1b1f3b] to-[#14172c] p-4 shadow-lg shadow-black/20">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-1">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-                Market Data Terminal
+              <p className="text-[11px] uppercase tracking-[0.2em] text-indigo-300/70">
+                Brokerage Activity
               </p>
-              <h1 className="text-xl font-semibold tracking-tight text-foreground">Transactions</h1>
-              <p className="text-xs text-muted-foreground">
-                High-contrast execution monitor for positions, fills, and symbol-level activity.
+              <h1 className="text-xl font-semibold tracking-tight text-slate-50">Transactions</h1>
+              <p className="text-xs text-slate-400">
+                Upload a brokerage export to review fills, fees, and symbol-level activity.
               </p>
             </div>
             <JsonUploader onDataLoaded={handleDataLoaded} className="w-full max-w-xl" />
           </div>
         </div>
 
-        {/* Content - Only show when data is loaded */}
         {transactionData && summary && (
           <>
-            {/* Summary Cards */}
-            <TransactionSummaryCards
-              summary={summary}
-              selectedActionFilters={actionFilters}
-              onActionTypeClick={handleActionClick}
-            />
+            <TransactionSummaryCards summary={summary} />
 
-            {/* Filter Indicator */}
-            {(symbolFilter || actionFilters.length > 0) && (
-              <div className="flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 p-3">
-                <span className="text-xs text-primary">
-                  Filter:
-                  {symbolFilter && (
-                    <span className="ml-2 font-semibold">{symbolFilter}</span>
-                  )}
-                  {actionFilters.length > 0 && (
-                    <span className="ml-2 font-semibold">{actionFilters.join(', ')}</span>
-                  )}
-                </span>
-                <button
-                  onClick={clearFilters}
-                  className="ml-auto text-[11px] text-primary hover:underline"
-                >
-                  Clear
-                </button>
-              </div>
-            )}
-
-            {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-              <TabsList className="grid h-9 w-full max-w-lg grid-cols-3 rounded-md border border-border bg-muted/30 p-1">
-                <TabsTrigger value="all" className="h-7 rounded-sm text-[11px] data-[state=active]:bg-background">
+              <TabsList className="grid h-9 w-full max-w-lg grid-cols-3 rounded-lg border border-indigo-500/15 bg-[#14172c] p-1">
+                <TabsTrigger value="all" className={tabTriggerClass}>
                   Transactions
                 </TabsTrigger>
-                <TabsTrigger value="symbols" className="h-7 rounded-sm text-[11px] data-[state=active]:bg-background">
+                <TabsTrigger value="symbols" className={tabTriggerClass}>
                   By Symbol
                 </TabsTrigger>
-                <TabsTrigger value="actions" className="h-7 rounded-sm text-[11px] data-[state=active]:bg-background">
+                <TabsTrigger value="actions" className={tabTriggerClass}>
                   By Action
                 </TabsTrigger>
               </TabsList>
 
               <TabsContent value="all" className="space-y-4">
-                <TransactionTable data={filteredTransactions} />
+                <TransactionTable
+                  data={transactionData.transactions}
+                  symbolFilter={symbolFilter}
+                  onSymbolFilterChange={setSymbolFilter}
+                />
               </TabsContent>
 
               <TabsContent value="symbols" className="space-y-4">
-                <SymbolSummaryTable 
-                  data={symbolSummaries} 
-                  onSymbolClick={handleSymbolClick}
-                />
+                <SymbolSummaryTable data={symbolSummaries} onSymbolClick={handleSymbolClick} />
               </TabsContent>
 
               <TabsContent value="actions" className="space-y-4">
-                <ActionSummaryTable 
-                  data={actionSummaries}
-                  onActionClick={handleActionClick}
-                />
+                <ActionSummaryTable data={actionSummaries} />
               </TabsContent>
             </Tabs>
           </>
         )}
 
-        {/* Empty State */}
         {!transactionData && (
-          <div className="flex items-center justify-center rounded-md border border-dashed border-border py-24">
+          <div className="flex items-center justify-center rounded-xl border border-dashed border-indigo-500/20 py-24">
             <div className="space-y-3 text-center">
-              <p className="text-sm text-foreground">No transaction data loaded</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm text-slate-200">No transaction data loaded</p>
+              <p className="text-xs text-slate-400">
                 Upload a JSON file from your brokerage to get started
               </p>
             </div>
