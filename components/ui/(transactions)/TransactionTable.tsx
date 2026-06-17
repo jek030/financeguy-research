@@ -10,6 +10,7 @@ import {
   flexRender,
   SortingState,
   ColumnFiltersState,
+  FilterFn,
 } from '@tanstack/react-table';
 import { Search, ChevronLeft, ChevronRight, ChevronDown, ListFilter } from 'lucide-react';
 import {
@@ -20,7 +21,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from '@/components/ui/DropdownMenu';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -29,7 +30,13 @@ import { BrokerageTransaction } from '@/lib/types/transactions';
 import { cn } from '@/lib/utils';
 import { getTransactionTableColumns } from './TransactionTableColumns';
 import { getUniqueSymbols, getUniqueActions } from '@/utils/transactionCalculations';
+import { matchesTransactionSearch } from '@/utils/transactionFilterQuery';
 import AddToPortfolioModal from './AddToPortfolioModal';
+
+const transactionSearchFilter: FilterFn<BrokerageTransaction> = (row, _columnId, filterValue) => {
+  if (!filterValue) return true;
+  return matchesTransactionSearch(row.original, String(filterValue));
+};
 
 interface TransactionTableProps {
   data: BrokerageTransaction[];
@@ -85,6 +92,7 @@ export default function TransactionTable({
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: transactionSearchFilter,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -120,18 +128,11 @@ export default function TransactionTable({
   return (
     <Card className={cn("w-full rounded-xl border border-indigo-500/15 bg-gradient-to-br from-[#1b1f3b] to-[#14172c] shadow-lg shadow-black/20", className)}>
       <CardHeader className="pb-4">
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold tracking-tight text-slate-100">
-              All Transactions
-            </CardTitle>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex items-center gap-2 flex-1">
               <Search className="h-4 w-4 text-indigo-300/60" />
               <Input
-                placeholder="Search transactions..."
+                placeholder=""
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
                 className="h-9 max-w-sm border-indigo-500/20 bg-[#0f1226] text-xs text-slate-100 placeholder:text-slate-500"
@@ -184,7 +185,7 @@ export default function TransactionTable({
                 value={symbol ?? 'all'}
                 onValueChange={(value) => setSymbol(value === 'all' ? null : value)}
               >
-                <SelectTrigger className="h-9 w-[130px] border-indigo-500/20 bg-[#0f1226] text-xs text-slate-100">
+                <SelectTrigger className="h-9 w-[130px] border-indigo-500/20 bg-[#0f1226] text-xs text-slate-100 hover:!bg-[#1b1f3b] hover:!text-slate-100">
                   <SelectValue placeholder="Symbol" />
                 </SelectTrigger>
                 <SelectContent className="border-indigo-500/20 bg-[#14172c] text-slate-100">
@@ -199,7 +200,7 @@ export default function TransactionTable({
 
               {/* Page size */}
               <Select value={String(pageSize)} onValueChange={(value) => setPageSize(Number(value))}>
-                <SelectTrigger className="h-9 w-[80px] border-indigo-500/20 bg-[#0f1226] text-xs text-slate-100">
+                <SelectTrigger className="h-9 w-[80px] border-indigo-500/20 bg-[#0f1226] text-xs text-slate-100 hover:!bg-[#1b1f3b] hover:!text-slate-100">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="border-indigo-500/20 bg-[#14172c] text-slate-100">
@@ -210,7 +211,6 @@ export default function TransactionTable({
               </Select>
             </div>
           </div>
-        </div>
       </CardHeader>
       
       <CardContent>
@@ -218,7 +218,7 @@ export default function TransactionTable({
           <Table className="min-w-full text-xs">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="border-indigo-500/15 bg-[#0f1226]">
+                <TableRow key={headerGroup.id} className="border-indigo-500/15 bg-[#0f1226] hover:!bg-[#0f1226]">
                   {headerGroup.headers.map((header) => {
                     const isSticky = header.column.columnDef.meta?.sticky;
                     return (
@@ -246,19 +246,20 @@ export default function TransactionTable({
                 table.getRowModel().rows.map((row, index) => (
                   <TableRow
                     key={row.id}
-                    className={cn(
-                      "border-indigo-500/10 hover:bg-indigo-500/10",
-                      index % 2 === 0 ? "bg-transparent" : "bg-white/[0.02]"
-                    )}
+                    className="group border-b-0 hover:bg-transparent"
                   >
                     {row.getVisibleCells().map((cell) => {
                       const isSticky = cell.column.columnDef.meta?.sticky;
+                      const stripeClass =
+                        index % 2 === 0 ? "bg-[#14172c]" : "bg-[#1a1f3b]";
                       return (
                         <TableCell 
                           key={cell.id} 
                           className={cn(
-                            "px-2 py-1.5 text-[11px] whitespace-nowrap",
-                            isSticky && "sticky left-0 z-10 bg-[#14172c]"
+                            "border-b border-indigo-500/10 px-2 py-1.5 text-[11px] whitespace-nowrap",
+                            stripeClass,
+                            "group-hover:bg-indigo-500/10",
+                            isSticky && "sticky left-0 z-10"
                           )}
                         >
                           {flexRender(cell.column.columnDef.cell, cell.getContext())}

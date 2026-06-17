@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { ArrowLeftRight } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { TransactionFile } from '@/lib/types/transactions';
 import {
@@ -58,24 +59,39 @@ export default function TransactionsPage() {
     setSymbolFilter(null);
   };
 
+  const handleDataCleared = () => {
+    setTransactionData(null);
+    setSymbolFilter(null);
+  };
+
   const tabTriggerClass =
     "h-7 rounded-md text-[11px] text-indigo-200/60 data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white";
+
+  const tabTriggerHoverClass =
+    "data-[state=inactive]:hover:bg-[#1b1f3b] data-[state=inactive]:hover:text-slate-100";
 
   return (
     <div className="dark min-h-screen w-full bg-[#0b0e1f] p-4 font-sans text-slate-100">
       <div className="mx-auto max-w-[1800px] space-y-5">
-        <div className="rounded-xl border border-indigo-500/15 bg-gradient-to-br from-[#1b1f3b] to-[#14172c] p-4 shadow-lg shadow-black/20">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-1">
+        <div className="relative overflow-hidden rounded-xl border border-violet-500/20 bg-gradient-to-br from-[#1e2248] via-[#1b1f3b] to-[#14172c] px-6 py-6 shadow-xl shadow-violet-950/20">
+          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-violet-400/60 to-transparent" />
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-2">
               <p className="text-[11px] uppercase tracking-[0.2em] text-indigo-300/70">
                 Brokerage Activity
               </p>
-              <h1 className="text-xl font-semibold tracking-tight text-slate-50">Transactions</h1>
-              <p className="text-xs text-slate-400">
-                Upload a brokerage export to review fills, fees, and symbol-level activity.
-              </p>
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-500/15 text-violet-300">
+                  <ArrowLeftRight className="h-5 w-5" />
+                </div>
+                <h1 className="text-3xl font-bold tracking-tight text-slate-50">Transactions</h1>
+              </div>
             </div>
-            <JsonUploader onDataLoaded={handleDataLoaded} className="w-full max-w-xl" />
+            <JsonUploader
+              onDataLoaded={handleDataLoaded}
+              onDataCleared={handleDataCleared}
+              className="w-full shrink-0 lg:w-auto lg:max-w-sm"
+            />
           </div>
         </div>
 
@@ -88,10 +104,10 @@ export default function TransactionsPage() {
                 <TabsTrigger value="all" className={tabTriggerClass}>
                   Transactions
                 </TabsTrigger>
-                <TabsTrigger value="symbols" className={tabTriggerClass}>
+                <TabsTrigger value="symbols" className={`${tabTriggerClass} ${tabTriggerHoverClass}`}>
                   By Symbol
                 </TabsTrigger>
-                <TabsTrigger value="actions" className={tabTriggerClass}>
+                <TabsTrigger value="actions" className={`${tabTriggerClass} ${tabTriggerHoverClass}`}>
                   By Action
                 </TabsTrigger>
               </TabsList>

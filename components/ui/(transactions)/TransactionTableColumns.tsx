@@ -30,7 +30,7 @@ function SortableHeader({
     <Button
       variant="ghost"
       onClick={() => column.toggleSorting(sorted === 'asc')}
-      className="h-8 px-2 -ml-2 font-semibold hover:bg-muted/50"
+      className="h-8 px-2 -ml-2 font-semibold text-inherit hover:!bg-transparent hover:text-indigo-200"
     >
       {label}
       {sorted === 'asc' ? (
@@ -193,7 +193,7 @@ export function getTransactionTableColumns(options?: ColumnOptions): ColumnDef<B
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-[10px] text-muted-foreground hover:text-primary"
+            className="h-6 px-2 text-[10px] text-muted-foreground hover:!bg-[#1b1f3b] hover:text-primary"
             onClick={() => handler(txn)}
           >
             <FolderInput className="h-3 w-3 mr-1" />

@@ -9,15 +9,22 @@ import {
   flexRender,
   SortingState,
   ColumnDef,
+  FilterFn,
 } from '@tanstack/react-table';
 import { ArrowUpDown, ArrowUp, ArrowDown, Search } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Card, CardContent, CardHeader } from '@/components/ui/Card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { SymbolSummary } from '@/lib/types/transactions';
 import { formatCurrency } from '@/utils/transactionCalculations';
+import { matchesSymbolSummarySearch } from '@/utils/transactionFilterQuery';
 import { cn } from '@/lib/utils';
+
+const symbolSummarySearchFilter: FilterFn<SymbolSummary> = (row, _columnId, filterValue) => {
+  if (!filterValue) return true;
+  return matchesSymbolSummarySearch(row.original, String(filterValue));
+};
 
 interface SymbolSummaryTableProps {
   data: SymbolSummary[];
@@ -39,7 +46,7 @@ function SortableHeader({
     <Button
       variant="ghost"
       onClick={() => column.toggleSorting(sorted === 'asc')}
-      className="h-8 px-2 -ml-2 font-semibold hover:bg-muted/50"
+      className="h-8 px-2 -ml-2 font-semibold text-inherit hover:!bg-transparent hover:text-indigo-200"
     >
       {label}
       {sorted === 'asc' ? (
@@ -80,7 +87,7 @@ function getSymbolColumns(onSymbolClick?: (symbol: string) => void): ColumnDef<S
     },
     {
       accessorKey: 'transactionCount',
-      header: ({ column }) => <SortableHeader column={column} label="# Txns" />,
+      header: ({ column }) => <SortableHeader column={column} label="Transactions" />,
       cell: ({ row }) => (
         <span className="font-mono text-xs">
           {row.original.transactionCount}
@@ -187,6 +194,7 @@ export default function SymbolSummaryTable({ data, onSymbolClick, className }: S
     },
     onSortingChange: setSorting,
     onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: symbolSummarySearchFilter,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -209,15 +217,14 @@ export default function SymbolSummaryTable({ data, onSymbolClick, className }: S
   return (
     <Card className={cn("w-full rounded-xl border border-indigo-500/15 bg-gradient-to-br from-[#1b1f3b] to-[#14172c] shadow-lg shadow-black/20 font-sans", className)}>
       <CardHeader className="pb-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-semibold tracking-tight text-slate-100">By Symbol</CardTitle>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex items-center gap-2 flex-1">
             <Search className="h-4 w-4 text-indigo-300/60" />
             <Input
-              placeholder="Search symbols..."
+              placeholder=""
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              className="h-9 w-[180px] border-indigo-500/20 bg-[#0f1226] text-xs text-slate-100 placeholder:text-slate-500"
+              className="h-9 max-w-sm border-indigo-500/20 bg-[#0f1226] text-xs text-slate-100 placeholder:text-slate-500"
             />
           </div>
         </div>
@@ -228,7 +235,7 @@ export default function SymbolSummaryTable({ data, onSymbolClick, className }: S
           <Table className="min-w-full text-xs">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="border-indigo-500/15 bg-[#0f1226]">
+                <TableRow key={headerGroup.id} className="border-indigo-500/15 bg-[#0f1226] hover:!bg-[#0f1226]">
                   {headerGroup.headers.map((header) => (
                     <TableHead key={header.id} className="whitespace-nowrap px-2 py-2 text-[10px] font-semibold uppercase tracking-wide text-indigo-300/70">
                       {header.isPlaceholder

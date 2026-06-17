@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useCallback, useState } from 'react';
-import { Upload, FileJson, X, CheckCircle } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Upload, X, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
 import { RawTransactionFile, TransactionFile } from '@/lib/types/transactions';
@@ -10,14 +9,29 @@ import { parseTransactionFile } from '@/utils/transactionCalculations';
 
 interface JsonUploaderProps {
   onDataLoaded: (data: TransactionFile) => void;
+  onDataCleared?: () => void;
   className?: string;
 }
 
-export default function JsonUploader({ onDataLoaded, className }: JsonUploaderProps) {
+export default function JsonUploader({ onDataLoaded, onDataCleared, className }: JsonUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const storedData = localStorage.getItem('transactions-data');
+      const storedFilename = localStorage.getItem('transactions-filename');
+      if (storedData) {
+        setIsLoaded(true);
+        setFileName(storedFilename ?? 'transactions.json');
+      }
+    } catch (error) {
+      console.warn('Could not restore uploader state from localStorage:', error);
+    }
+  }, []);
 
   const processFile = useCallback((file: File) => {
     setError(null);
@@ -99,77 +113,62 @@ export default function JsonUploader({ onDataLoaded, className }: JsonUploaderPr
     setError(null);
     localStorage.removeItem('transactions-data');
     localStorage.removeItem('transactions-filename');
-  }, []);
+    onDataCleared?.();
+  }, [onDataCleared]);
 
   return (
-    <Card className={cn("w-full rounded-xl border border-indigo-500/15 bg-[#14172c] font-sans", className)}>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex items-center gap-2 text-sm tracking-wide text-slate-100">
-          <FileJson className="h-4 w-4" />
-          Data Feed
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {isLoaded && fileName ? (
-          <div className="flex items-center justify-between rounded-lg border border-teal-500/40 bg-teal-500/10 p-3">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-4 w-4 text-teal-300" />
-              <div>
-                <p className="text-xs font-medium text-slate-100">{fileName}</p>
-                <p className="text-[11px] text-teal-300">Loaded</p>
-              </div>
-            </div>
-            <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={handleClear}>
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ) : (
+    <div className={cn("w-full font-sans", className)}>
+      {isLoaded && fileName ? (
+        <div className="flex items-center gap-2 rounded-lg border border-teal-500/40 bg-teal-500/10 px-3 py-2">
+          <CheckCircle className="h-3.5 w-3.5 shrink-0 text-teal-300" />
+          <p className="min-w-0 flex-1 truncate text-xs font-medium text-slate-100">{fileName}</p>
+          <Button variant="ghost" size="sm" className="h-6 w-6 shrink-0 p-0" onClick={handleClear}>
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ) : (
+        <div
+          className={cn(
+            "relative flex items-center gap-2.5 rounded-lg border border-dashed px-3 py-2.5 transition-colors",
+            isDragging
+              ? "border-violet-400 bg-violet-500/10"
+              : "border-indigo-500/25 bg-[#14172c]/80 hover:border-indigo-400/50",
+            error && "border-red-500/50 bg-red-500/5"
+          )}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+        >
+          <input
+            type="file"
+            accept=".json"
+            onChange={handleFileSelect}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+          />
           <div
             className={cn(
-              "relative rounded-lg border border-dashed p-5 transition-colors",
-              isDragging 
-                ? "border-violet-400 bg-violet-500/10" 
-                : "border-indigo-500/25 hover:border-indigo-400/50",
-              error && "border-red-500/50 bg-red-500/5"
+              "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-indigo-500/20",
+              isDragging ? "bg-violet-500/20" : "bg-indigo-500/15"
             )}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
           >
-            <input
-              type="file"
-              accept=".json"
-              onChange={handleFileSelect}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            <Upload
+              className={cn(
+                "h-3.5 w-3.5",
+                isDragging ? "text-violet-300" : "text-indigo-300/70"
+              )}
             />
-            <div className="flex flex-col items-center gap-2 text-center">
-              <div className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-sm border border-border",
-                isDragging ? "bg-violet-500/20" : "bg-indigo-500/15"
-              )}>
-                <Upload className={cn(
-                  "h-4 w-4",
-                  isDragging ? "text-violet-300" : "text-indigo-300/70"
-                )} />
-              </div>
-              <div>
-                <p className="text-xs font-medium text-slate-100">
-                  {isDragging ? "Drop JSON file" : "Drag JSON file"}
-                </p>
-                <p className="mt-1 text-[11px] text-slate-400">
-                  or click to browse
-                </p>
-              </div>
-            </div>
           </div>
-        )}
-        
-        {error && (
-          <div className="mt-3 rounded-lg border border-red-500/40 bg-red-500/10 p-2">
-            <p className="text-[11px] text-red-300">{error}</p>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          <p className="text-xs font-medium text-slate-100">
+            {isDragging ? "Drop JSON file" : "Drop JSON or browse"}
+          </p>
+        </div>
+      )}
+
+      {error && (
+        <div className="mt-2 rounded-lg border border-red-500/40 bg-red-500/10 px-2 py-1.5">
+          <p className="text-[11px] text-red-300">{error}</p>
+        </div>
+      )}
+    </div>
   );
 }

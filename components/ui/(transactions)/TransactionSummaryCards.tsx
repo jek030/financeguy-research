@@ -25,8 +25,8 @@ export default function TransactionSummaryCards({ summary, className }: Transact
       label: 'Total Fees',
       value: formatCurrency(summary.totalFees),
       icon: Coins,
-      iconWrap: 'bg-teal-500/15 text-teal-300',
-      valueClass: 'text-2xl font-bold text-teal-300',
+      iconWrap: 'bg-red-500/15 text-red-400',
+      valueClass: 'text-2xl font-bold text-red-400',
     },
     {
       label: 'Date Range',
