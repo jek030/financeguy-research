@@ -48,10 +48,16 @@ Core app stack:
 - Push eligible trade rows into portfolio positions from table actions
 - Supports stock and option trade actions (options use 100x share-equivalent quantity)
 
+### 📂 Portfolio Page
+- Portfolio table supports symbol-prefix filtering and quote-based exact matching (`app/portfolio/page.tsx`)
+- Toggle closed-position visibility and optional open-position symbol summarization
+- Aggregated symbol rows preserve per-position edit/delete flows while showing grouped exposure
+
 ### 🔍 Search Page
 - Comprehensive company analysis
 - Detailed financial metrics and performance data
 - Historical data visualization
+- Header actions support watchlist add flows with user preference-aware defaults (`components/ui/CompanyHeader.tsx`)
 
 ### 💰 Crypto Page
 - Real-time prices of top cryptocurrencies
@@ -171,6 +177,60 @@ Persistence details that matter:
 - Realized gain and remaining shares are recalculated during position updates.
 - Portfolio selection precedence combines default preference + localStorage (`financeguy-selected-portfolio`).
 
+### 4) Portfolio table filter + symbol summary behavior
+
+Codepaths:
+
+- Main page + table controls: `app/portfolio/page.tsx`
+- Fully-closed classification helper: `isPositionFullyClosed` in `app/portfolio/page.tsx`
+
+Behavior:
+
+- Symbol filter is single-input, evaluated live from `symbolFilterInput`.
+- Unquoted filter uses **prefix matching** (`startsWith`) on uppercased symbols.
+  - Example: entering `MU` matches `MU` and `MSTRU`, but not `ALMU`.
+- Quoted filter uses **exact match** when wrapped with matching quotes.
+  - Example: `"MU"` or `'MU'` matches only `MU`.
+- Closed-position visibility is controlled by `Show/Hide Closed`; this is applied after symbol filtering and sorting.
+- `Summarize Symbols` enables only when filtered open positions contain duplicate symbols.
+- Summary rows only group open positions; fully closed rows remain individual entries.
+
+Operational constraints:
+
+- Symbol filters are no longer persisted to localStorage (`financeguy-symbol-filters` is not used).
+- Exact matching requires balanced quote delimiters (opening/closing quote must match).
+- A position is treated as fully closed when any of these hold:
+  - `priceTarget21Day > 0`
+  - `remainingShares <= 0`
+  - `closedDate` exists and either PT share field is populated (`priceTarget2RShares > 0` or `priceTarget5RShares > 0`)
+
+### 5) Search page header watchlist workflow
+
+Codepaths:
+
+- Route + server prefetch: `app/search/[symbol]/page.tsx`
+- Client handoff: `app/search/[symbol]/SearchPageClient.tsx`
+- Header + watchlist control UI: `components/ui/CompanyHeader.tsx`
+- Default watchlist preference source: `hooks/useUserPreferences.ts`
+
+Workflow summary:
+
+1. Search route prefetches quote + outlook server-side and passes them to the client card.
+2. Company header renders price/actions and (if authenticated) the Add-to-Watchlist control.
+3. Watchlist selector loads user watchlists ordered by `order_index`.
+4. Selected watchlist precedence is:
+   - current selected watchlist (if still valid),
+   - `default_watchlist_id` from user preferences,
+   - first available watchlist.
+5. Add action inserts `{ watchlist_id, symbol }` into `watchlist_tickers`.
+6. Duplicate adds are handled gracefully (pre-check + unique constraint error `23505`), and button state becomes `Added`.
+
+Operational constraints:
+
+- If user is not authenticated, the Add-to-Watchlist control is intentionally hidden.
+- If no watchlists exist, header shows a `Create watchlist` link to `/watchlists`.
+- Add button is disabled when loading, no watchlist is selected, or the symbol is already present.
+
 ## 🚀 Getting Started
 
 ```bash
@@ -232,6 +292,24 @@ NEXT_PUBLIC_SIGNUP_ENABLED=true
 
 - `updatePosition` recalculates derived fields (`remaining_shares`, `realized_gain`, `% portfolio`) from current + updated values.
 - Ensure PT share quantities and base quantity are consistent (PT1 + PT2 should not exceed total quantity).
+
+### Portfolio symbol filter does not match expected rows
+
+- Default behavior is prefix-only, not contains.
+  - Example: `A` matches `AAPL`, but `PL` does not match `AAPL`.
+- For exact symbol matching, wrap with balanced quotes (`"AAPL"` or `'AAPL'`).
+- Clear accidental whitespace before/after symbols; filter input is trimmed before evaluation.
+
+### "Summarize Symbols" button is disabled
+
+- Summarization only enables when at least two **open** rows share the same symbol in the current filtered result set.
+- If your duplicate symbols are fully closed (or hidden by current filters), the toggle remains disabled.
+
+### Search page "Add" watchlist action is missing or disabled
+
+- Control is hidden when signed out or while auth/preferences are still resolving.
+- If you see `Create watchlist`, create at least one watchlist first at `/watchlists`.
+- If button already reads `Added`, the selected watchlist already contains that symbol.
 
 ## 📝 License
 This project is for educational purposes.
