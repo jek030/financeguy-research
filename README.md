@@ -48,6 +48,11 @@ Core app stack:
 - Push eligible trade rows into portfolio positions from table actions
 - Supports stock and option trade actions (options use 100x share-equivalent quantity)
 
+### 🧪 Portfolio Backtesting
+- Backtest tab on `/portfolio` for fully closed positions
+- Replays trades against configurable stop methods and trim/trail exit rules
+- Compares simulated R, gain/loss, days held, and outcome against actual closed-trade results
+
 ### 🔍 Search Page
 - Comprehensive company analysis
 - Detailed financial metrics and performance data
@@ -171,6 +176,39 @@ Persistence details that matter:
 - Realized gain and remaining shares are recalculated during position updates.
 - Portfolio selection precedence combines default preference + localStorage (`financeguy-selected-portfolio`).
 
+### 4) Portfolio Backtest tab
+
+Codepaths:
+
+- Tab wiring: `app/portfolio/page.tsx`
+- UI: `components/ui/BacktestTab.tsx`
+- Fetch orchestration: `hooks/useBacktest.ts`
+- Pure simulation logic: `utils/backtestCalculations.ts`
+- Existing FMP proxies used by the hook:
+  - `/api/fmp/dailyprices`
+  - `/api/fmp/technical/moving-average`
+
+Workflow summary:
+
+1. Open `/portfolio` and select the Backtest tab.
+2. Only fully closed positions are passed into the tab (`isPositionFullyClosed`), so partially closed/open positions are excluded.
+3. Configure a stop method:
+   - Low of entry day
+   - ATR-based stop (`entry - ATR multiplier * ATR`)
+   - Straight percent below entry
+   - Trailing moving average stop
+4. Configure trim/trail rules. Defaults are 1/3 at 2R, 1/3 at 5R, and final exit on 21 EMA.
+5. Click "Run Backtest"; each closed trade fetches OHLC and moving-average data, then renders progressively as results complete.
+
+Simulation constraints:
+
+- The hook fetches OHLC from 60 calendar days before entry through 30 calendar days after the actual close date.
+- ATR uses a simple average of true ranges, not Wilder's smoothed ATR.
+- Stop checks run before trim checks on each simulated day; a stop breach does not receive same-day trim credit.
+- Moving-average stop data is fetched only when the trailing MA stop method is selected; trail-exit MA data is always fetched.
+- Trades with missing FMP data or invalid simulated risk return a "No price data available" row and are excluded from summary totals.
+- Actual R uses stored realized gain and initial stop loss; simulated R uses the simulated stop and weighted average simulated exit.
+
 ## 🚀 Getting Started
 
 ```bash
@@ -232,6 +270,13 @@ NEXT_PUBLIC_SIGNUP_ENABLED=true
 
 - `updatePosition` recalculates derived fields (`remaining_shares`, `realized_gain`, `% portfolio`) from current + updated values.
 - Ensure PT share quantities and base quantity are consistent (PT1 + PT2 should not exceed total quantity).
+
+### Backtest rows show "No price data available"
+
+- Confirm `/api/fmp/dailyprices` returns candles for the symbol around the trade dates.
+- Confirm `/api/fmp/technical/moving-average` returns the requested EMA/SMA field and date values.
+- Check whether the simulated stop is above/at entry; invalid 1R risk is treated as no sim data.
+- Delisted symbols, sparse FMP history, and missing moving-average fields can affect individual rows without breaking the whole run.
 
 ## 📝 License
 This project is for educational purposes.
