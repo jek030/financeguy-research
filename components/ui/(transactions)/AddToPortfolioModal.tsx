@@ -217,7 +217,11 @@ export default function AddToPortfolioModal({
   const handleSubmitNewPosition = async () => {
     if (!transaction || !newPositionPreview) return;
 
-    if (Boolean(portfolio?.is_retired)) {
+    if (!selectedPortfolio) {
+      setSubmitError('Select a portfolio.');
+      return;
+    }
+    if (Boolean(selectedPortfolio.is_retired)) {
       setSubmitError('This portfolio is retired.');
       return;
     }
@@ -253,7 +257,11 @@ export default function AddToPortfolioModal({
   const handleSubmitOffset = async () => {
     if (!selectedPosition || !offsetPreview || !transaction) return;
 
-    if (Boolean(portfolio?.is_retired)) {
+    if (!selectedPortfolio) {
+      setSubmitError('Select a portfolio.');
+      return;
+    }
+    if (Boolean(selectedPortfolio.is_retired)) {
       setSubmitError('This portfolio is retired.');
       return;
     }
