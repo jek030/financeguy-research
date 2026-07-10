@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { supabase, SupabasePortfolio, SupabasePortfolioPosition, SupabasePositionExit } from '@/lib/supabase';
+import { supabase, SupabasePortfolio, SupabasePortfolioPosition, SupabasePositionExit, type PortfolioInstrument } from '@/lib/supabase';
 import { useAuth } from '@/lib/context/auth-context';
 import { useUserPreferences } from './useUserPreferences';
 import {
@@ -63,6 +63,7 @@ export interface StockPosition {
   initialStopLoss: number;
   stopLoss: number;
   type: 'Long' | 'Short';
+  instrument: PortfolioInstrument;
   openDate: Date;
   closedDate: Date | null;
   exits: PositionExit[];
@@ -153,6 +154,7 @@ export function usePortfolio() {
       initialStopLoss: data.initial_stop_loss,
       stopLoss: stopLossValue,
       type,
+      instrument: data.instrument === 'option' ? 'option' : 'stock',
       openDate: parseLocalDate(data.open_date),
       closedDate: data.close_date ? parseLocalDate(data.close_date) : null,
       exits,
@@ -181,6 +183,7 @@ export function usePortfolio() {
       portfolio_key: portfolioKey,
       symbol: position.symbol,
       type: position.type,
+      instrument: position.instrument ?? 'stock',
       cost: position.cost,
       quantity: position.quantity,
       net_cost: position.netCost,
@@ -610,6 +613,7 @@ export function usePortfolio() {
       supabaseUpdates.open_risk = calculateOpenRiskPercentage(cost, updates.stopLoss);
     }
     if (updates.type !== undefined) supabaseUpdates.type = updates.type;
+    if (updates.instrument !== undefined) supabaseUpdates.instrument = updates.instrument;
     if (updates.openDate !== undefined) supabaseUpdates.open_date = formatDateForDb(updates.openDate);
     if (updates.closedDate !== undefined) {
       supabaseUpdates.close_date = updates.closedDate ? formatDateForDb(updates.closedDate) : null;

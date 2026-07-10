@@ -37,12 +37,15 @@ export interface SupabasePortfolio {
   is_retired?: boolean;
 }
 
+export type PortfolioInstrument = 'stock' | 'option';
+
 export interface SupabasePortfolioPosition {
   portfolio_key: number | string; // int8 can be returned as string
   trade_key: number | string; // int8 can be returned as string
   created_at: string;
   symbol: string;
   type: string;
+  instrument?: PortfolioInstrument;
   cost: number;
   quantity: number;
   net_cost: number;

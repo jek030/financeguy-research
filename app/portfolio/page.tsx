@@ -204,6 +204,7 @@ const PORTFOLIO_COLUMNS: TableColumnDef[] = [
   { id: 'symbol', label: 'Symbol', isAnchor: true },
   { id: 'price', label: 'Price' },
   { id: 'type', label: 'Type' },
+  { id: 'instrument', label: 'Instrument' },
   { id: 'cost', label: 'Cost' },
   { id: 'quantity', label: 'Qty' },
   { id: 'remainingShares', label: 'Rem. Shares' },
@@ -800,14 +801,14 @@ function PortfolioToolbar({
 }: PortfolioToolbarProps) {
   return (
     <div className="border-b border-border">
-      <div className="flex flex-col gap-2 px-3 py-1.5 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-2 px-3 py-1.5 sm:px-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:flex-nowrap">
           <Select
             value={selectedPortfolioKey !== null ? String(selectedPortfolioKey) : undefined}
             onValueChange={handlePortfolioSelection}
             disabled={isPortfolioLoading || portfolios.length === 0}
           >
-            <SelectTrigger className="h-8 w-full min-w-[180px] text-sm bg-background/50 sm:w-[220px]" aria-label="Select portfolio">
+            <SelectTrigger className="h-8 w-full min-w-[220px] px-3 text-xs bg-background/50 sm:w-[280px]" aria-label="Select portfolio">
               <SelectValue placeholder="Select portfolio" />
             </SelectTrigger>
             <SelectContent>
@@ -976,32 +977,6 @@ interface PortfolioHeroProps {
   portfolioValue: number;
   positions: StockPosition[];
   isLoading: boolean;
-  tradeStatistics: {
-    totalClosed: number;
-    winnerCount: number;
-    loserCount: number;
-    battingAverage: number;
-    avgGainDollar: number;
-    avgGainPercent: number;
-    avgGainEquity: number;
-    avgLossDollar: number;
-    avgLossPercent: number;
-    avgLossEquity: number;
-    maxGainDollar: number;
-    maxGainPercent: number;
-    maxGainEquity: number;
-    maxLossDollar: number;
-    maxLossPercent: number;
-    maxLossEquity: number;
-    avgWinnerR: number;
-    avgLoserR: number;
-    avgR: number;
-    avgEquityPerTrade: number;
-    avgNetCost: number;
-    avgWinnerDays: number;
-    avgLoserDays: number;
-    riskRewardRatio: number;
-  } | null;
 }
 
 function PortfolioHeroSkeleton() {
@@ -1040,9 +1015,14 @@ function PortfolioHero({
   portfolioValue,
   positions,
   isLoading,
-  tradeStatistics,
 }: PortfolioHeroProps) {
   const [selectedDrilldown, setSelectedDrilldown] = useState<PortfolioHeroDrilldownSelection | null>(null);
+  const [excludeOptions, setExcludeOptions] = useState(false);
+
+  const statsPositions = useMemo(
+    () => (excludeOptions ? positions.filter((position) => position.instrument !== 'option') : positions),
+    [excludeOptions, positions],
+  );
 
   // Calculate metrics
   const totalOpenRisk = useMemo(() => calculateTotalOpenRisk(positions), [positions]);
@@ -1119,7 +1099,7 @@ function PortfolioHero({
   const realizedExitRows = useMemo<PortfolioDrilldownRow[]>(
     () => {
       const rows: PortfolioDrilldownRow[] = [];
-      positions.forEach((position) => {
+      statsPositions.forEach((position) => {
         position.exits.forEach((exit) => {
           if (!exit.exitDate || exit.shares <= 0) {
             return;
@@ -1139,8 +1119,94 @@ function PortfolioHero({
       });
       return rows;
     },
-    [positions],
+    [statsPositions],
   );
+
+  const tradeStatistics = useMemo(() => {
+    if (portfolioValue <= 0) return null;
+
+    const trades = statsPositions.flatMap((pos) =>
+      pos.exits
+        .filter((exit) => exit.exitDate !== null && exit.shares > 0)
+        .map((exit) => {
+          const realizedGain = calculateGainLoss(exit.price, pos.cost, exit.shares, pos.type);
+          const netCost = pos.cost * exit.shares;
+          const percentGain = netCost !== 0 ? (realizedGain / netCost) * 100 : 0;
+          const equityContribution = (realizedGain / portfolioValue) * 100;
+          const days = calculateDaysInTrade(pos.openDate, exit.exitDate);
+          const initialRisk = calculateInitialRiskAmount(pos.cost, pos.initialStopLoss, exit.shares);
+          const rMultiple = initialRisk > 0 ? realizedGain / initialRisk : 0;
+          return { realizedGain, percentGain, equityContribution, days, rMultiple, netCost };
+        }),
+    );
+
+    if (trades.length === 0) {
+      return null;
+    }
+
+    const winners = trades.filter((t) => t.realizedGain > 0);
+    const losers = trades.filter((t) => t.realizedGain < 0);
+
+    const battingAverage = (winners.length / trades.length) * 100;
+
+    const avg = (arr: number[]) => (arr.length > 0 ? arr.reduce((s, v) => s + v, 0) / arr.length : 0);
+    const maxVal = (arr: number[]) => (arr.length > 0 ? Math.max(...arr) : 0);
+    const r2 = (v: number) => Math.round(v * 100) / 100;
+
+    const avgGainDollar = r2(avg(winners.map((t) => t.realizedGain)));
+    const avgGainPercent = r2(avg(winners.map((t) => t.percentGain)));
+    const avgGainEquity = r2(avg(winners.map((t) => t.equityContribution)));
+
+    const avgLossDollar = r2(avg(losers.map((t) => Math.abs(t.realizedGain))));
+    const avgLossPercent = r2(avg(losers.map((t) => Math.abs(t.percentGain))));
+    const avgLossEquity = r2(avg(losers.map((t) => Math.abs(t.equityContribution))));
+
+    const maxGainDollar = r2(maxVal(winners.map((t) => t.realizedGain)));
+    const maxGainPercent = r2(maxVal(winners.map((t) => t.percentGain)));
+    const maxGainEquity = r2(maxVal(winners.map((t) => t.equityContribution)));
+
+    const maxLossDollar = r2(maxVal(losers.map((t) => Math.abs(t.realizedGain))));
+    const maxLossPercent = r2(maxVal(losers.map((t) => Math.abs(t.percentGain))));
+    const maxLossEquity = r2(maxVal(losers.map((t) => Math.abs(t.equityContribution))));
+
+    const avgWinnerR = r2(avg(winners.map((t) => t.rMultiple)));
+    const avgLoserR = r2(avg(losers.map((t) => Math.abs(t.rMultiple))));
+
+    const avgWinnerDays = r2(avg(winners.map((t) => t.days)));
+    const avgLoserDays = r2(avg(losers.map((t) => t.days)));
+    const avgR = r2(avg(trades.map((t) => t.rMultiple)));
+    const avgEquityPerTrade = r2(avg(trades.map((t) => t.equityContribution)));
+    const avgNetCost = r2(avg(trades.map((t) => t.netCost)));
+
+    const riskRewardRatio = avgLossDollar > 0 ? r2(avgGainDollar / avgLossDollar) : 0;
+
+    return {
+      totalClosed: trades.length,
+      winnerCount: winners.length,
+      loserCount: losers.length,
+      battingAverage: r2(battingAverage),
+      avgGainDollar,
+      avgGainPercent,
+      avgGainEquity,
+      avgLossDollar,
+      avgLossPercent,
+      avgLossEquity,
+      maxGainDollar,
+      maxGainPercent,
+      maxGainEquity,
+      maxLossDollar,
+      maxLossPercent,
+      maxLossEquity,
+      avgWinnerR,
+      avgLoserR,
+      avgR,
+      avgEquityPerTrade,
+      avgNetCost,
+      avgWinnerDays,
+      avgLoserDays,
+      riskRewardRatio,
+    };
+  }, [statsPositions, portfolioValue]);
 
   const balanceOverTimeData = useMemo(() => {
     const eventsByDate = new Map<number, number>();
@@ -1483,9 +1549,20 @@ function PortfolioHero({
     <div className="rounded-xl bg-card/80 backdrop-blur-sm overflow-hidden">
       {/* Main Hero Content */}
       <div className="p-4 md:p-5">
-          <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
-            {portfolioName}
-          </p>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+              {portfolioName}
+            </p>
+            <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={excludeOptions}
+                onChange={(e) => setExcludeOptions(e.target.checked)}
+                className="h-3.5 w-3.5 rounded border-border accent-primary"
+              />
+              Exclude options
+            </label>
+          </div>
           <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_1fr_1fr] gap-3 mb-3">
             <div className="rounded-xl border border-border/40 bg-background/25 dark:bg-muted/20 p-4 md:p-5">
               <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-2">
@@ -3136,6 +3213,7 @@ export default function Portfolio() {
       initialStopLoss: stopLossValue,
       stopLoss: stopLossValue,
       type: type,
+      instrument: positionInstrument,
       openDate: openDate,
       closedDate: null,
     };
@@ -3422,6 +3500,10 @@ export default function Portfolio() {
           aValue = a.type;
           bValue = b.type;
           break;
+        case 'instrument':
+          aValue = a.instrument;
+          bValue = b.instrument;
+          break;
         case 'cost':
           aValue = a.cost;
           bValue = b.cost;
@@ -3639,93 +3721,6 @@ export default function Portfolio() {
   const totalOpenRiskPercentOfPortfolio =
     portfolioValueNumber > 0 ? (totalOpenRiskDollar / portfolioValueNumber) * 100 : 0;
 
-  // Compute trade statistics from realized exits (per-exit-row basis)
-  const tradeStatistics = useMemo(() => {
-    if (portfolioValueNumber <= 0) return null;
-
-    const trades = positions.flatMap((pos) =>
-      pos.exits
-        .filter((exit) => exit.exitDate !== null && exit.shares > 0)
-        .map((exit) => {
-          const realizedGain = calculateGainLoss(exit.price, pos.cost, exit.shares, pos.type);
-          const netCost = pos.cost * exit.shares;
-          const percentGain = netCost !== 0 ? (realizedGain / netCost) * 100 : 0;
-          const equityContribution = (realizedGain / portfolioValueNumber) * 100;
-          const days = calculateDaysInTrade(pos.openDate, exit.exitDate);
-          const initialRisk = calculateInitialRiskAmount(pos.cost, pos.initialStopLoss, exit.shares);
-          const rMultiple = initialRisk > 0 ? realizedGain / initialRisk : 0;
-          return { realizedGain, percentGain, equityContribution, days, rMultiple, netCost };
-        }),
-    );
-
-    if (trades.length === 0) {
-      return null;
-    }
-
-    const winners = trades.filter(t => t.realizedGain > 0);
-    const losers = trades.filter(t => t.realizedGain < 0);
-
-    const battingAverage = (winners.length / trades.length) * 100;
-
-    const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((s, v) => s + v, 0) / arr.length : 0;
-    const maxVal = (arr: number[]) => arr.length > 0 ? Math.max(...arr) : 0;
-    const r2 = (v: number) => Math.round(v * 100) / 100;
-
-    const avgGainDollar = r2(avg(winners.map(t => t.realizedGain)));
-    const avgGainPercent = r2(avg(winners.map(t => t.percentGain)));
-    const avgGainEquity = r2(avg(winners.map(t => t.equityContribution)));
-
-    const avgLossDollar = r2(avg(losers.map(t => Math.abs(t.realizedGain))));
-    const avgLossPercent = r2(avg(losers.map(t => Math.abs(t.percentGain))));
-    const avgLossEquity = r2(avg(losers.map(t => Math.abs(t.equityContribution))));
-
-    const maxGainDollar = r2(maxVal(winners.map(t => t.realizedGain)));
-    const maxGainPercent = r2(maxVal(winners.map(t => t.percentGain)));
-    const maxGainEquity = r2(maxVal(winners.map(t => t.equityContribution)));
-
-    const maxLossDollar = r2(maxVal(losers.map(t => Math.abs(t.realizedGain))));
-    const maxLossPercent = r2(maxVal(losers.map(t => Math.abs(t.percentGain))));
-    const maxLossEquity = r2(maxVal(losers.map(t => Math.abs(t.equityContribution))));
-
-    const avgWinnerR = r2(avg(winners.map(t => t.rMultiple)));
-    const avgLoserR = r2(avg(losers.map(t => Math.abs(t.rMultiple))));
-
-    const avgWinnerDays = r2(avg(winners.map(t => t.days)));
-    const avgLoserDays = r2(avg(losers.map(t => t.days)));
-    const avgR = r2(avg(trades.map(t => t.rMultiple)));
-    const avgEquityPerTrade = r2(avg(trades.map(t => t.equityContribution)));
-    const avgNetCost = r2(avg(trades.map(t => t.netCost)));
-
-    const riskRewardRatio = avgLossDollar > 0 ? r2(avgGainDollar / avgLossDollar) : 0;
-
-    return {
-      totalClosed: trades.length,
-      winnerCount: winners.length,
-      loserCount: losers.length,
-      battingAverage: r2(battingAverage),
-      avgGainDollar,
-      avgGainPercent,
-      avgGainEquity,
-      avgLossDollar,
-      avgLossPercent,
-      avgLossEquity,
-      maxGainDollar,
-      maxGainPercent,
-      maxGainEquity,
-      maxLossDollar,
-      maxLossPercent,
-      maxLossEquity,
-      avgWinnerR,
-      avgLoserR,
-      avgR,
-      avgEquityPerTrade,
-      avgNetCost,
-      avgWinnerDays,
-      avgLoserDays,
-      riskRewardRatio,
-    };
-  }, [positions, portfolioValueNumber]);
-
   const allocationSummary = useMemo(() => {
     const equityBySymbol = new Map<string, number>();
     for (let i = 0; i < openPositionsForAllocation.length; i += 1) {
@@ -3908,7 +3903,7 @@ export default function Portfolio() {
                     onChange={(e) => setSymbolFilterInput(e.target.value.toUpperCase())}
                     placeholder="Filter Symbol Prefix"
                     aria-label="Filter positions by symbol"
-                    className="h-8 w-full text-xs bg-background/50 sm:w-[220px]"
+                    className="h-8 w-full px-3 text-xs bg-background/50 sm:w-[280px]"
                   />
                   <Button
                     size="sm"
@@ -3996,7 +3991,9 @@ export default function Portfolio() {
 
                           switch (col.id) {
                             case 'symbol': {
-                              const isOption = position.symbol.includes(' ');
+                              const isOption = isSummaryRow
+                                ? row.positions.every((p) => p.instrument === 'option')
+                                : position.instrument === 'option';
                               const symbolNode = isOption ? (
                                 <span>{position.symbol}</span>
                               ) : (
@@ -4042,6 +4039,24 @@ export default function Portfolio() {
                                   </span>
                                 </TableCell>
                               );
+                            case 'instrument': {
+                              const instrumentLabel = isSummaryRow
+                                ? (() => {
+                                    const instruments = new Set(row.positions.map((p) => p.instrument));
+                                    if (instruments.size === 1) {
+                                      return instruments.has('option') ? 'Option' : 'Stock';
+                                    }
+                                    return 'Mixed';
+                                  })()
+                                : position.instrument === 'option'
+                                  ? 'Option'
+                                  : 'Stock';
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  {instrumentLabel}
+                                </TableCell>
+                              );
+                            }
                             case 'cost':
                               return (
                                 <TableCell key={col.id} className={baseCellClass}>
@@ -4494,7 +4509,6 @@ export default function Portfolio() {
               portfolioValue={portfolio?.portfolio_value ?? (portfolioValue ? parseFloat(portfolioValue) : 0)}
               positions={positions}
               isLoading={isPortfolioLoading}
-              tradeStatistics={tradeStatistics}
             />
           </TabsContent>
         </div>

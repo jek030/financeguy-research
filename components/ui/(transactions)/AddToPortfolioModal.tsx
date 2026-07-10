@@ -240,6 +240,7 @@ export default function AddToPortfolioModal({
         initialStopLoss: resolvedStopLoss,
         stopLoss: resolvedStopLoss,
         type: newPositionPreview.type,
+        instrument: isOptionTransaction ? 'option' : 'stock',
         openDate: newPositionPreview.openDate,
         closedDate: null,
       };
