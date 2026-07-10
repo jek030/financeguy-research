@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { CalendarIcon, InfoIcon, X, Loader2, Pencil, PlusCircle, Star, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Archive, ArchiveRestore, CalendarIcon, InfoIcon, X, Loader2, Pencil, PlusCircle, Star, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { Tabs, TabsContent } from '@/components/ui/Tabs';
 import { useSortableTable } from '@/hooks/useSortableTable';
@@ -770,7 +770,7 @@ const readStoredSelectedPortfolioTab = (userId?: string): PortfolioTab => {
 };
 
 interface PortfolioToolbarProps {
-  portfolios: Array<{ portfolio_key: number | string; portfolio_name: string }>;
+  portfolios: Array<{ portfolio_key: number | string; portfolio_name: string; is_retired?: boolean }>;
   selectedPortfolioKey: number | null;
   handlePortfolioSelection: (value: string) => void;
   isPortfolioLoading: boolean;
@@ -779,6 +779,8 @@ interface PortfolioToolbarProps {
   handleOpenCreatePortfolio: () => void;
   handleEditPortfolio: () => void;
   isEditingPortfolio: boolean;
+  isPortfolioRetired: boolean;
+  onRetireClick: () => void;
   activeTab: PortfolioTab;
   handleTabChange: (value: string) => void;
 }
@@ -793,6 +795,8 @@ function PortfolioToolbar({
   handleOpenCreatePortfolio,
   handleEditPortfolio,
   isEditingPortfolio,
+  isPortfolioRetired,
+  onRetireClick,
   activeTab,
   handleTabChange,
 }: PortfolioToolbarProps) {
@@ -810,11 +814,20 @@ function PortfolioToolbar({
             </SelectTrigger>
             <SelectContent>
               {portfolios.map((record) => (
-                <SelectItem key={record.portfolio_key} value={String(record.portfolio_key)}>
+                <SelectItem
+                  key={record.portfolio_key}
+                  value={String(record.portfolio_key)}
+                  className={cn(Boolean(record.is_retired) && 'text-muted-foreground')}
+                >
                   <span className="flex items-center gap-2 min-w-0">
                     <span className="truncate">
                       {record.portfolio_name || `Portfolio ${record.portfolio_key}`}
                     </span>
+                    {Boolean(record.is_retired) && (
+                      <span className="shrink-0 rounded border border-border/60 px-1 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Retired
+                      </span>
+                    )}
                     {defaultPortfolioKey === Number(record.portfolio_key) && (
                       <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
                     )}
@@ -889,6 +902,35 @@ function PortfolioToolbar({
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+          )}
+          {!isEditingPortfolio && selectedPortfolioKey !== null && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={onRetireClick}
+                    disabled={isPortfolioLoading}
+                    className="h-8 w-8 p-0"
+                  >
+                    {isPortfolioRetired ? (
+                      <ArchiveRestore className="h-4 w-4" />
+                    ) : (
+                      <Archive className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isPortfolioRetired ? 'Un-retire Portfolio' : 'Retire Portfolio'}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {isPortfolioRetired && (
+            <span className="shrink-0 rounded border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+              Retired
+            </span>
           )}
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
@@ -3030,7 +3072,10 @@ export default function Portfolio() {
     addExit,
     updateExit,
     deleteExit,
+    setPortfolioRetired,
   } = usePortfolio();
+
+  const isPortfolioRetired = Boolean(portfolio?.is_retired);
 
   const [portfolioValue, setPortfolioValue] = useState<string>('');
   const [portfolioName, setPortfolioName] = useState<string>('My Portfolio');
@@ -3090,6 +3135,8 @@ export default function Portfolio() {
   const [newPortfolioName, setNewPortfolioName] = useState<string>('');
   const [newPortfolioValue, setNewPortfolioValue] = useState<string>('');
   const [isCreatingPortfolio, setIsCreatingPortfolio] = useState(false);
+  const [showRetireDialog, setShowRetireDialog] = useState(false);
+  const [isTogglingRetired, setIsTogglingRetired] = useState(false);
   const [activeTab, setActiveTab] = useState<PortfolioTab>(() => readStoredSelectedPortfolioTab(user?.id));
 
   // Initialize portfolio value and name from database
@@ -3237,6 +3284,24 @@ export default function Portfolio() {
     setIsEditingPortfolio(false);
     setTempPortfolioName(portfolioName);
     setTempPortfolioValue(portfolioValue);
+  };
+
+  const handleRetireClick = () => {
+    setShowRetireDialog(true);
+  };
+
+  const handleConfirmRetireToggle = async () => {
+    setIsTogglingRetired(true);
+    try {
+      await setPortfolioRetired(!isPortfolioRetired);
+      setShowRetireDialog(false);
+      setShowEditModal(false);
+      setEditingPosition(null);
+    } catch (error) {
+      console.error('Failed to toggle portfolio retired status:', error);
+    } finally {
+      setIsTogglingRetired(false);
+    }
   };
 
   // Create Portfolio handlers
@@ -3873,6 +3938,8 @@ export default function Portfolio() {
             handleOpenCreatePortfolio={handleOpenCreatePortfolio}
             handleEditPortfolio={handleEditPortfolio}
             isEditingPortfolio={isEditingPortfolio}
+            isPortfolioRetired={isPortfolioRetired}
+            onRetireClick={handleRetireClick}
             activeTab={activeTab}
             handleTabChange={handleTabChange}
           />
@@ -4605,6 +4672,39 @@ export default function Portfolio() {
                 </>
               ) : (
                 'Create Portfolio'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Retire / Un-retire Portfolio Dialog */}
+      <Dialog open={showRetireDialog} onOpenChange={setShowRetireDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isPortfolioRetired ? 'Un-retire Portfolio' : 'Retire Portfolio'}</DialogTitle>
+            <DialogDescription>
+              {isPortfolioRetired
+                ? 'Un-retire this portfolio and allow adding and editing positions again?'
+                : 'Retire this portfolio? You won’t be able to add, edit, or delete positions until you un-retire it. Stats and history remain available.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowRetireDialog(false)}
+              disabled={isTogglingRetired}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmRetireToggle} disabled={isTogglingRetired}>
+              {isTogglingRetired ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {isPortfolioRetired ? 'Un-retiring...' : 'Retiring...'}
+                </>
+              ) : (
+                isPortfolioRetired ? 'Un-retire Portfolio' : 'Retire Portfolio'
               )}
             </Button>
           </DialogFooter>
