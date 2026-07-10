@@ -13,6 +13,18 @@ const normalizePortfolioKey = (key: number | string): number => {
   return typeof key === 'string' ? parseInt(key, 10) : key;
 };
 
+const isPortfolioRetired = (p: { is_retired?: boolean } | null | undefined): boolean =>
+  Boolean(p?.is_retired);
+
+const assertPortfolioMutable = (p: { is_retired?: boolean } | null | undefined) => {
+  if (!p) {
+    throw new Error('No portfolio found');
+  }
+  if (isPortfolioRetired(p)) {
+    throw new Error('This portfolio is retired. Un-retire it to make changes.');
+  }
+};
+
 const formatDateForDb = (date: Date): string => {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -245,6 +257,7 @@ export function usePortfolio() {
       let normalizedPortfolios = (portfolioData ?? []).map((item) => ({
         ...item,
         portfolio_key: normalizePortfolioKey(item.portfolio_key),
+        is_retired: Boolean(item.is_retired),
       }));
 
       if (normalizedPortfolios.length === 0) {
@@ -271,6 +284,7 @@ export function usePortfolio() {
         const normalizedCreated = {
           ...createdPortfolio,
           portfolio_key: normalizePortfolioKey(createdPortfolio.portfolio_key),
+          is_retired: Boolean(createdPortfolio.is_retired),
         };
 
         normalizedPortfolios = [normalizedCreated];
@@ -367,9 +381,7 @@ export function usePortfolio() {
 
   // Add a new position
   const addPosition = async (position: Omit<StockPosition, 'id' | 'exits' | 'realizedGain'>) => {
-    if (!portfolio) {
-      throw new Error('No portfolio found');
-    }
+    assertPortfolioMutable(portfolio);
 
     try {
       const supabasePosition = mapPositionToSupabase(position, portfolio.portfolio_key);
@@ -458,6 +470,8 @@ export function usePortfolio() {
     positionId: string,
     exit: Omit<PositionExit, 'id' | 'positionId' | 'sortOrder'>
   ): Promise<void> => {
+    assertPortfolioMutable(portfolio);
+
     const position = positions.find((p) => p.id === positionId);
     if (!position) throw new Error('Position not found');
 
@@ -501,6 +515,8 @@ export function usePortfolio() {
     exitId: string,
     updates: Partial<Omit<PositionExit, 'id' | 'positionId'>>
   ): Promise<void> => {
+    assertPortfolioMutable(portfolio);
+
     const position = positions.find((p) => p.exits.some((e) => e.id === exitId));
     if (!position) throw new Error('Exit not found');
 
@@ -544,6 +560,8 @@ export function usePortfolio() {
   };
 
   const deleteExit = async (exitId: string): Promise<void> => {
+    assertPortfolioMutable(portfolio);
+
     const position = positions.find((p) => p.exits.some((e) => e.id === exitId));
     if (!position) throw new Error('Exit not found');
 
@@ -568,9 +586,7 @@ export function usePortfolio() {
       Omit<StockPosition, 'id' | 'exits' | 'realizedGain' | 'currentPrice'>
     >
   ) => {
-    if (!portfolio) {
-      throw new Error('No portfolio found');
-    }
+    assertPortfolioMutable(portfolio);
 
     const currentPosition = positions.find((p) => p.id === positionId);
     if (!currentPosition) {
@@ -637,9 +653,7 @@ export function usePortfolio() {
 
   // Delete a position
   const deletePosition = async (positionId: string) => {
-    if (!portfolio) {
-      throw new Error('No portfolio found');
-    }
+    assertPortfolioMutable(portfolio);
 
     try {
       const [portfolioKeyStr, tradeKeyStr] = positionId.split('-');
@@ -794,6 +808,7 @@ export function usePortfolio() {
       const normalizedCreated = {
         ...createdPortfolio,
         portfolio_key: normalizePortfolioKey(createdPortfolio.portfolio_key),
+        is_retired: Boolean(createdPortfolio.is_retired),
       };
 
       console.log('Portfolio created successfully:', normalizedCreated);
@@ -809,6 +824,32 @@ export function usePortfolio() {
       console.error('Error creating portfolio:', err);
       throw err;
     }
+  };
+
+  const setPortfolioRetired = async (retired: boolean) => {
+    if (!portfolio) {
+      throw new Error('No portfolio found');
+    }
+
+    const currentKey = normalizePortfolioKey(portfolio.portfolio_key);
+
+    const { error } = await supabase
+      .from('tblPortfolio')
+      .update({ is_retired: retired })
+      .eq('portfolio_key', portfolio.portfolio_key);
+
+    if (error) {
+      throw error;
+    }
+
+    setPortfolio((prev) => (prev ? { ...prev, is_retired: retired } : null));
+    setPortfolios((prev) =>
+      prev.map((item) =>
+        normalizePortfolioKey(item.portfolio_key) === currentKey
+          ? { ...item, is_retired: retired }
+          : item,
+      ),
+    );
   };
 
   // Delete a portfolio
@@ -890,6 +931,7 @@ export function usePortfolio() {
     updatePortfolioValue,
     updatePortfolio,
     createPortfolio,
+    setPortfolioRetired,
     setPortfolioAsDefault,
     addExit,
     updateExit,
