@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 import { Skeleton } from '@/components/ui/Skeleton';
-import { CalendarIcon, InfoIcon, X, Loader2, Pencil, PlusCircle, Star, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Archive, ArchiveRestore, CalendarIcon, InfoIcon, X, Loader2, Pencil, PlusCircle, Star, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import { SortableHeader } from '@/components/ui/SortableHeader';
 import { Tabs, TabsContent } from '@/components/ui/Tabs';
 import { useSortableTable } from '@/hooks/useSortableTable';
@@ -770,7 +770,7 @@ const readStoredSelectedPortfolioTab = (userId?: string): PortfolioTab => {
 };
 
 interface PortfolioToolbarProps {
-  portfolios: Array<{ portfolio_key: number | string; portfolio_name: string }>;
+  portfolios: Array<{ portfolio_key: number | string; portfolio_name: string; is_retired?: boolean }>;
   selectedPortfolioKey: number | null;
   handlePortfolioSelection: (value: string) => void;
   isPortfolioLoading: boolean;
@@ -778,6 +778,8 @@ interface PortfolioToolbarProps {
   setPortfolioAsDefault: (key: number | null) => void;
   handleOpenCreatePortfolio: () => void;
   handleEditPortfolio: () => void;
+  isPortfolioRetired: boolean;
+  onRetireClick: () => void;
   activeTab: PortfolioTab;
   handleTabChange: (value: string) => void;
 }
@@ -791,6 +793,8 @@ function PortfolioToolbar({
   setPortfolioAsDefault,
   handleOpenCreatePortfolio,
   handleEditPortfolio,
+  isPortfolioRetired,
+  onRetireClick,
   activeTab,
   handleTabChange,
 }: PortfolioToolbarProps) {
@@ -808,11 +812,20 @@ function PortfolioToolbar({
             </SelectTrigger>
             <SelectContent>
               {portfolios.map((record) => (
-                <SelectItem key={record.portfolio_key} value={String(record.portfolio_key)}>
+                <SelectItem
+                  key={record.portfolio_key}
+                  value={String(record.portfolio_key)}
+                  className={cn(Boolean(record.is_retired) && 'text-muted-foreground')}
+                >
                   <span className="flex items-center gap-2 min-w-0">
                     <span className="truncate">
                       {record.portfolio_name || `Portfolio ${record.portfolio_key}`}
                     </span>
+                    {Boolean(record.is_retired) && (
+                      <span className="shrink-0 rounded border border-border/60 px-1 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Retired
+                      </span>
+                    )}
                     {defaultPortfolioKey === Number(record.portfolio_key) && (
                       <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
                     )}
@@ -886,6 +899,35 @@ function PortfolioToolbar({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+          {selectedPortfolioKey !== null && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={onRetireClick}
+                    disabled={isPortfolioLoading}
+                    className="h-8 w-8 p-0"
+                  >
+                    {isPortfolioRetired ? (
+                      <ArchiveRestore className="h-4 w-4" />
+                    ) : (
+                      <Archive className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>{isPortfolioRetired ? 'Un-retire Portfolio' : 'Retire Portfolio'}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {isPortfolioRetired && (
+            <span className="shrink-0 rounded border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+              Retired
+            </span>
+          )}
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
           <div className="inline-flex items-center rounded-md border border-border/60 bg-background/50 p-0.5">
@@ -2964,7 +3006,10 @@ export default function Portfolio() {
     addExit,
     updateExit,
     deleteExit,
+    setPortfolioRetired,
   } = usePortfolio();
+
+  const isPortfolioRetired = Boolean(portfolio?.is_retired);
 
   const [portfolioValue, setPortfolioValue] = useState<string>('');
   const [portfolioName, setPortfolioName] = useState<string>('My Portfolio');
@@ -3025,6 +3070,8 @@ export default function Portfolio() {
   const [newPortfolioName, setNewPortfolioName] = useState<string>('');
   const [newPortfolioValue, setNewPortfolioValue] = useState<string>('');
   const [isCreatingPortfolio, setIsCreatingPortfolio] = useState(false);
+  const [showRetireDialog, setShowRetireDialog] = useState(false);
+  const [isTogglingRetired, setIsTogglingRetired] = useState(false);
   const [activeTab, setActiveTab] = useState<PortfolioTab>(() => readStoredSelectedPortfolioTab(user?.id));
 
   // Initialize portfolio value and name from database
@@ -3053,6 +3100,10 @@ export default function Portfolio() {
   }, [activeTab, user?.id]);
 
   const handleAddStock = async () => {
+    if (isPortfolioRetired) {
+      return;
+    }
+
     if (!symbol.trim() || !cost.trim() || !quantity.trim()) {
       return;
     }
@@ -3107,6 +3158,7 @@ export default function Portfolio() {
   };
 
   const isAddButtonDisabled =
+    isPortfolioRetired ||
     isPortfolioLoading ||
     !portfolio ||
     !symbol.trim() ||
@@ -3128,12 +3180,16 @@ export default function Portfolio() {
   };
 
   const handleDeletePosition = (position: StockPosition) => {
+    if (isPortfolioRetired) {
+      return;
+    }
+
     setPositionToDelete(position);
     setShowDeleteDialog(true);
   };
 
   const confirmDeletePosition = async () => {
-    if (!positionToDelete) return;
+    if (isPortfolioRetired || !positionToDelete) return;
     
     try {
       await deletePosition(positionToDelete.id);
@@ -3180,6 +3236,24 @@ export default function Portfolio() {
     setShowEditPortfolioDialog(false);
     setTempPortfolioName(portfolioName);
     setTempPortfolioValue(portfolioValue);
+  };
+
+  const handleRetireClick = () => {
+    setShowRetireDialog(true);
+  };
+
+  const handleConfirmRetireToggle = async () => {
+    setIsTogglingRetired(true);
+    try {
+      await setPortfolioRetired(!isPortfolioRetired);
+      setShowRetireDialog(false);
+      setShowEditModal(false);
+      setEditingPosition(null);
+    } catch (error) {
+      console.error('Failed to toggle portfolio retired status:', error);
+    } finally {
+      setIsTogglingRetired(false);
+    }
   };
 
   // Create Portfolio handlers
@@ -3815,6 +3889,8 @@ export default function Portfolio() {
             setPortfolioAsDefault={setPortfolioAsDefault}
             handleOpenCreatePortfolio={handleOpenCreatePortfolio}
             handleEditPortfolio={handleEditPortfolio}
+            isPortfolioRetired={isPortfolioRetired}
+            onRetireClick={handleRetireClick}
             activeTab={activeTab}
             handleTabChange={handleTabChange}
           />
@@ -4096,7 +4172,7 @@ export default function Portfolio() {
                                 <TableCell key={col.id}>
                                   {isSummaryRow ? (
                                     <span className="text-muted-foreground text-xs">-</span>
-                                  ) : (
+                                  ) : !isPortfolioRetired ? (
                                     <div className="flex gap-1">
                                       <Button size="sm" variant="ghost" onClick={() => handleEditPosition(position)} className="h-7 w-7 p-0">
                                         <Pencil className="h-3.5 w-3.5" />
@@ -4110,6 +4186,8 @@ export default function Portfolio() {
                                         <X className="h-3.5 w-3.5" />
                                       </Button>
                                     </div>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">-</span>
                                   )}
                                 </TableCell>
                               );
@@ -4170,6 +4248,9 @@ export default function Portfolio() {
                   <div className="text-sm font-semibold">
                     + Add Position
                   </div>
+                  {isPortfolioRetired && (
+                    <p className="pt-1 text-xs text-muted-foreground">This portfolio is retired.</p>
+                  )}
                   <div className="space-y-2.5 pt-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
@@ -4179,13 +4260,14 @@ export default function Portfolio() {
                           placeholder={positionInstrument === 'option' ? 'AAPL240621C00180000' : 'AAPL'}
                           value={symbol}
                           onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                          disabled={isPortfolioRetired}
                           className="h-8 text-sm font-mono bg-background/50"
                         />
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-muted-foreground">Type</label>
-                        <Select value={type} onValueChange={(value: 'Long' | 'Short') => setType(value)}>
-                          <SelectTrigger className="h-8 text-sm bg-background/50">
+                        <Select value={type} onValueChange={(value: 'Long' | 'Short') => setType(value)} disabled={isPortfolioRetired}>
+                          <SelectTrigger className="h-8 text-sm bg-background/50" disabled={isPortfolioRetired}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -4197,8 +4279,8 @@ export default function Portfolio() {
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs font-medium text-muted-foreground">Instrument</label>
-                      <Select value={positionInstrument} onValueChange={(value: 'stock' | 'option') => setPositionInstrument(value)}>
-                        <SelectTrigger className="h-8 text-sm bg-background/50">
+                      <Select value={positionInstrument} onValueChange={(value: 'stock' | 'option') => setPositionInstrument(value)} disabled={isPortfolioRetired}>
+                        <SelectTrigger className="h-8 text-sm bg-background/50" disabled={isPortfolioRetired}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -4221,6 +4303,7 @@ export default function Portfolio() {
                             const formattedValue = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : value;
                             setCost(formattedValue);
                           }}
+                          disabled={isPortfolioRetired}
                           className="h-8 text-sm font-mono bg-background/50"
                         />
                       </div>
@@ -4239,6 +4322,7 @@ export default function Portfolio() {
                             const formattedValue = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : value;
                             setQuantity(formattedValue);
                           }}
+                          disabled={isPortfolioRetired}
                           className="h-8 text-sm font-mono bg-background/50"
                         />
                       </div>
@@ -4258,6 +4342,7 @@ export default function Portfolio() {
                           const formattedValue = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : value;
                           setInitialStopLoss(formattedValue);
                         }}
+                        disabled={isPortfolioRetired}
                         className="h-8 text-sm font-mono bg-background/50"
                       />
                     </div>
@@ -4267,6 +4352,7 @@ export default function Portfolio() {
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"
+                            disabled={isPortfolioRetired}
                             className={cn(
                               "w-full h-8 justify-start text-left text-sm font-normal bg-background/50",
                               !openDate && "text-muted-foreground"
@@ -4636,6 +4722,39 @@ export default function Portfolio() {
                 </>
               ) : (
                 'Create Portfolio'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Retire / Un-retire Portfolio Dialog */}
+      <Dialog open={showRetireDialog} onOpenChange={setShowRetireDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{isPortfolioRetired ? 'Un-retire Portfolio' : 'Retire Portfolio'}</DialogTitle>
+            <DialogDescription>
+              {isPortfolioRetired
+                ? 'Un-retire this portfolio and allow adding and editing positions again?'
+                : 'Retire this portfolio? You won’t be able to add, edit, or delete positions until you un-retire it. Stats and history remain available.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowRetireDialog(false)}
+              disabled={isTogglingRetired}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmRetireToggle} disabled={isTogglingRetired}>
+              {isTogglingRetired ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {isPortfolioRetired ? 'Un-retiring...' : 'Retiring...'}
+                </>
+              ) : (
+                isPortfolioRetired ? 'Un-retire Portfolio' : 'Retire Portfolio'
               )}
             </Button>
           </DialogFooter>

@@ -93,10 +93,20 @@ export default function AddToPortfolioModal({
 
   // Sync the local dropdown to whichever portfolio the hook already loaded
   useEffect(() => {
-    if (portfolio && !selectedPortfolioKey) {
+    if (portfolio && !selectedPortfolioKey && !Boolean(portfolio.is_retired)) {
       setSelectedPortfolioKey(String(portfolio.portfolio_key));
     }
   }, [portfolio, selectedPortfolioKey]);
+
+  useEffect(() => {
+    if (!open) return;
+    const selected = portfolios.find(
+      (p) => String(p.portfolio_key) === selectedPortfolioKey,
+    );
+    if (selected && Boolean(selected.is_retired)) {
+      setSelectedPortfolioKey('');
+    }
+  }, [open, portfolios, selectedPortfolioKey]);
 
   // Reset form state when transaction changes or dialog opens
   useEffect(() => {
@@ -197,8 +207,24 @@ export default function AddToPortfolioModal({
     };
   }, [isOptionTransaction, transaction, selectedPosition, offsetQty, remainingShares]);
 
+  const selectedPortfolio = useMemo(() => {
+    return portfolios.find((p) => String(p.portfolio_key) === selectedPortfolioKey) ?? null;
+  }, [portfolios, selectedPortfolioKey]);
+
+  const hasActivePortfolioSelected =
+    !!selectedPortfolio && !Boolean(selectedPortfolio.is_retired);
+
   const handleSubmitNewPosition = async () => {
     if (!transaction || !newPositionPreview) return;
+
+    if (!selectedPortfolio) {
+      setSubmitError('Select a portfolio.');
+      return;
+    }
+    if (Boolean(selectedPortfolio.is_retired)) {
+      setSubmitError('This portfolio is retired.');
+      return;
+    }
 
     setIsSubmitting(true);
     setSubmitError(null);
@@ -231,6 +257,15 @@ export default function AddToPortfolioModal({
   const handleSubmitOffset = async () => {
     if (!selectedPosition || !offsetPreview || !transaction) return;
 
+    if (!selectedPortfolio) {
+      setSubmitError('Select a portfolio.');
+      return;
+    }
+    if (Boolean(selectedPortfolio.is_retired)) {
+      setSubmitError('This portfolio is retired.');
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError(null);
 
@@ -252,12 +287,12 @@ export default function AddToPortfolioModal({
   };
 
   const canSubmitNew =
-    !!selectedPortfolioKey &&
+    hasActivePortfolioSelected &&
     !!newPositionPreview &&
     (isOptionTransaction || parseFloat(stopLoss) > 0);
 
   const canSubmitOffset =
-    !!selectedPortfolioKey &&
+    hasActivePortfolioSelected &&
     !!selectedPositionId &&
     !!offsetPreview &&
     offsetPreview.soldQty > 0;
@@ -311,11 +346,26 @@ export default function AddToPortfolioModal({
                   <SelectValue placeholder="Select portfolio" />
                 </SelectTrigger>
                 <SelectContent>
-                  {portfolios.map((p) => (
-                    <SelectItem key={String(p.portfolio_key)} value={String(p.portfolio_key)}>
-                      {p.portfolio_name}
-                    </SelectItem>
-                  ))}
+                  {portfolios.map((p) => {
+                    const retired = Boolean(p.is_retired);
+                    return (
+                      <SelectItem
+                        key={String(p.portfolio_key)}
+                        value={String(p.portfolio_key)}
+                        disabled={retired}
+                        className={cn(retired && 'text-muted-foreground')}
+                      >
+                        <span className="flex items-center gap-2 min-w-0">
+                          <span className="truncate">{p.portfolio_name}</span>
+                          {retired && (
+                            <span className="shrink-0 rounded border border-border/60 px-1 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                              Retired
+                            </span>
+                          )}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
