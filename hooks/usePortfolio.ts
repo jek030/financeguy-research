@@ -16,14 +16,16 @@ const normalizePortfolioKey = (key: number | string): number => {
 const isPortfolioRetired = (p: { is_retired?: boolean } | null | undefined): boolean =>
   Boolean(p?.is_retired);
 
-const assertPortfolioMutable = (p: { is_retired?: boolean } | null | undefined) => {
+function assertPortfolioMutable<T extends { is_retired?: boolean }>(
+  p: T | null | undefined
+): asserts p is T {
   if (!p) {
     throw new Error('No portfolio found');
   }
   if (isPortfolioRetired(p)) {
     throw new Error('This portfolio is retired. Un-retire it to make changes.');
   }
-};
+}
 
 const formatDateForDb = (date: Date): string => {
   const year = date.getFullYear();
