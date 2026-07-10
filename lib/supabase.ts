@@ -34,6 +34,7 @@ export interface SupabasePortfolio {
   user_email: string;
   portfolio_value: number;
   portfolio_name: string;
+  is_retired?: boolean;
 }
 
 export interface SupabasePortfolioPosition {
