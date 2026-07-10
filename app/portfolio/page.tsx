@@ -3165,6 +3165,10 @@ export default function Portfolio() {
   }, [activeTab, user?.id]);
 
   const handleAddStock = async () => {
+    if (isPortfolioRetired) {
+      return;
+    }
+
     if (!symbol.trim() || !cost.trim() || !quantity.trim()) {
       return;
     }
@@ -3219,6 +3223,7 @@ export default function Portfolio() {
   };
 
   const isAddButtonDisabled =
+    isPortfolioRetired ||
     isPortfolioLoading ||
     !portfolio ||
     !symbol.trim() ||
@@ -3240,12 +3245,16 @@ export default function Portfolio() {
   };
 
   const handleDeletePosition = (position: StockPosition) => {
+    if (isPortfolioRetired) {
+      return;
+    }
+
     setPositionToDelete(position);
     setShowDeleteDialog(true);
   };
 
   const confirmDeletePosition = async () => {
-    if (!positionToDelete) return;
+    if (isPortfolioRetired || !positionToDelete) return;
     
     try {
       await deletePosition(positionToDelete.id);
@@ -4221,7 +4230,7 @@ export default function Portfolio() {
                                 <TableCell key={col.id}>
                                   {isSummaryRow ? (
                                     <span className="text-muted-foreground text-xs">-</span>
-                                  ) : (
+                                  ) : !isPortfolioRetired ? (
                                     <div className="flex gap-1">
                                       <Button size="sm" variant="ghost" onClick={() => handleEditPosition(position)} className="h-7 w-7 p-0">
                                         <Pencil className="h-3.5 w-3.5" />
@@ -4235,6 +4244,8 @@ export default function Portfolio() {
                                         <X className="h-3.5 w-3.5" />
                                       </Button>
                                     </div>
+                                  ) : (
+                                    <span className="text-muted-foreground text-xs">-</span>
                                   )}
                                 </TableCell>
                               );
@@ -4295,6 +4306,9 @@ export default function Portfolio() {
                   <div className="text-sm font-semibold">
                     + Add Position
                   </div>
+                  {isPortfolioRetired && (
+                    <p className="pt-1 text-xs text-muted-foreground">This portfolio is retired.</p>
+                  )}
                   <div className="space-y-2.5 pt-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1">
@@ -4304,13 +4318,14 @@ export default function Portfolio() {
                           placeholder={positionInstrument === 'option' ? 'AAPL240621C00180000' : 'AAPL'}
                           value={symbol}
                           onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                          disabled={isPortfolioRetired}
                           className="h-8 text-sm font-mono bg-background/50"
                         />
                       </div>
                       <div className="space-y-1">
                         <label className="text-xs font-medium text-muted-foreground">Type</label>
-                        <Select value={type} onValueChange={(value: 'Long' | 'Short') => setType(value)}>
-                          <SelectTrigger className="h-8 text-sm bg-background/50">
+                        <Select value={type} onValueChange={(value: 'Long' | 'Short') => setType(value)} disabled={isPortfolioRetired}>
+                          <SelectTrigger className="h-8 text-sm bg-background/50" disabled={isPortfolioRetired}>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -4322,8 +4337,8 @@ export default function Portfolio() {
                     </div>
                     <div className="space-y-1">
                       <label className="text-xs font-medium text-muted-foreground">Instrument</label>
-                      <Select value={positionInstrument} onValueChange={(value: 'stock' | 'option') => setPositionInstrument(value)}>
-                        <SelectTrigger className="h-8 text-sm bg-background/50">
+                      <Select value={positionInstrument} onValueChange={(value: 'stock' | 'option') => setPositionInstrument(value)} disabled={isPortfolioRetired}>
+                        <SelectTrigger className="h-8 text-sm bg-background/50" disabled={isPortfolioRetired}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -4346,6 +4361,7 @@ export default function Portfolio() {
                             const formattedValue = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : value;
                             setCost(formattedValue);
                           }}
+                          disabled={isPortfolioRetired}
                           className="h-8 text-sm font-mono bg-background/50"
                         />
                       </div>
@@ -4364,6 +4380,7 @@ export default function Portfolio() {
                             const formattedValue = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : value;
                             setQuantity(formattedValue);
                           }}
+                          disabled={isPortfolioRetired}
                           className="h-8 text-sm font-mono bg-background/50"
                         />
                       </div>
@@ -4383,6 +4400,7 @@ export default function Portfolio() {
                           const formattedValue = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : value;
                           setInitialStopLoss(formattedValue);
                         }}
+                        disabled={isPortfolioRetired}
                         className="h-8 text-sm font-mono bg-background/50"
                       />
                     </div>
@@ -4392,6 +4410,7 @@ export default function Portfolio() {
                         <PopoverTrigger asChild>
                           <Button
                             variant="outline"
+                            disabled={isPortfolioRetired}
                             className={cn(
                               "w-full h-8 justify-start text-left text-sm font-normal bg-background/50",
                               !openDate && "text-muted-foreground"
