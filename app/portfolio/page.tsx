@@ -778,7 +778,6 @@ interface PortfolioToolbarProps {
   setPortfolioAsDefault: (key: number | null) => void;
   handleOpenCreatePortfolio: () => void;
   handleEditPortfolio: () => void;
-  isEditingPortfolio: boolean;
   activeTab: PortfolioTab;
   handleTabChange: (value: string) => void;
 }
@@ -792,7 +791,6 @@ function PortfolioToolbar({
   setPortfolioAsDefault,
   handleOpenCreatePortfolio,
   handleEditPortfolio,
-  isEditingPortfolio,
   activeTab,
   handleTabChange,
 }: PortfolioToolbarProps) {
@@ -876,20 +874,18 @@ function PortfolioToolbar({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          {!isEditingPortfolio && (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button size="sm" variant="ghost" onClick={handleEditPortfolio} className="h-8 w-8 p-0">
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Edit Portfolio</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" variant="ghost" onClick={handleEditPortfolio} className="h-8 w-8 p-0">
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Edit Portfolio</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto lg:justify-end">
           <div className="inline-flex items-center rounded-md border border-border/60 bg-background/50 p-0.5">
@@ -938,13 +934,6 @@ interface PortfolioHeroProps {
   portfolioValue: number;
   positions: StockPosition[];
   isLoading: boolean;
-  isEditingPortfolio: boolean;
-  tempPortfolioName: string;
-  tempPortfolioValue: string;
-  setTempPortfolioName: (value: string) => void;
-  setTempPortfolioValue: (value: string) => void;
-  handleSavePortfolio: () => void;
-  handleCancelPortfolioEdit: () => void;
   tradeStatistics: {
     totalClosed: number;
     winnerCount: number;
@@ -1009,13 +998,6 @@ function PortfolioHero({
   portfolioValue,
   positions,
   isLoading,
-  isEditingPortfolio,
-  tempPortfolioName,
-  tempPortfolioValue,
-  setTempPortfolioName,
-  setTempPortfolioValue,
-  handleSavePortfolio,
-  handleCancelPortfolioEdit,
   tradeStatistics,
 }: PortfolioHeroProps) {
   const [selectedDrilldown, setSelectedDrilldown] = useState<PortfolioHeroDrilldownSelection | null>(null);
@@ -1458,54 +1440,7 @@ function PortfolioHero({
   return (
     <div className="rounded-xl bg-card/80 backdrop-blur-sm overflow-hidden">
       {/* Main Hero Content */}
-      {isEditingPortfolio ? (
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Portfolio Name
-              </label>
-              <Input
-                type="text"
-                placeholder="My Portfolio"
-                value={tempPortfolioName}
-                onChange={(e) => setTempPortfolioName(e.target.value)}
-                className="text-lg font-semibold bg-background/50"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Portfolio Value
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-lg text-muted-foreground pointer-events-none font-mono">
-                  $
-                </span>
-                <Input
-                  type="text"
-                  inputMode="decimal"
-                  placeholder="0.00"
-                  value={tempPortfolioValue}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9.]/g, '');
-                    const parts = value.split('.');
-                    const formattedValue = parts.length > 2 
-                      ? parts[0] + '.' + parts.slice(1).join('')
-                      : value;
-                    setTempPortfolioValue(formattedValue);
-                  }}
-                  className="text-lg font-semibold pl-7 font-mono bg-background/50"
-                />
-              </div>
-            </div>
-            <div className="md:col-span-2 flex gap-2">
-              <Button onClick={handleSavePortfolio} size="sm">Save</Button>
-              <Button variant="outline" onClick={handleCancelPortfolioEdit} size="sm">Cancel</Button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="p-4 md:p-5">
+      <div className="p-4 md:p-5">
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mb-3">
             {portfolioName}
           </p>
@@ -2066,7 +2001,6 @@ function PortfolioHero({
           </div>
 
         </div>
-      )}
 
       <PortfolioDrilldownModal
         open={Boolean(selectedDrilldown)}
@@ -3043,9 +2977,10 @@ export default function Portfolio() {
   const [openDate, setOpenDate] = useState<Date>(new Date());
   
   // Portfolio overview edit state
-  const [isEditingPortfolio, setIsEditingPortfolio] = useState(false);
+  const [showEditPortfolioDialog, setShowEditPortfolioDialog] = useState(false);
   const [tempPortfolioName, setTempPortfolioName] = useState<string>('');
   const [tempPortfolioValue, setTempPortfolioValue] = useState<string>('');
+  const [isSavingPortfolio, setIsSavingPortfolio] = useState(false);
   
   // Sorting + column settings state
   const {
@@ -3216,25 +3151,33 @@ export default function Portfolio() {
   };
 
   const handleEditPortfolio = () => {
-    setIsEditingPortfolio(true);
     setTempPortfolioName(portfolioName);
     setTempPortfolioValue(portfolioValue);
+    setShowEditPortfolioDialog(true);
   };
 
   const handleSavePortfolio = async () => {
-    setPortfolioName(tempPortfolioName);
-    setPortfolioValue(tempPortfolioValue);
+    const name = tempPortfolioName.trim();
+    if (!name) {
+      return;
+    }
+
     const numValue = parseFloat(tempPortfolioValue) || 0;
+    setIsSavingPortfolio(true);
     try {
-      await updatePortfolio(tempPortfolioName, numValue);
-      setIsEditingPortfolio(false);
+      await updatePortfolio(name, numValue);
+      setPortfolioName(name);
+      setPortfolioValue(tempPortfolioValue);
+      setShowEditPortfolioDialog(false);
     } catch (error) {
       console.error('Failed to update portfolio:', error);
+    } finally {
+      setIsSavingPortfolio(false);
     }
   };
 
   const handleCancelPortfolioEdit = () => {
-    setIsEditingPortfolio(false);
+    setShowEditPortfolioDialog(false);
     setTempPortfolioName(portfolioName);
     setTempPortfolioValue(portfolioValue);
   };
@@ -3846,7 +3789,7 @@ export default function Portfolio() {
       return;
     }
 
-    setIsEditingPortfolio(false);
+    setShowEditPortfolioDialog(false);
     setEditingPosition(null);
     setPositionToDelete(null);
     setShowDeleteDialog(false);
@@ -3872,7 +3815,6 @@ export default function Portfolio() {
             setPortfolioAsDefault={setPortfolioAsDefault}
             handleOpenCreatePortfolio={handleOpenCreatePortfolio}
             handleEditPortfolio={handleEditPortfolio}
-            isEditingPortfolio={isEditingPortfolio}
             activeTab={activeTab}
             handleTabChange={handleTabChange}
           />
@@ -4466,13 +4408,6 @@ export default function Portfolio() {
               portfolioValue={portfolio?.portfolio_value ?? (portfolioValue ? parseFloat(portfolioValue) : 0)}
               positions={positions}
               isLoading={isPortfolioLoading}
-              isEditingPortfolio={isEditingPortfolio}
-              tempPortfolioName={tempPortfolioName}
-              tempPortfolioValue={tempPortfolioValue}
-              setTempPortfolioName={setTempPortfolioName}
-              setTempPortfolioValue={setTempPortfolioValue}
-              handleSavePortfolio={handleSavePortfolio}
-              handleCancelPortfolioEdit={handleCancelPortfolioEdit}
               tradeStatistics={tradeStatistics}
             />
           </TabsContent>
@@ -4516,6 +4451,102 @@ export default function Portfolio() {
             </Button>
             <Button variant="destructive" onClick={confirmDeletePosition}>
               Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Portfolio Dialog */}
+      <Dialog
+        open={showEditPortfolioDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            handleCancelPortfolioEdit();
+            return;
+          }
+          setShowEditPortfolioDialog(true);
+        }}
+      >
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Portfolio</DialogTitle>
+            <DialogDescription>
+              Update the portfolio name and starting balance.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="edit-portfolio-name" className="block text-sm font-medium text-foreground">
+                Portfolio Name <span className="text-red-500">*</span>
+              </label>
+              <Input
+                id="edit-portfolio-name"
+                type="text"
+                placeholder="My Portfolio"
+                value={tempPortfolioName}
+                onChange={(e) => setTempPortfolioName(e.target.value)}
+                disabled={isSavingPortfolio}
+                className="text-base"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="edit-portfolio-value" className="block text-sm font-medium text-foreground">
+                Starting Balance
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-base text-muted-foreground pointer-events-none">
+                  $
+                </span>
+                <Input
+                  id="edit-portfolio-value"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={tempPortfolioValue}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9.]/g, '');
+                    const parts = value.split('.');
+                    const formattedValue = parts.length > 2
+                      ? parts[0] + '.' + parts.slice(1).join('')
+                      : value;
+                    setTempPortfolioValue(formattedValue);
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value.replace(/[^0-9.]/g, '');
+                    const numValue = parseFloat(value);
+                    if (!isNaN(numValue)) {
+                      setTempPortfolioValue(numValue.toFixed(2));
+                    } else if (value === '') {
+                      setTempPortfolioValue('');
+                    }
+                  }}
+                  disabled={isSavingPortfolio}
+                  className="pl-7 text-base"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCancelPortfolioEdit}
+              disabled={isSavingPortfolio}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSavePortfolio}
+              disabled={isSavingPortfolio || !tempPortfolioName.trim()}
+            >
+              {isSavingPortfolio ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Changes'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
