@@ -1183,7 +1183,52 @@ const CalendarPage: React.FC = () => {
           </div>
 
           {viewMode === 'table' ? (
-            renderTableView()
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="table-from" className="text-xs text-muted-foreground uppercase tracking-wide">
+                    From
+                  </label>
+                  <Input
+                    id="table-from"
+                    type="date"
+                    value={draftFrom}
+                    onChange={(e) => {
+                      setDraftFrom(e.target.value);
+                      setTableRangeError(null);
+                    }}
+                    className="h-8 w-[160px] rounded-none bg-background/50 border-border/60 text-sm"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="table-to" className="text-xs text-muted-foreground uppercase tracking-wide">
+                    To
+                  </label>
+                  <Input
+                    id="table-to"
+                    type="date"
+                    value={draftTo}
+                    onChange={(e) => {
+                      setDraftTo(e.target.value);
+                      setTableRangeError(null);
+                    }}
+                    className="h-8 w-[160px] rounded-none bg-background/50 border-border/60 text-sm"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleApplyTableRange}
+                  className="h-8 rounded-none px-3 text-xs"
+                >
+                  Apply
+                </Button>
+              </div>
+              {tableRangeError ? (
+                <p className="text-xs text-rose-600 dark:text-rose-400">{tableRangeError}</p>
+              ) : null}
+              {renderTableView()}
+            </div>
           ) : (
             <>
               {/* Stats Cards */}
