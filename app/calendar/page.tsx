@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, Clock, TrendingUp, TrendingDown, ExternalLink, Sparkles, BarChart3, Target, ArrowUpRight, ArrowDownRight, Search, Sun, Moon, List } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/Dialog";
@@ -58,6 +58,28 @@ function parseStoredFilters(raw: string | null): Set<SelectableFilterMode> | nul
   } catch {
     return null;
   }
+}
+
+function readStoredViewMode(): ViewMode {
+  try {
+    const stored = localStorage.getItem(CALENDAR_VIEW_STORAGE_KEY);
+    if (stored === 'monthly' || stored === 'weekly' || stored === 'table') {
+      return stored;
+    }
+  } catch {
+    // Ignore localStorage read errors
+  }
+  return 'monthly';
+}
+
+function readStoredFilters(): Set<SelectableFilterMode> {
+  try {
+    const stored = parseStoredFilters(localStorage.getItem(CALENDAR_FILTERS_STORAGE_KEY));
+    if (stored) return stored;
+  } catch {
+    // Ignore localStorage read errors
+  }
+  return new Set(DEFAULT_ACTIVE_FILTERS);
 }
 
 const EARNINGS_TABLE_COLUMNS: { id: EarningsTableSortColumn; label: string; align?: 'left' | 'right' }[] = [
@@ -163,6 +185,8 @@ const CalendarPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('previous');
   const [activeFilters, setActiveFilters] = useState<Set<SelectableFilterMode>>(new Set(DEFAULT_ACTIVE_FILTERS));
   const [viewMode, setViewMode] = useState<ViewMode>('monthly');
+  // Gate preference-dependent UI/fetch until localStorage is applied (avoids default→cached flash)
+  const [prefsHydrated, setPrefsHydrated] = useState(false);
   const initialTableRange = getMonthRange(new Date());
   const [draftFrom, setDraftFrom] = useState(initialTableRange.from);
   const [draftTo, setDraftTo] = useState(initialTableRange.to);
@@ -172,20 +196,11 @@ const CalendarPage: React.FC = () => {
   const [tableSortColumn, setTableSortColumn] = useState<EarningsTableSortColumn | null>(null);
   const [tableSortDirection, setTableSortDirection] = useState<SortDirection>('asc');
 
-  // Restore view mode + filters from localStorage (defaults apply on first visit / new browser)
-  useEffect(() => {
-    try {
-      const storedView = localStorage.getItem(CALENDAR_VIEW_STORAGE_KEY);
-      if (storedView === 'monthly' || storedView === 'weekly' || storedView === 'table') {
-        setViewMode(storedView);
-      }
-      const storedFilters = parseStoredFilters(localStorage.getItem(CALENDAR_FILTERS_STORAGE_KEY));
-      if (storedFilters) {
-        setActiveFilters(storedFilters);
-      }
-    } catch {
-      // Ignore localStorage read errors
-    }
+  // Apply cached prefs before paint so SSR/default HTML is never shown as the selected state
+  useLayoutEffect(() => {
+    setViewMode(readStoredViewMode());
+    setActiveFilters(readStoredFilters());
+    setPrefsHydrated(true);
   }, []);
 
   // ── Auth ────────────────────────────────────────────────────────────────────
@@ -273,7 +288,12 @@ const CalendarPage: React.FC = () => {
   }, [viewMode, currentDate, weekInfo, appliedFrom, appliedTo]);
 
   // ── Fetch earnings ─────────────────────────────────────────────────────────
-  const { data: earnings } = useEarningsConfirmed(dateRange.from, dateRange.to, selectedSymbols);
+  // Hold the query until prefs hydrate so we don't fetch defaults then refetch cached filters
+  const { data: earnings } = useEarningsConfirmed(
+    prefsHydrated ? dateRange.from : '',
+    prefsHydrated ? dateRange.to : '',
+    selectedSymbols,
+  );
   const normalizedSearchQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
 
   // ─── Formatting helpers ────────────────────────────────────────────────────
@@ -1230,15 +1250,31 @@ const CalendarPage: React.FC = () => {
                 </h1>
               </div>
 
-              {/* View Mode Toggle */}
-              {renderViewModeToggle()}
+              {/* View Mode Toggle — invisible until prefs hydrate (keeps layout, no wrong selection flash) */}
+              <div
+                className={cn(!prefsHydrated && 'invisible pointer-events-none')}
+                aria-hidden={!prefsHydrated}
+              >
+                {renderViewModeToggle()}
+              </div>
             </div>
 
             {/* Filter Buttons */}
-            {renderFilterButtons()}
+            <div
+              className={cn(!prefsHydrated && 'invisible pointer-events-none')}
+              aria-hidden={!prefsHydrated}
+            >
+              {renderFilterButtons()}
+            </div>
           </div>
 
-          {viewMode === 'table' ? (
+          {!prefsHydrated ? (
+            <div
+              className="min-h-[420px] border border-border/40 bg-muted/10"
+              aria-busy="true"
+              aria-label="Loading calendar preferences"
+            />
+          ) : viewMode === 'table' ? (
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
                 <div className="flex flex-col gap-1">
