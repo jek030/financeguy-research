@@ -95,10 +95,14 @@ function getMonthRange(date: Date): { from: string; to: string } {
 }
 
 function getWeekRange(date: Date): { from: string; to: string; days: Date[] } {
-  // Get Monday of the week containing `date`
+  // Get Monday of the trading week for `date`.
+  // Sat/Sun roll forward to the upcoming Mon–Fri (not the week that just ended).
   const d = new Date(date);
   const dayOfWeek = d.getDay(); // 0=Sun, 1=Mon, ...
-  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  const diffToMonday =
+    dayOfWeek === 0 ? 1 : // Sunday → next Monday
+    dayOfWeek === 6 ? 2 : // Saturday → next Monday
+    1 - dayOfWeek;        // Mon–Fri → Monday of this week
   const monday = new Date(d);
   monday.setDate(d.getDate() + diffToMonday);
   monday.setHours(0, 0, 0, 0);
