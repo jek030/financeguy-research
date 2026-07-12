@@ -143,6 +143,12 @@ const CalendarPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('previous');
   const [activeFilters, setActiveFilters] = useState<Set<SelectableFilterMode>>(new Set(DEFAULT_ACTIVE_FILTERS));
   const [viewMode, setViewMode] = useState<ViewMode>('monthly');
+  const initialTableRange = getMonthRange(new Date());
+  const [draftFrom, setDraftFrom] = useState(initialTableRange.from);
+  const [draftTo, setDraftTo] = useState(initialTableRange.to);
+  const [appliedFrom, setAppliedFrom] = useState(initialTableRange.from);
+  const [appliedTo, setAppliedTo] = useState(initialTableRange.to);
+  const [tableRangeError, setTableRangeError] = useState<string | null>(null);
   const [tableSortColumn, setTableSortColumn] = useState<EarningsTableSortColumn | null>(null);
   const [tableSortDirection, setTableSortDirection] = useState<SortDirection>('asc');
 
@@ -221,11 +227,14 @@ const CalendarPage: React.FC = () => {
   const weekInfo = useMemo(() => getWeekRange(currentDate), [currentDate]);
 
   const dateRange = useMemo(() => {
+    if (viewMode === 'table') {
+      return { from: appliedFrom, to: appliedTo };
+    }
     if (viewMode === 'weekly') {
       return { from: weekInfo.from, to: weekInfo.to };
     }
     return getMonthRange(currentDate);
-  }, [viewMode, currentDate, weekInfo]);
+  }, [viewMode, currentDate, weekInfo, appliedFrom, appliedTo]);
 
   // ── Fetch earnings ─────────────────────────────────────────────────────────
   const { data: earnings } = useEarningsConfirmed(dateRange.from, dateRange.to, selectedSymbols);
