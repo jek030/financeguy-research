@@ -583,6 +583,19 @@ const CalendarPage: React.FC = () => {
     }
   };
 
+  const handleApplyTableRange = () => {
+    if (!draftFrom || !draftTo) {
+      return;
+    }
+    if (draftFrom > draftTo) {
+      setTableRangeError('From date must be on or before To date');
+      return;
+    }
+    setTableRangeError(null);
+    setAppliedFrom(draftFrom);
+    setAppliedTo(draftTo);
+  };
+
   const handleGoToTicker = (symbol: string | undefined) => {
     if (!symbol) return;
     router.push(`/search/${symbol}`);
