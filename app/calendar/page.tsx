@@ -39,6 +39,26 @@ type EarningsTableSortColumn =
   | 'revenueBeatPercentage';
 
 const DEFAULT_ACTIVE_FILTERS: SelectableFilterMode[] = ['sp500', 'dow', 'nasdaq100', 'watchlist'];
+const SELECTABLE_FILTERS: SelectableFilterMode[] = ['sp500', 'dow', 'nasdaq100', 'watchlist'];
+const CALENDAR_VIEW_STORAGE_KEY = 'financeguy-calendar-view-mode';
+const CALENDAR_FILTERS_STORAGE_KEY = 'financeguy-calendar-active-filters';
+
+function parseStoredFilters(raw: string | null): Set<SelectableFilterMode> | null {
+  if (raw === null) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    const filters = parsed.filter(
+      (value): value is SelectableFilterMode =>
+        typeof value === 'string' && SELECTABLE_FILTERS.includes(value as SelectableFilterMode)
+    );
+    // Empty array is intentional ("All"). Reject only if every entry was invalid.
+    if (parsed.length > 0 && filters.length === 0) return null;
+    return new Set(filters);
+  } catch {
+    return null;
+  }
+}
 
 const EARNINGS_TABLE_COLUMNS: { id: EarningsTableSortColumn; label: string; align?: 'left' | 'right' }[] = [
   { id: 'symbol', label: 'Symbol' },
@@ -151,6 +171,22 @@ const CalendarPage: React.FC = () => {
   const [tableRangeError, setTableRangeError] = useState<string | null>(null);
   const [tableSortColumn, setTableSortColumn] = useState<EarningsTableSortColumn | null>(null);
   const [tableSortDirection, setTableSortDirection] = useState<SortDirection>('asc');
+
+  // Restore view mode + filters from localStorage (defaults apply on first visit / new browser)
+  useEffect(() => {
+    try {
+      const storedView = localStorage.getItem(CALENDAR_VIEW_STORAGE_KEY);
+      if (storedView === 'monthly' || storedView === 'weekly' || storedView === 'table') {
+        setViewMode(storedView);
+      }
+      const storedFilters = parseStoredFilters(localStorage.getItem(CALENDAR_FILTERS_STORAGE_KEY));
+      if (storedFilters) {
+        setActiveFilters(storedFilters);
+      }
+    } catch {
+      // Ignore localStorage read errors
+    }
+  }, []);
 
   // ── Auth ────────────────────────────────────────────────────────────────────
   const { user } = useAuth();
@@ -1081,9 +1117,28 @@ const CalendarPage: React.FC = () => {
       ? formatWeekLabel(weekInfo.days)
       : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()} Table`;
 
+  const persistFilters = (filters: Set<SelectableFilterMode>) => {
+    try {
+      localStorage.setItem(CALENDAR_FILTERS_STORAGE_KEY, JSON.stringify(Array.from(filters)));
+    } catch {
+      // Ignore localStorage write errors
+    }
+  };
+
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem(CALENDAR_VIEW_STORAGE_KEY, mode);
+    } catch {
+      // Ignore localStorage write errors
+    }
+  };
+
   const toggleFilter = (filter: FilterMode) => {
     if (filter === 'all') {
-      setActiveFilters(new Set());
+      const next = new Set<SelectableFilterMode>();
+      setActiveFilters(next);
+      persistFilters(next);
       return;
     }
 
@@ -1094,6 +1149,7 @@ const CalendarPage: React.FC = () => {
       } else {
         next.add(filter);
       }
+      persistFilters(next);
       return next;
     });
   };
@@ -1124,7 +1180,7 @@ const CalendarPage: React.FC = () => {
     <div className="flex items-center border border-border/60 bg-background/60 w-fit">
       <button
         type="button"
-        onClick={() => setViewMode('monthly')}
+        onClick={() => handleViewModeChange('monthly')}
         className={cn(
           "inline-flex h-8 w-[86px] items-center justify-center gap-1.5 border-r border-border/50 px-2 text-xs font-medium transition-colors",
           viewMode === 'monthly' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
@@ -1135,7 +1191,7 @@ const CalendarPage: React.FC = () => {
       </button>
       <button
         type="button"
-        onClick={() => setViewMode('weekly')}
+        onClick={() => handleViewModeChange('weekly')}
         className={cn(
           "inline-flex h-8 w-[78px] items-center justify-center gap-1.5 border-r border-border/50 px-2 text-xs font-medium transition-colors",
           viewMode === 'weekly' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
@@ -1146,7 +1202,7 @@ const CalendarPage: React.FC = () => {
       </button>
       <button
         type="button"
-        onClick={() => setViewMode('table')}
+        onClick={() => handleViewModeChange('table')}
         className={cn(
           "inline-flex h-8 w-[70px] items-center justify-center gap-1.5 px-2 text-xs font-medium transition-colors",
           viewMode === 'table' ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
