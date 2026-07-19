@@ -322,7 +322,7 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({
       <div>
         {/* Header Skeleton */}
         <div className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-neutral-50 via-white to-neutral-100 dark:from-neutral-950 dark:via-neutral-950 dark:to-neutral-900" />
+          <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-muted/40" />
           <div className="relative px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
             <div className="flex flex-col gap-4">
               <div className="flex gap-4 justify-between">
@@ -344,10 +344,10 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({
         </div>
         
         {/* Metrics Cards Skeleton */}
-        <div className="px-4 sm:px-6 lg:px-8 py-6 bg-neutral-50 dark:bg-neutral-950">
+        <div className="px-4 sm:px-6 lg:px-8 py-6 bg-background">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="rounded-xl border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-5">
+              <div key={i} className="rounded-xl border border-border bg-card p-5">
                 <Skeleton className="h-5 w-32 mb-4" />
                 <div className="grid grid-cols-2 gap-4">
                   {[...Array(4)].map((_, j) => (
@@ -761,36 +761,36 @@ export const CompanyOutlookCard: React.FC<CompanyOutlookProps> = ({
       {/* Main Content Tabs */}
       <Tabs defaultValue="earnings" className={`space-y-4 ${pageStyles.sectionPadding} py-6 ${pageStyles.gradientBg}`}>
         <div className="relative">
-          <TabsList className="flex w-full overflow-x-auto scrollbar-hide pb-1 md:grid md:grid-cols-8 lg:grid-cols-8 bg-neutral-100 dark:bg-neutral-800 rounded-lg p-1">
-            <TabsTrigger value="earnings" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-sm">
+          <TabsList className="flex w-full overflow-x-auto scrollbar-hide pb-1 md:grid md:grid-cols-8 lg:grid-cols-8 bg-muted rounded-lg p-1">
+            <TabsTrigger value="earnings" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <Calculator className="w-4 h-4" /> 
               <span className="hidden md:inline">Earnings</span>
             </TabsTrigger>
-            <TabsTrigger value="news" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-sm">
+            <TabsTrigger value="news" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <Building2 className="w-4 h-4" /> 
               <span className="hidden md:inline">News</span>
             </TabsTrigger>
-            <TabsTrigger value="financials" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-sm">
+            <TabsTrigger value="financials" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <DollarSign className="w-4 h-4" /> 
               <span className="hidden md:inline">Financials</span>
             </TabsTrigger>
-            <TabsTrigger value="keymetrics" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-sm">
+            <TabsTrigger value="keymetrics" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <PieChart className="w-4 h-4" /> 
               <span className="hidden md:inline">Key Metrics</span>
             </TabsTrigger>
-            <TabsTrigger value="insiders" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-sm">
+            <TabsTrigger value="insiders" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <Users className="w-4 h-4" /> 
               <span className="hidden md:inline">Insider Activity</span>
             </TabsTrigger>
-            <TabsTrigger value="executives" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-sm">
+            <TabsTrigger value="executives" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <Users className="w-4 h-4" /> 
               <span className="hidden md:inline">Executives</span>
             </TabsTrigger>
-            <TabsTrigger value="dividends" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-sm">
+            <TabsTrigger value="dividends" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <DollarSign className="w-4 h-4" /> 
               <span className="hidden md:inline">Dividends</span>
             </TabsTrigger>
-            <TabsTrigger value="pricehistory" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-white dark:data-[state=active]:bg-neutral-900 data-[state=active]:shadow-sm">
+            <TabsTrigger value="pricehistory" className="flex items-center gap-1.5 whitespace-nowrap rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
               <Activity className="w-4 h-4" /> 
               <span className="hidden md:inline">Price History</span>
             </TabsTrigger>

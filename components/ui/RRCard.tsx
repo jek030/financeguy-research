@@ -161,7 +161,7 @@ const RRCard: React.FC<RRCalculationCardProps> = ({ price, dayLow }) => {
               )}
             </div>
           </div>
-          <Button type="submit" className="w-full bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 hover:bg-neutral-800 dark:hover:bg-neutral-100 font-medium">
+          <Button type="submit" className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-medium">
             Calculate
           </Button>
         </form>

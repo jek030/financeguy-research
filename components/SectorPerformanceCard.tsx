@@ -47,20 +47,20 @@ export function SectorPerformanceCard({
   data
 }: SectorPerformanceCardProps) {
   return (
-    <Card className="w-full rounded border border-neutral-300/80 bg-white/95 shadow-sm dark:border-neutral-700 dark:bg-neutral-950/70">
-      <CardHeader className="space-y-1.5 border-b border-neutral-200 p-2.5 pb-2 dark:border-neutral-800">
+    <Card className="w-full rounded border border-border bg-card/95 shadow-sm">
+      <CardHeader className="space-y-1.5 border-b border-border p-2.5 pb-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate rounded bg-neutral-200 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
+          <span className="truncate rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
             {tag}
           </span>
           {startDate && endDate && (
-            <span className="truncate font-mono text-[10px] text-neutral-500 dark:text-neutral-400">
+            <span className="truncate font-mono text-[10px] text-muted-foreground">
               {formatDate(startDate)} → {formatDate(endDate)}
             </span>
           )}
         </div>
         <div className="flex items-end justify-between gap-2">
-          <h3 className="font-mono text-sm font-semibold leading-none tracking-tight text-neutral-900 dark:text-neutral-50">
+          <h3 className="font-mono text-sm font-semibold leading-none tracking-tight text-foreground">
             {title}
           </h3>
           {averagePerformance !== null && (

@@ -1,7 +1,9 @@
 import type { Config } from "tailwindcss";
 
 export default {
-    darkMode: ["class"],
+    // `dark:` variants apply to both dark and night themes; night is a
+    // dark-family theme with its own CSS variable palette (see globals.css).
+    darkMode: ["variant", ["&:where(.dark, .dark *)", "&:where(.night, .night *)"]],
     content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -51,6 +53,10 @@ export default {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
   			ring: 'hsl(var(--ring))',
+  			field: 'hsl(var(--field))',
+  			stripe: 'hsl(var(--stripe))',
+  			elevated: 'hsl(var(--elevated))',
+  			hero: 'hsl(var(--hero))',
   			chart: {
   				'1': 'hsl(var(--chart-1))',
   				'2': 'hsl(var(--chart-2))',
@@ -70,10 +76,18 @@ export default {
   		},
   		fontFamily: {
   			sans: [
-  				'var(--font-geist-sans)'
+  				'var(--font-geist-sans)',
+  				'system-ui',
+  				'Arial',
+  				'sans-serif'
   			],
   			mono: [
-  				'var(--font-geist-mono)'
+  				'var(--font-geist-mono)',
+  				'ui-monospace',
+  				'SFMono-Regular',
+  				'Menlo',
+  				'Consolas',
+  				'monospace'
   			]
   		}
   	}

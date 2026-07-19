@@ -18,22 +18,22 @@ export default function TransactionSummaryCards({ summary, className }: Transact
       label: 'Total Transactions',
       value: summary.totalTransactions.toLocaleString(),
       icon: Receipt,
-      iconWrap: 'bg-indigo-500/15 text-indigo-300',
-      valueClass: 'text-2xl font-bold text-slate-50',
+      iconWrap: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-300',
+      valueClass: 'text-2xl font-bold text-foreground',
     },
     {
       label: 'Total Fees',
       value: formatCurrency(summary.totalFees),
       icon: Coins,
-      iconWrap: 'bg-red-500/15 text-red-400',
-      valueClass: 'text-2xl font-bold text-red-400',
+      iconWrap: 'bg-red-500/15 text-red-600 dark:text-red-400',
+      valueClass: 'text-2xl font-bold text-red-600 dark:text-red-400',
     },
     {
       label: 'Date Range',
       value: `${summary.dateRange.from} – ${summary.dateRange.to}`,
       icon: CalendarRange,
-      iconWrap: 'bg-violet-500/15 text-violet-300',
-      valueClass: 'text-xl font-bold text-violet-300',
+      iconWrap: 'bg-violet-500/15 text-violet-600 dark:text-violet-300',
+      valueClass: 'text-xl font-bold text-violet-600 dark:text-violet-300',
     },
   ];
 
@@ -44,11 +44,11 @@ export default function TransactionSummaryCards({ summary, className }: Transact
         return (
           <Card
             key={card.label}
-            className="rounded-xl border border-indigo-500/15 bg-gradient-to-br from-[#1b1f3b] to-[#14172c] shadow-lg shadow-black/20"
+            className="rounded-xl border border-border bg-gradient-to-br from-elevated to-card shadow-lg shadow-black/20"
           >
             <CardContent className="flex items-center justify-between gap-4 py-5">
               <div className="space-y-1">
-                <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-indigo-300/70">
+                <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
                   {card.label}
                 </p>
                 <p className={card.valueClass}>{card.value}</p>

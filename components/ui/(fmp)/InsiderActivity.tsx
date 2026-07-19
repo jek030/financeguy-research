@@ -64,7 +64,7 @@ export const InsiderActivity: React.FC<InsiderActivityProps> = ({ symbol }) => {
                         <TableCell>
                           <div>
                             <p >{trade.reportingName}</p>
-                            <p className="text-sm text-gray-500">{trade.typeOfOwner}</p>
+                            <p className="text-sm text-muted-foreground">{trade.typeOfOwner}</p>
                           </div>
                         </TableCell>                        
                         <TableCell>{trade.price ? `$${trade.price.toFixed(2)}` : 'N/A'}</TableCell>

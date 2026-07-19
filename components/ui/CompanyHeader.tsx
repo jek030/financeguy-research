@@ -17,13 +17,13 @@ import { useUserPreferences } from '@/hooks/useUserPreferences';
 // Shared CSS classes for consistent styling across the page
 export const pageStyles = {
   // Background gradient used throughout the page
-  gradientBg: "bg-gradient-to-br from-neutral-50 via-white to-neutral-100 dark:from-neutral-950 dark:via-neutral-950 dark:to-neutral-900",
+  gradientBg: "bg-gradient-to-br from-background via-background to-muted/40",
   // Standard border
-  borderBottom: "border-b border-neutral-200 dark:border-neutral-800",
+  borderBottom: "border-b border-border",
   // Standard section padding
   sectionPadding: "px-4 sm:px-6 lg:px-8 py-5",
   // Card styling
-  card: "border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 rounded-xl shadow-sm",
+  card: "border border-border bg-card rounded-xl shadow-sm",
 };
 
 interface WatchlistOption {
@@ -238,7 +238,7 @@ export function CompanyHeader({
                 alt={companyName || 'Company logo'}
                 width={64}
                 height={64}
-                className="relative rounded-xl object-cover ring-1 ring-neutral-200 dark:ring-neutral-700 shadow-md"
+                className="relative rounded-xl object-cover ring-1 ring-border shadow-md"
               />
             </div>
           )}
@@ -248,11 +248,11 @@ export function CompanyHeader({
             <div className="flex flex-col lg:flex-row lg:items-start gap-2 lg:gap-5">
               <div className="min-w-0">
                 <div className="flex flex-col gap-1">
-                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-neutral-900 dark:text-white truncate">
+                  <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight text-foreground truncate">
                     {companyName}
                   </h1>
                   <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-neutral-400">
-                    <span className="font-semibold text-neutral-700 dark:text-neutral-300">{symbol}</span>
+                    <span className="font-semibold text-muted-foreground">{symbol}</span>
                     <span className="w-1 h-1 rounded-full bg-neutral-400" />
                     <span>{exchange || 'N/A'}</span>
                     {displayTimestamp && (
@@ -265,11 +265,11 @@ export function CompanyHeader({
                 </div>
               </div>
 
-              <div className="hidden lg:block self-stretch w-px bg-neutral-200 dark:bg-neutral-800" />
+              <div className="hidden lg:block self-stretch w-px bg-border" />
 
               {/* Compact price strip in top row */}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 lg:pt-1">
-                <span className="text-2xl sm:text-3xl font-bold tabular-nums tracking-tight text-neutral-900 dark:text-white">
+                <span className="text-2xl sm:text-3xl font-bold tabular-nums tracking-tight text-foreground">
                   ${typeof quote.price === 'number' ? safeFormat(quote.price) : 'N/A'}
                 </span>
 
@@ -285,7 +285,7 @@ export function CompanyHeader({
                     <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400 tracking-wide uppercase">
                       AH
                     </span>
-                    <span className="text-base font-semibold tabular-nums text-neutral-700 dark:text-neutral-200">
+                    <span className="text-base font-semibold tabular-nums text-foreground/80">
                       ${aftermarketChange.price.toFixed(2)}
                     </span>
                     <PriceChange value={aftermarketChange.change} showArrow={true} size="md" />
@@ -305,14 +305,14 @@ export function CompanyHeader({
         </div>
         
         {/* Right Section: Next Earnings + Watchlist actions */}
-        <div className="flex flex-row items-end justify-between lg:flex-col lg:items-end pt-2 lg:pt-0 border-t lg:border-t-0 border-neutral-200 dark:border-neutral-800 mt-2 lg:mt-0 lg:text-right gap-3">
+        <div className="flex flex-row items-end justify-between lg:flex-col lg:items-end pt-2 lg:pt-0 border-t lg:border-t-0 border-border mt-2 lg:mt-0 lg:text-right gap-3">
           {nextEarnings ? (
             <div className="flex flex-col items-start lg:items-end gap-1 shrink-0">
               <div className="flex items-center gap-1.5 text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wide">
                 <Calendar className="w-3.5 h-3.5" />
                 <span>Next Earnings</span>
               </div>
-              <p className="text-base sm:text-lg font-semibold text-neutral-900 dark:text-white">
+              <p className="text-base sm:text-lg font-semibold text-foreground">
                 {new Date(nextEarnings).toLocaleDateString('en-US', {
                   month: 'short',
                   day: 'numeric',
@@ -397,7 +397,7 @@ export function CompanyInfoSection({
       key: 'ceo',
       icon: <Users className="w-3.5 h-3.5" />,
       label: 'CEO',
-      value: <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">{ceo}</span>
+      value: <span className="text-sm font-medium text-foreground/80">{ceo}</span>
     });
   }
   
@@ -407,7 +407,7 @@ export function CompanyInfoSection({
       icon: <Users className="w-3.5 h-3.5" />,
       label: 'Employees',
       value: (
-        <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200 tabular-nums">
+        <span className="text-sm font-medium text-foreground/80 tabular-nums">
           {new Intl.NumberFormat('en-US').format(Number(employees) || 0)}
         </span>
       )
@@ -420,7 +420,7 @@ export function CompanyInfoSection({
       icon: <MapPin className="w-3.5 h-3.5" />,
       label: 'Location',
       value: (
-        <span className="text-sm font-medium text-neutral-700 dark:text-neutral-200">
+        <span className="text-sm font-medium text-foreground/80">
           {city && state ? `${city}, ${state}` : city || state}
         </span>
       )

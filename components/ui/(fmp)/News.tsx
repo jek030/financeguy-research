@@ -112,8 +112,8 @@ export const News: React.FC<NewsProps> = ({ symbol }) => {
                           {news.title}
                         </a>
                       </h3>
-                      <p className="text-sm text-gray-600 mb-2">{news.text}</p>
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <p className="text-sm text-muted-foreground mb-2">{news.text}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span>{news.site}</span>
                         <span>•</span>
                         <span>{new Date(news.publishedDate).toLocaleDateString()}</span>
@@ -122,7 +122,7 @@ export const News: React.FC<NewsProps> = ({ symbol }) => {
                   </div>
                 ))
               ) : (
-                <div className="text-center text-gray-500">
+                <div className="text-center text-muted-foreground">
                   No news available
                 </div>
               )}

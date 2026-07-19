@@ -31,8 +31,8 @@ export function SectorReturnChart({ title, subtitle, data }: SectorReturnChartPr
     <div className="w-full space-y-1.5">
       {(title || subtitle) && (
         <div className="text-center">
-          {title && <h3 className="text-sm font-medium text-neutral-800 dark:text-neutral-100">{title}</h3>}
-          {subtitle && <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">{subtitle}</p>}
+          {title && <h3 className="text-sm font-medium text-foreground">{title}</h3>}
+          {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
         </div>
       )}
       <div className="space-y-0.5">
@@ -41,13 +41,13 @@ export function SectorReturnChart({ title, subtitle, data }: SectorReturnChartPr
             key={item.name}
             className={cn(
               "grid grid-cols-[88px,1fr] items-center gap-2 rounded px-1 py-1 font-mono text-[11px] md:grid-cols-[120px,1fr]",
-              index % 2 === 0 ? "bg-neutral-100/50 dark:bg-neutral-900/40" : "bg-transparent"
+              index % 2 === 0 ? "bg-muted/40" : "bg-transparent"
             )}
           >
-            <div className="truncate pr-1 text-right text-neutral-500 dark:text-neutral-400">
+            <div className="truncate pr-1 text-right text-muted-foreground">
               <span className="hidden md:inline">{item.name}</span>
               <span className="md:hidden">{item.symbol}</span>
-              <span className="hidden tabular-nums text-neutral-400 dark:text-neutral-500 md:inline">
+              <span className="hidden tabular-nums text-muted-foreground/70 md:inline">
                 {" "}({item.symbol})
               </span>
             </div>

@@ -2,6 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Theme system — three modes: light, dark, night.
+ *
+ * Every themable color lives here as an HSL CSS variable consumed by
+ * Tailwind (see tailwind.config.ts). Components must use the semantic
+ * tokens (bg-background, bg-card, bg-field, border-border, ...) instead
+ * of hardcoded palette values so all three modes switch seamlessly.
+ *
+ * Surface tokens (beyond the shadcn defaults):
+ *   --field    inset controls: inputs, selects, table headers, pagination
+ *   --stripe   alternating table rows
+ *   --elevated raised surfaces, hover fills, gradient tops
+ *   --hero     page hero / banner gradient start
+ */
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -37,6 +51,11 @@
     --info-foreground: 217.2 91.2% 20%;
     /* Neutral pie slice + legend swatch for cash (allocation chart) */
     --allocation-cash: 220 10% 74%;
+    /* Surface tokens */
+    --field: 0 0% 97.5%;
+    --stripe: 0 0% 96%;
+    --elevated: 0 0% 100%;
+    --hero: 0 0% 98%;
   }
   .dark {
     --background: 0 0% 3.9%;
@@ -70,11 +89,55 @@
     --info: 217.2 91.2% 59.8%;
     --info-foreground: 217.2 91.2% 91.2%;
     --allocation-cash: 220 9% 46%;
+    /* Surface tokens */
+    --field: 0 0% 8%;
+    --stripe: 0 0% 7%;
+    --elevated: 0 0% 10%;
+    --hero: 0 0% 12%;
   }
-}
-
-body {
-  font-family: Arial, Helvetica, sans-serif;
+  /*
+   * Night — deep navy theme derived from the transactions page palette:
+   * bg #0b0e1f, card #14172c, elevated #1b1f3b, hero #1e2248, field #0f1226,
+   * indigo-tinted borders and blue-gray muted text.
+   */
+  .night {
+    --background: 231 48% 8%;
+    --foreground: 210 40% 96%;
+    --card: 233 38% 13%;
+    --card-foreground: 210 40% 96%;
+    --popover: 233 38% 13%;
+    --popover-foreground: 210 40% 96%;
+    --primary: 234 89% 74%;
+    --primary-foreground: 232 43% 10%;
+    --secondary: 233 37% 17%;
+    --secondary-foreground: 210 40% 96%;
+    --muted: 233 37% 17%;
+    --muted-foreground: 230 35% 65%;
+    --accent: 233 37% 17%;
+    --accent-foreground: 210 40% 96%;
+    --negative: 0 62.8% 30.6%;
+    --negative-foreground: 0 0% 98%;
+    --positive: 142 70% 45%;
+    --positive-foreground: 0 0% 98%;
+    --border: 236 40% 21%;
+    --input: 236 42% 22%;
+    --ring: 234 89% 74%;
+    --chart-1: 239 84% 67%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --info: 217.2 91.2% 59.8%;
+    --info-foreground: 217.2 91.2% 91.2%;
+    --allocation-cash: 220 9% 46%;
+    /* Surface tokens */
+    --field: 232 43% 10%;
+    --stripe: 233 39% 17%;
+    --elevated: 233 37% 17%;
+    --hero: 234 41% 20%;
+  }
 }
 
 @layer base {
@@ -82,6 +145,6 @@ body {
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
 }

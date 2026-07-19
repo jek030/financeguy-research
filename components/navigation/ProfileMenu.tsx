@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/context/auth-context";
 import { useTheme } from "next-themes";
-import { LogIn, LogOut, Settings, User, Monitor, Moon, Sun } from "lucide-react";
+import { LogIn, LogOut, Settings, User, Monitor, Moon, MoonStar, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -87,6 +87,10 @@ export function ProfileMenu({ isCollapsed }: ProfileMenuProps) {
             <DropdownMenuRadioItem value="dark">
                 <Moon className="mr-2 h-4 w-4" />
                 <span>Dark</span>
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="night">
+                <MoonStar className="mr-2 h-4 w-4" />
+                <span>Night</span>
             </DropdownMenuRadioItem>
             <DropdownMenuRadioItem value="system">
                 <Monitor className="mr-2 h-4 w-4" />

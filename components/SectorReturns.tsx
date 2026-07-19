@@ -281,21 +281,21 @@ export default function SectorReturns({ sectorsBySymbol, latestDate, isLoading, 
         {performanceConfigs.map((config) => (
           <Card
             key={config.key}
-            className="w-full rounded border border-neutral-300/80 bg-white/95 shadow-sm dark:border-neutral-700 dark:bg-neutral-950/70"
+            className="w-full rounded border border-border bg-card/95 shadow-sm"
           >
-            <CardHeader className="space-y-1.5 border-b border-neutral-200 p-2.5 pb-2 dark:border-neutral-800">
+            <CardHeader className="space-y-1.5 border-b border-border p-2.5 pb-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="rounded bg-neutral-200 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200">
+                <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                   {config.tag}
                 </span>
-                <span className="h-3 w-24 animate-pulse rounded bg-neutral-200 dark:bg-neutral-800" />
+                <span className="h-3 w-24 animate-pulse rounded bg-muted" />
               </div>
-              <CardTitle className="font-mono text-sm font-semibold leading-none tracking-tight text-neutral-900 dark:text-neutral-50">
+              <CardTitle className="font-mono text-sm font-semibold leading-none tracking-tight text-foreground">
                 {config.title}
               </CardTitle>
             </CardHeader>
             <CardContent className="p-2 pt-2">
-              <div className="h-[260px] animate-pulse rounded bg-neutral-100 dark:bg-neutral-900/60" />
+              <div className="h-[260px] animate-pulse rounded bg-muted/60" />
             </CardContent>
           </Card>
         ))}

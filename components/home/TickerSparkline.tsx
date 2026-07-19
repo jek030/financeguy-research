@@ -51,7 +51,7 @@ export function TickerSparkline({ symbol, isPositive, height = 40 }: TickerSpark
   if (isLoading) {
     return (
       <div
-        className="w-full animate-pulse rounded bg-neutral-200/70 dark:bg-neutral-800/70"
+        className="w-full animate-pulse rounded bg-muted/70"
         style={{ height }}
       />
     );

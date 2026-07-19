@@ -46,7 +46,7 @@ function SortableHeader({
     <Button
       variant="ghost"
       onClick={() => column.toggleSorting(sorted === 'asc')}
-      className="h-8 px-2 -ml-2 font-semibold text-inherit hover:!bg-transparent hover:text-indigo-200"
+      className="h-8 px-2 -ml-2 font-semibold text-inherit hover:!bg-transparent hover:text-foreground"
     >
       {label}
       {sorted === 'asc' ? (
@@ -116,7 +116,7 @@ function getSymbolColumns(onSymbolClick?: (symbol: string) => void): ColumnDef<S
       accessorKey: 'buyAmount',
       header: ({ column }) => <SortableHeader column={column} label="Buy $" />,
       cell: ({ row }) => (
-        <span className="font-mono text-xs text-red-400">
+        <span className="font-mono text-xs text-red-600 dark:text-red-400">
           {row.original.buyAmount > 0 ? formatCurrency(row.original.buyAmount) : '-'}
         </span>
       ),
@@ -125,7 +125,7 @@ function getSymbolColumns(onSymbolClick?: (symbol: string) => void): ColumnDef<S
       accessorKey: 'sellAmount',
       header: ({ column }) => <SortableHeader column={column} label="Sell $" />,
       cell: ({ row }) => (
-        <span className="font-mono text-xs text-emerald-400">
+        <span className="font-mono text-xs text-emerald-600 dark:text-emerald-400">
           {row.original.sellAmount > 0 ? formatCurrency(row.original.sellAmount) : '-'}
         </span>
       ),
@@ -138,7 +138,7 @@ function getSymbolColumns(onSymbolClick?: (symbol: string) => void): ColumnDef<S
         return (
           <span className={cn(
             "font-mono text-xs font-semibold",
-            net > 0 ? "text-emerald-400" : net < 0 ? "text-red-400" : ""
+            net > 0 ? "text-emerald-600 dark:text-emerald-400" : net < 0 ? "text-red-600 dark:text-red-400" : ""
           )}>
             {formatCurrency(net)}
           </span>
@@ -215,29 +215,29 @@ export default function SymbolSummaryTable({ data, onSymbolClick, className }: S
   }, [stockSymbols]);
 
   return (
-    <Card className={cn("w-full rounded-xl border border-indigo-500/15 bg-gradient-to-br from-[#1b1f3b] to-[#14172c] shadow-lg shadow-black/20 font-sans", className)}>
+    <Card className={cn("w-full rounded-xl border border-border bg-gradient-to-br from-elevated to-card shadow-lg shadow-black/20 font-sans", className)}>
       <CardHeader className="pb-4">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex items-center gap-2 flex-1">
-            <Search className="h-4 w-4 text-indigo-300/60" />
+            <Search className="h-4 w-4 text-muted-foreground" />
             <Input
               placeholder=""
               value={globalFilter}
               onChange={(e) => setGlobalFilter(e.target.value)}
-              className="h-9 max-w-sm border-indigo-500/20 bg-[#0f1226] text-xs text-slate-100 placeholder:text-slate-500"
+              className="h-9 max-w-sm border-input bg-field text-xs text-foreground placeholder:text-muted-foreground"
             />
           </div>
         </div>
       </CardHeader>
       
       <CardContent>
-        <div className="overflow-x-auto rounded-md border border-indigo-500/15">
+        <div className="overflow-x-auto rounded-md border border-border">
           <Table className="min-w-full text-xs">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="border-indigo-500/15 bg-[#0f1226] hover:!bg-[#0f1226]">
+                <TableRow key={headerGroup.id} className="border-border bg-field hover:!bg-field">
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} className="whitespace-nowrap px-2 py-2 text-[10px] font-semibold uppercase tracking-wide text-indigo-300/70">
+                    <TableHead key={header.id} className="whitespace-nowrap px-2 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {header.isPlaceholder
                         ? null
                         : flexRender(header.column.columnDef.header, header.getContext())}
@@ -253,8 +253,8 @@ export default function SymbolSummaryTable({ data, onSymbolClick, className }: S
                     <TableRow
                       key={row.id}
                       className={cn(
-                        "border-indigo-500/10 hover:bg-indigo-500/10",
-                        index % 2 === 0 ? "bg-transparent" : "bg-white/[0.02]"
+                        "border-border/60 hover:bg-indigo-500/10",
+                        index % 2 === 0 ? "bg-transparent" : "bg-foreground/[0.02]"
                       )}
                     >
                       {row.getVisibleCells().map((cell) => (
@@ -265,16 +265,16 @@ export default function SymbolSummaryTable({ data, onSymbolClick, className }: S
                     </TableRow>
                   ))}
                   {/* Totals Row */}
-                  <TableRow className="border-t-2 border-indigo-500/30 bg-indigo-500/10 font-semibold">
+                  <TableRow className="border-t-2 border-border bg-indigo-500/10 font-semibold">
                     <TableCell className="px-2 py-2 text-[11px]">TOTAL</TableCell>
                     <TableCell className="px-2 py-2 text-[11px] font-mono">{totals.transactionCount}</TableCell>
                     <TableCell className="px-2 py-2 text-[11px]">-</TableCell>
                     <TableCell className="px-2 py-2 text-[11px]">-</TableCell>
-                    <TableCell className="px-2 py-2 text-[11px] font-mono text-red-400">{formatCurrency(totals.buyAmount)}</TableCell>
-                    <TableCell className="px-2 py-2 text-[11px] font-mono text-emerald-400">{formatCurrency(totals.sellAmount)}</TableCell>
+                    <TableCell className="px-2 py-2 text-[11px] font-mono text-red-600 dark:text-red-400">{formatCurrency(totals.buyAmount)}</TableCell>
+                    <TableCell className="px-2 py-2 text-[11px] font-mono text-emerald-600 dark:text-emerald-400">{formatCurrency(totals.sellAmount)}</TableCell>
                     <TableCell className={cn(
                       "px-2 py-2 text-[11px] font-mono",
-                      totals.netAmount > 0 ? "text-emerald-400" : "text-red-400"
+                      totals.netAmount > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
                     )}>
                       {formatCurrency(totals.netAmount)}
                     </TableCell>
@@ -294,7 +294,7 @@ export default function SymbolSummaryTable({ data, onSymbolClick, className }: S
           </Table>
         </div>
         
-        <div className="mt-2 text-[11px] text-slate-400">
+        <div className="mt-2 text-[11px] text-muted-foreground">
           {table.getFilteredRowModel().rows.length} symbols
           {nonStockItems.length > 0 && (
             <span> • {nonStockItems.length} non-stock transactions (see Action Summary)</span>

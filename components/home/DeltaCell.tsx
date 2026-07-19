@@ -37,7 +37,7 @@ function renderDelta(value: number, format: DeltaFormat): string {
 
 export function DeltaCell({ value, format, isDollar, className }: DeltaCellProps) {
   if (value === null) {
-    return <span className={cn("text-neutral-400", className)}>--</span>;
+    return <span className={cn("text-muted-foreground/70", className)}>--</span>;
   }
 
   const resolvedFormat = resolveFormat(format, isDollar);

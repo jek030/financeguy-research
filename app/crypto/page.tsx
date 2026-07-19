@@ -377,13 +377,13 @@ export default function CryptoPage() {
                             ${formatCryptoNumber(data.change)}
                           </TableCell>
                           <TableCell className={data.price >= data.yearLow ? "text-xs text-right text-positive" : "text-xs text-right text-destructive"}>
-                              <span className="text-black">${formatCryptoNumber(data.yearLow)}</span>
+                              <span className="text-foreground">${formatCryptoNumber(data.yearLow)}</span>
                               <div className="text-xs">
                                 {((data.price - data.yearLow) / data.yearLow * 100).toFixed(2)}%
                               </div>
                           </TableCell>         
                           <TableCell className={data.price >= data.yearHigh ? "text-xs text-right text-positive" : "text-xs text-right text-destructive"}>
-                              <span className="text-black">${formatCryptoNumber(data.yearHigh)}</span>
+                              <span className="text-foreground">${formatCryptoNumber(data.yearHigh)}</span>
                               <div className="text-xs">
                                 {((data.price - data.yearHigh) / data.yearHigh * 100).toFixed(2)}%
                               </div>
@@ -392,13 +392,13 @@ export default function CryptoPage() {
                           <TableCell className="text-xs">{formatNumber(data.volume)}</TableCell>
                           <TableCell className="text-xs">{formatNumber(data.avgVolume)}</TableCell>
                           <TableCell className={data.price >= data.priceAvg50 ? "text-xs text-right text-positive" : "text-xs text-right text-destructive"}>
-                              <span className="text-black">${formatCryptoNumber(data.priceAvg50)}</span>
+                              <span className="text-foreground">${formatCryptoNumber(data.priceAvg50)}</span>
                               <div className="text-xs">
                                 {((data.price - data.priceAvg50) / data.priceAvg50 * 100).toFixed(2)}%
                             </div>
                           </TableCell>
                           <TableCell className={data.price >= data.priceAvg200 ? "text-xs text-right text-positive" : "text-xs text-right text-destructive"}>
-                              <span className="text-black">${formatCryptoNumber(data.priceAvg200)}</span>
+                              <span className="text-foreground">${formatCryptoNumber(data.priceAvg200)}</span>
                               <div className="text-xs">
                                 {((data.price - data.priceAvg200) / data.priceAvg200 * 100).toFixed(2)}%
                             </div>

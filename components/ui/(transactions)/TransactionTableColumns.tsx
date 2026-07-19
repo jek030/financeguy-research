@@ -36,7 +36,7 @@ function SortableHeader({
     <Button
       variant="ghost"
       onClick={() => column.toggleSorting(sorted === 'asc')}
-      className="h-8 px-2 -ml-2 font-semibold text-inherit hover:!bg-transparent hover:text-indigo-200"
+      className="h-8 px-2 -ml-2 font-semibold text-inherit hover:!bg-transparent hover:text-foreground"
     >
       {label}
       {sorted === 'asc' ? (
@@ -54,10 +54,10 @@ function ActionBadge({ action }: { action: string }) {
   const category = getActionCategory(action);
   
   const colorClasses = {
-    trade: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    option: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-    income: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-    expense: 'bg-red-500/20 text-red-400 border-red-500/30',
+    trade: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30',
+    option: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30',
+    income: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+    expense: 'bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30',
     other: 'bg-muted text-muted-foreground border-border',
   };
 
@@ -78,8 +78,8 @@ function AmountCell({ amount }: { amount: number }) {
   return (
     <span className={cn(
       "font-mono font-medium",
-      isPositive && "text-emerald-400",
-      isNegative && "text-red-400"
+      isPositive && "text-emerald-600 dark:text-emerald-400",
+      isNegative && "text-red-600 dark:text-red-400"
     )}>
       {formatCurrency(amount)}
     </span>
@@ -201,7 +201,7 @@ export function getTransactionTableColumns(options?: ColumnOptions): ColumnDef<B
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 px-2 text-[10px] text-muted-foreground hover:!bg-[#1b1f3b] hover:text-primary"
+            className="h-6 px-2 text-[10px] text-muted-foreground hover:!bg-elevated hover:text-primary"
             onClick={() => handler(txn)}
           >
             <FolderInput className="h-3 w-3 mr-1" />

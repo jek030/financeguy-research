@@ -126,16 +126,16 @@ export default function TransactionTable({
   const totalRowCount = data.length;
 
   return (
-    <Card className={cn("w-full rounded-xl border border-indigo-500/15 bg-gradient-to-br from-[#1b1f3b] to-[#14172c] shadow-lg shadow-black/20", className)}>
+    <Card className={cn("w-full rounded-xl border border-border bg-gradient-to-br from-elevated to-card shadow-lg shadow-black/20", className)}>
       <CardHeader className="pb-4">
         <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex items-center gap-2 flex-1">
-              <Search className="h-4 w-4 text-indigo-300/60" />
+              <Search className="h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder=""
                 value={globalFilter}
                 onChange={(e) => setGlobalFilter(e.target.value)}
-                className="h-9 max-w-sm border-indigo-500/20 bg-[#0f1226] text-xs text-slate-100 placeholder:text-slate-500"
+                className="h-9 max-w-sm border-input bg-field text-xs text-foreground placeholder:text-muted-foreground"
               />
             </div>
 
@@ -146,9 +146,9 @@ export default function TransactionTable({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-9 gap-2 border-indigo-500/20 bg-[#0f1226] text-xs text-slate-100 hover:bg-[#1b1f3b]"
+                    className="h-9 gap-2 border-input bg-field text-xs text-foreground hover:bg-elevated"
                   >
-                    <ListFilter className="h-3.5 w-3.5 text-indigo-300/70" />
+                    <ListFilter className="h-3.5 w-3.5 text-muted-foreground" />
                     Type
                     {typeFilters.length > 0 && (
                       <span className="ml-1 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 px-1.5 text-[10px] font-semibold text-white">
@@ -160,19 +160,19 @@ export default function TransactionTable({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="end"
-                  className="max-h-72 w-56 overflow-y-auto border-indigo-500/20 bg-[#14172c] text-slate-100"
+                  className="max-h-72 w-56 overflow-y-auto"
                 >
-                  <DropdownMenuLabel className="text-indigo-300/70">
+                  <DropdownMenuLabel className="text-muted-foreground">
                     Transaction types
                   </DropdownMenuLabel>
-                  <DropdownMenuSeparator className="bg-indigo-500/15" />
+                  <DropdownMenuSeparator />
                   {uniqueActions.map((action) => (
                     <DropdownMenuCheckboxItem
                       key={action}
                       checked={typeFilters.includes(action)}
                       onCheckedChange={() => toggleType(action)}
                       onSelect={(e) => e.preventDefault()}
-                      className="text-xs focus:bg-indigo-500/15"
+                      className="text-xs"
                     >
                       {action}
                     </DropdownMenuCheckboxItem>
@@ -185,10 +185,10 @@ export default function TransactionTable({
                 value={symbol ?? 'all'}
                 onValueChange={(value) => setSymbol(value === 'all' ? null : value)}
               >
-                <SelectTrigger className="h-9 w-[130px] border-indigo-500/20 bg-[#0f1226] text-xs text-slate-100 hover:!bg-[#1b1f3b] hover:!text-slate-100">
+                <SelectTrigger className="h-9 w-[130px] border-input bg-field text-xs text-foreground hover:!bg-elevated hover:!text-foreground">
                   <SelectValue placeholder="Symbol" />
                 </SelectTrigger>
-                <SelectContent className="border-indigo-500/20 bg-[#14172c] text-slate-100">
+                <SelectContent>
                   <SelectItem value="all">All Symbols</SelectItem>
                   {uniqueSymbols.map((s) => (
                     <SelectItem key={s} value={s}>
@@ -200,10 +200,10 @@ export default function TransactionTable({
 
               {/* Page size */}
               <Select value={String(pageSize)} onValueChange={(value) => setPageSize(Number(value))}>
-                <SelectTrigger className="h-9 w-[80px] border-indigo-500/20 bg-[#0f1226] text-xs text-slate-100 hover:!bg-[#1b1f3b] hover:!text-slate-100">
+                <SelectTrigger className="h-9 w-[80px] border-input bg-field text-xs text-foreground hover:!bg-elevated hover:!text-foreground">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="border-indigo-500/20 bg-[#14172c] text-slate-100">
+                <SelectContent>
                   <SelectItem value="25">25</SelectItem>
                   <SelectItem value="50">50</SelectItem>
                   <SelectItem value="100">100</SelectItem>
@@ -214,19 +214,19 @@ export default function TransactionTable({
       </CardHeader>
       
       <CardContent>
-        <div className="overflow-x-auto rounded-md border border-indigo-500/15">
+        <div className="overflow-x-auto rounded-md border border-border">
           <Table className="min-w-full text-xs">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="border-indigo-500/15 bg-[#0f1226] hover:!bg-[#0f1226]">
+                <TableRow key={headerGroup.id} className="border-border bg-field hover:!bg-field">
                   {headerGroup.headers.map((header) => {
                     const isSticky = header.column.columnDef.meta?.sticky;
                     return (
                       <TableHead 
                         key={header.id} 
                         className={cn(
-                          "whitespace-nowrap px-2 py-2 text-[10px] font-semibold uppercase tracking-wide text-indigo-300/70",
-                          isSticky && "sticky left-0 z-10 bg-[#0f1226]"
+                          "whitespace-nowrap px-2 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground",
+                          isSticky && "sticky left-0 z-10 bg-field"
                         )}
                       >
                         {header.isPlaceholder
@@ -251,12 +251,12 @@ export default function TransactionTable({
                     {row.getVisibleCells().map((cell) => {
                       const isSticky = cell.column.columnDef.meta?.sticky;
                       const stripeClass =
-                        index % 2 === 0 ? "bg-[#14172c]" : "bg-[#1a1f3b]";
+                        index % 2 === 0 ? "bg-card" : "bg-stripe";
                       return (
                         <TableCell 
                           key={cell.id} 
                           className={cn(
-                            "border-b border-indigo-500/10 px-2 py-1.5 text-[11px] whitespace-nowrap",
+                            "border-b border-border/60 px-2 py-1.5 text-[11px] whitespace-nowrap",
                             stripeClass,
                             "group-hover:bg-indigo-500/10",
                             isSticky && "sticky left-0 z-10"
@@ -270,7 +270,7 @@ export default function TransactionTable({
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={columns.length} className="h-24 text-center text-xs text-slate-400">
+                  <TableCell colSpan={columns.length} className="h-24 text-center text-xs text-muted-foreground">
                     No transactions found.
                   </TableCell>
                 </TableRow>
@@ -281,7 +281,7 @@ export default function TransactionTable({
         
         {/* Pagination */}
         <div className="flex items-center justify-between py-4">
-          <div className="text-[11px] text-slate-400">
+          <div className="text-[11px] text-muted-foreground">
             Showing {table.getRowModel().rows.length} of {filteredRowCount} transactions
             {filteredRowCount !== totalRowCount && (
               <span className="ml-1">(filtered from {totalRowCount})</span>
@@ -293,11 +293,11 @@ export default function TransactionTable({
               size="sm"
               onClick={() => table.previousPage()}
               disabled={!table.getCanPreviousPage()}
-              className="h-8 px-3 border-indigo-500/20 bg-[#0f1226] text-slate-100 hover:bg-[#1b1f3b]"
+              className="h-8 px-3 border-input bg-field text-foreground hover:bg-elevated"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="text-[11px] text-slate-400">
+            <span className="text-[11px] text-muted-foreground">
               Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
             </span>
             <Button
@@ -305,7 +305,7 @@ export default function TransactionTable({
               size="sm"
               onClick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
-              className="h-8 px-3 border-indigo-500/20 bg-[#0f1226] text-slate-100 hover:bg-[#1b1f3b]"
+              className="h-8 px-3 border-input bg-field text-foreground hover:bg-elevated"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>

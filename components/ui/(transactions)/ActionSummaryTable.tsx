@@ -37,7 +37,7 @@ function SortableHeader({
     <Button
       variant="ghost"
       onClick={() => column.toggleSorting(sorted === 'asc')}
-      className="h-8 px-2 -ml-2 font-semibold text-inherit hover:!bg-transparent hover:text-indigo-200"
+      className="h-8 px-2 -ml-2 font-semibold text-inherit hover:!bg-transparent hover:text-foreground"
     >
       {label}
       {sorted === 'asc' ? (
@@ -56,10 +56,10 @@ function ActionBadge({ action }: { action: string }) {
   const category = getActionCategory(action);
   
   const colorClasses = {
-    trade: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    option: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-    income: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-    expense: 'bg-red-500/20 text-red-400 border-red-500/30',
+    trade: 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/30',
+    option: 'bg-purple-500/20 text-purple-600 dark:text-purple-400 border-purple-500/30',
+    income: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30',
+    expense: 'bg-red-500/20 text-red-600 dark:text-red-400 border-red-500/30',
     other: 'bg-muted text-muted-foreground border-border',
   };
 
@@ -104,7 +104,7 @@ function getActionColumns(onActionClick?: (action: string) => void): ColumnDef<A
         return (
           <span className={cn(
             "font-mono text-xs font-semibold",
-            amount > 0 ? "text-emerald-400" : amount < 0 ? "text-red-400" : ""
+            amount > 0 ? "text-emerald-600 dark:text-emerald-400" : amount < 0 ? "text-red-600 dark:text-red-400" : ""
           )}>
             {formatCurrency(amount)}
           </span>
@@ -128,7 +128,7 @@ function getActionColumns(onActionClick?: (action: string) => void): ColumnDef<A
         return (
           <span className={cn(
             "font-mono text-xs",
-            avg > 0 ? "text-emerald-400" : avg < 0 ? "text-red-400" : ""
+            avg > 0 ? "text-emerald-600 dark:text-emerald-400" : avg < 0 ? "text-red-600 dark:text-red-400" : ""
           )}>
             {formatCurrency(avg)}
           </span>
@@ -181,9 +181,9 @@ export default function ActionSummaryTable({ data, onActionClick, className }: A
   }, [data]);
 
   return (
-    <Card className={cn("w-full rounded-xl border border-indigo-500/15 bg-gradient-to-br from-[#1b1f3b] to-[#14172c] shadow-lg shadow-black/20 font-sans", className)}>
+    <Card className={cn("w-full rounded-xl border border-border bg-gradient-to-br from-elevated to-card shadow-lg shadow-black/20 font-sans", className)}>
       <CardHeader className="pb-4">
-        <CardTitle className="text-sm font-semibold tracking-tight text-slate-100">By Action Type</CardTitle>
+        <CardTitle className="text-sm font-semibold tracking-tight text-foreground">By Action Type</CardTitle>
       </CardHeader>
       
       <CardContent className="space-y-4">
@@ -203,11 +203,11 @@ export default function ActionSummaryTable({ data, onActionClick, className }: A
                 key={category} 
                 className={cn("rounded-sm border p-3", colorClasses[category as keyof typeof colorClasses])}
               >
-                <p className="text-[10px] font-medium uppercase tracking-wide text-indigo-300/70">{category}</p>
-                <p className="font-mono text-sm font-bold text-slate-50">{data.count}</p>
+                <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{category}</p>
+                <p className="font-mono text-sm font-bold text-foreground">{data.count}</p>
                 <p className={cn(
                   "font-mono text-xs",
-                  data.amount > 0 ? "text-emerald-400" : data.amount < 0 ? "text-red-400" : ""
+                  data.amount > 0 ? "text-emerald-600 dark:text-emerald-400" : data.amount < 0 ? "text-red-600 dark:text-red-400" : ""
                 )}>
                   {formatCurrency(data.amount)}
                 </p>
@@ -217,13 +217,13 @@ export default function ActionSummaryTable({ data, onActionClick, className }: A
         </div>
 
         {/* Detailed Table */}
-        <div className="overflow-x-auto rounded-md border border-indigo-500/15">
+        <div className="overflow-x-auto rounded-md border border-border">
           <Table className="min-w-full text-xs">
             <TableHeader>
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id} className="border-indigo-500/15 bg-[#0f1226] hover:!bg-[#0f1226]">
+                <TableRow key={headerGroup.id} className="border-border bg-field hover:!bg-field">
                   {headerGroup.headers.map((header) => (
-                    <TableHead key={header.id} className="whitespace-nowrap px-2 py-2 text-[10px] font-semibold uppercase tracking-wide text-indigo-300/70">
+                    <TableHead key={header.id} className="whitespace-nowrap px-2 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       {header.isPlaceholder
                         ? null
                         : flexRender(header.column.columnDef.header, header.getContext())}
@@ -239,8 +239,8 @@ export default function ActionSummaryTable({ data, onActionClick, className }: A
                     <TableRow
                       key={row.id}
                       className={cn(
-                        "border-indigo-500/10 hover:bg-indigo-500/10",
-                        index % 2 === 0 ? "bg-transparent" : "bg-white/[0.02]"
+                        "border-border/60 hover:bg-indigo-500/10",
+                        index % 2 === 0 ? "bg-transparent" : "bg-foreground/[0.02]"
                       )}
                     >
                       {row.getVisibleCells().map((cell) => (
@@ -251,12 +251,12 @@ export default function ActionSummaryTable({ data, onActionClick, className }: A
                     </TableRow>
                   ))}
                   {/* Totals Row */}
-                  <TableRow className="border-t-2 border-indigo-500/30 bg-indigo-500/10 font-semibold">
+                  <TableRow className="border-t-2 border-border bg-indigo-500/10 font-semibold">
                     <TableCell className="px-2 py-2 text-[11px]">TOTAL</TableCell>
                     <TableCell className="px-2 py-2 text-[11px] font-mono">{totals.transactionCount}</TableCell>
                     <TableCell className={cn(
                       "px-2 py-2 text-[11px] font-mono",
-                      totals.totalAmount > 0 ? "text-emerald-400" : "text-red-400"
+                      totals.totalAmount > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"
                     )}>
                       {formatCurrency(totals.totalAmount)}
                     </TableCell>
