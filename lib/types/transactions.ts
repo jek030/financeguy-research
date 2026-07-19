@@ -105,11 +105,13 @@ export interface OpenPosition {
 // Action types for categorization
 export const TRADE_ACTIONS = ['Buy', 'Sell', 'Sell Short', 'Buy to Cover'] as const;
 export const OPTION_ACTIONS = ['Buy to Open', 'Sell to Open', 'Buy to Close', 'Sell to Close'] as const;
+export const OPTION_EXPIRY_ACTIONS = ['Expired'] as const;
 export const INCOME_ACTIONS = ['Qualified Dividend', 'Non-Qualified Dividend', 'Bank Interest', 'Credit Interest'] as const;
 export const EXPENSE_ACTIONS = ['Margin Interest', 'Foreign Tax Paid', 'ADR Mgmt Fee'] as const;
 
 export type TradeAction = typeof TRADE_ACTIONS[number];
 export type OptionAction = typeof OPTION_ACTIONS[number];
+export type OptionExpiryAction = typeof OPTION_EXPIRY_ACTIONS[number];
 export type IncomeAction = typeof INCOME_ACTIONS[number];
 export type ExpenseAction = typeof EXPENSE_ACTIONS[number];
 
@@ -119,6 +121,15 @@ export function isTradeAction(action: string): boolean {
 
 export function isOptionAction(action: string): boolean {
   return OPTION_ACTIONS.includes(action as OptionAction);
+}
+
+export function isExpiredOptionAction(action: string): boolean {
+  return OPTION_EXPIRY_ACTIONS.includes(action as OptionExpiryAction);
+}
+
+/** Option trade or expiry row that can be ported to portfolio. */
+export function isPortfolioOptionAction(action: string): boolean {
+  return isOptionAction(action) || isExpiredOptionAction(action);
 }
 
 export function isIncomeAction(action: string): boolean {
@@ -131,8 +142,29 @@ export function isExpenseAction(action: string): boolean {
 
 export function getActionCategory(action: string): 'trade' | 'option' | 'income' | 'expense' | 'other' {
   if (isTradeAction(action)) return 'trade';
-  if (isOptionAction(action)) return 'option';
+  if (isPortfolioOptionAction(action)) return 'option';
   if (isIncomeAction(action)) return 'income';
   if (isExpenseAction(action)) return 'expense';
   return 'other';
+}
+
+/**
+ * Resolve per-share (or per-option-share) price for portfolio import.
+ * Expired rows often omit Price; settlement comes from Amount (0 when OTM).
+ */
+export function resolveTransactionTradePrice(
+  txn: Pick<BrokerageTransaction, 'price' | 'quantity' | 'amount' | 'action'>
+): number | null {
+  if (txn.price !== null && Number.isFinite(txn.price)) {
+    return txn.price;
+  }
+  if (txn.quantity === null || txn.quantity === 0) {
+    return null;
+  }
+  const contractsOrShares = Math.abs(txn.quantity);
+  const denom = isPortfolioOptionAction(txn.action)
+    ? contractsOrShares * 100
+    : contractsOrShares;
+  if (denom <= 0) return null;
+  return Math.abs(txn.amount) / denom;
 }

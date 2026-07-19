@@ -29,6 +29,7 @@ export interface PositionExitForCalc {
   price: number;
   shares: number;
   exitDate: Date | null;
+  fee?: number;
 }
 
 export interface PositionForCalc {
@@ -36,6 +37,7 @@ export interface PositionForCalc {
   quantity: number;
   initialStopLoss: number;
   type: 'Long' | 'Short';
+  fee?: number;
   exits: PositionExitForCalc[];
 }
 
@@ -49,14 +51,22 @@ export function getRemainingShares(position: PositionForCalc): number {
   return position.quantity - sumFilledShares(position.exits);
 }
 
+export function getTotalFees(position: PositionForCalc): number {
+  const exitFees = position.exits
+    .filter((e) => e.exitDate !== null)
+    .reduce((sum, e) => sum + (e.fee ?? 0), 0);
+  return (position.fee ?? 0) + exitFees;
+}
+
 export function getRealizedGain(position: PositionForCalc): number {
-  return position.exits
+  const exitPnl = position.exits
     .filter((e) => e.exitDate !== null)
     .reduce((sum, e) => {
       const gainPerShare =
         position.type === 'Long' ? e.price - position.cost : position.cost - e.price;
-      return sum + gainPerShare * e.shares;
+      return sum + gainPerShare * e.shares - (e.fee ?? 0);
     }, 0);
+  return exitPnl - (position.fee ?? 0);
 }
 
 export function getRMultiple(position: PositionForCalc): number | null {

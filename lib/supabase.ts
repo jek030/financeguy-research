@@ -55,6 +55,7 @@ export interface SupabasePortfolioPosition {
   open_risk: number;
   open_heat: number;
   realized_gain: number;
+  fee?: number;
   open_date: string;
   close_date: string | null;
   days_in_trade: number;
@@ -68,6 +69,7 @@ export interface SupabasePositionExit {
   exit_date: string | null;
   notes: string | null;
   sort_order: number;
+  fee?: number;
   created_at: string;
 }
 

@@ -36,7 +36,7 @@ import { quoteQueryOptions, useQuote } from '@/hooks/FMP/useQuote';
 import { usePortfolio, type StockPosition } from '@/hooks/usePortfolio';
 import { BacktestTab } from '@/components/ui/BacktestTab';
 import { useAuth } from '@/lib/context/auth-context';
-import { getRemainingShares, getRealizedGain, isFullyClosed } from '@/utils/portfolioCalculations';
+import { getRemainingShares, getRealizedGain, getTotalFees, isFullyClosed } from '@/utils/portfolioCalculations';
 import { ExitsCell } from '@/components/portfolio/ExitsCell';
 import { EditPositionModal } from '@/components/portfolio/EditPositionModal';
 import { PositionChartModal } from '@/components/portfolio/PositionChartModal';
@@ -211,6 +211,7 @@ const PORTFOLIO_COLUMNS: TableColumnDef[] = [
   { id: 'netCost', label: 'Net Cost' },
   { id: 'equity', label: 'Equity' },
   { id: 'gainLoss', label: 'Gain/Loss $' },
+  { id: 'fee', label: 'Fee' },
   { id: 'portfolioGain', label: 'Portfolio Gain', tooltip: 'Realized + unrealized gain as % of current portfolio value' },
   { id: 'realizedGain', label: 'Realized $' },
   { id: 'rMultiple', label: 'R', tooltip: 'Realized R using initial stop and staged exits' },
@@ -559,20 +560,16 @@ function PriceCell({ symbol }: { symbol: string }) {
 }
 
 // Component to display gain/loss
-function GainLossCell({ 
-  symbol, 
-  cost, 
-  quantity, 
-  type 
-}: { 
-  symbol: string; 
-  cost: number; 
-  quantity: number; 
-  type: 'Long' | 'Short'; 
+function GainLossCell({
+  position,
+}: {
+  position: StockPosition;
 }) {
-  const { data: quote, isLoading, error } = useQuote(symbol);
+  const remaining = getRemainingShares(position);
+  const isClosed = isPositionFullyClosed(position) || remaining <= 0;
+  const { data: quote, isLoading, error } = useQuote(position.symbol);
 
-  if (isLoading) {
+  if (!isClosed && isLoading) {
     return (
       <div className="flex items-center gap-2">
         <div className="h-4 w-16 bg-muted animate-pulse rounded"></div>
@@ -580,7 +577,7 @@ function GainLossCell({
     );
   }
 
-  if (error || !quote) {
+  if (!isClosed && (error || !quote)) {
     return (
       <div className="flex items-center gap-2">
         <span className="text-muted-foreground text-sm">N/A</span>
@@ -588,11 +585,11 @@ function GainLossCell({
     );
   }
 
-  const gainLoss = calculateGainLoss(quote.price, cost, quantity, type);
-  const gainLossPercent = calculatePercentageChange(quote.price, cost);
-  
-  // For short positions, reverse the percentage calculation
-  const displayPercent = type === 'Short' ? -gainLossPercent : gainLossPercent;
+  const gainLoss = isClosed
+    ? calculateRealizedGainForPosition(position)
+    : calculateProjectedGainForPosition(position, quote!.price);
+  const costBasis = position.cost * position.quantity;
+  const gainLossPercent = costBasis > 0 ? (gainLoss / costBasis) * 100 : 0;
 
   return (
     <div className="flex flex-col gap-0.5">
@@ -602,8 +599,8 @@ function GainLossCell({
       )}>
         {formatCurrency(gainLoss)}
       </span>
-      <span className={cn("text-xs font-medium", getSignedPercentColorClass(displayPercent))}>
-        {formatSignedPercent(displayPercent)}
+      <span className={cn("text-xs font-medium", getSignedPercentColorClass(gainLossPercent))}>
+        {formatSignedPercent(gainLossPercent)}
       </span>
     </div>
   );
@@ -616,9 +613,10 @@ function SummaryGainLossCell({
   symbol: string;
   positions: StockPosition[];
 }) {
+  const isOpen = positions.some((position) => !isPositionFullyClosed(position) && getRemainingShares(position) > 0);
   const { data: quote, isLoading, error } = useQuote(symbol);
 
-  if (isLoading) {
+  if (isOpen && isLoading) {
     return (
       <div className="flex items-center gap-2">
         <div className="h-4 w-16 bg-muted animate-pulse rounded"></div>
@@ -626,7 +624,7 @@ function SummaryGainLossCell({
     );
   }
 
-  if (error || !quote) {
+  if (isOpen && (error || !quote)) {
     return (
       <div className="flex items-center gap-2">
         <span className="text-muted-foreground text-sm">N/A</span>
@@ -635,10 +633,10 @@ function SummaryGainLossCell({
   }
 
   const gainLoss = positions.reduce(
-    (sum, position) => sum + calculateGainLoss(quote.price, position.cost, getRemainingShares(position), position.type),
+    (sum, position) => sum + calculateProjectedGainForPosition(position, isOpen ? quote?.price : undefined),
     0,
   );
-  const totalCostBasis = positions.reduce((sum, position) => sum + (position.cost * getRemainingShares(position)), 0);
+  const totalCostBasis = positions.reduce((sum, position) => sum + (position.cost * position.quantity), 0);
   const gainLossPercent = totalCostBasis > 0 ? (gainLoss / totalCostBasis) * 100 : 0;
 
   return (
@@ -1104,7 +1102,7 @@ function PortfolioHero({
           if (!exit.exitDate || exit.shares <= 0) {
             return;
           }
-          const realizedGain = calculateGainLoss(exit.price, position.cost, exit.shares, position.type);
+          const realizedGain = calculateGainLoss(exit.price, position.cost, exit.shares, position.type) - (exit.fee ?? 0);
           rows.push({
             kind: 'exit',
             id: `${position.id}-exit-${exit.id}`,
@@ -1129,7 +1127,7 @@ function PortfolioHero({
       pos.exits
         .filter((exit) => exit.exitDate !== null && exit.shares > 0)
         .map((exit) => {
-          const realizedGain = calculateGainLoss(exit.price, pos.cost, exit.shares, pos.type);
+          const realizedGain = calculateGainLoss(exit.price, pos.cost, exit.shares, pos.type) - (exit.fee ?? 0);
           const netCost = pos.cost * exit.shares;
           const percentGain = netCost !== 0 ? (realizedGain / netCost) * 100 : 0;
           const equityContribution = (realizedGain / portfolioValue) * 100;
@@ -2407,7 +2405,7 @@ function PortfolioCalendarTab({
           position.cost,
           exit.shares,
           position.type,
-        );
+        ) - (exit.fee ?? 0);
         if (realizedGain === 0) {
           return;
         }
@@ -2845,8 +2843,8 @@ function SummaryTotalsRow({
       const remaining = getRemainingShares(position);
 
       equity += markPrice * remaining;
-      gainLoss += calculateGainLoss(markPrice, position.cost, remaining, position.type);
       const projectedGain = calculateProjectedGainForPosition(position, markPrice);
+      gainLoss += projectedGain;
       portfolioGainDollar += projectedGain;
       totalDisplayedGain += projectedGain;
       totalInitialRisk += calculateInitialRiskForPosition(position);
@@ -2900,6 +2898,14 @@ function SummaryTotalsRow({
                   {formatCurrency(totals.gainLoss)}
                 </span>
               )}
+            </TableCell>
+          );
+        }
+        if (col.id === 'fee') {
+          const totalFees = positions.reduce((sum, position) => sum + getTotalFees(position), 0);
+          return (
+            <TableCell key={col.id} className={cn(baseClass, "font-medium")}>
+              {formatCurrency(totalFees)}
             </TableCell>
           );
         }
@@ -3214,6 +3220,7 @@ export default function Portfolio() {
       stopLoss: stopLossValue,
       type: type,
       instrument: positionInstrument,
+      fee: 0,
       openDate: openDate,
       closedDate: null,
     };
@@ -3438,11 +3445,7 @@ export default function Portfolio() {
       sortQuotePriceBySymbol.get(position.symbol) ?? position.currentPrice ?? position.cost;
 
     const getPositionGainLossSortValue = (position: StockPosition) => {
-      if (isPositionFullyClosed(position)) {
-        return calculateRealizedGainForPosition(position);
-      }
-
-      return calculateGainLoss(getMarkPrice(position), position.cost, getRemainingShares(position), position.type);
+      return calculateProjectedGainForPosition(position, getMarkPrice(position));
     };
 
     const getOpenRiskSortValue = (position: StockPosition): number | null => {
@@ -3527,6 +3530,10 @@ export default function Portfolio() {
         case 'gainLoss':
           aValue = getPositionGainLossSortValue(a);
           bValue = getPositionGainLossSortValue(b);
+          break;
+        case 'fee':
+          aValue = getTotalFees(a);
+          bValue = getTotalFees(b);
           break;
         case 'portfolioGain':
           aValue = currentPortfolioValue > 0
@@ -4091,18 +4098,21 @@ export default function Portfolio() {
                                 <TableCell key={col.id} className={baseCellClass}>
                                   {isSummaryRow ? (
                                     <SummaryGainLossCell symbol={row.symbol} positions={row.positions} />
-                                  ) : isFullyClosed ? (
-                                    <span className={cn("font-medium", realizedGain >= 0 ? "text-green-600 dark:text-green-400" : "text-red-400")}>
-                                      {formatCurrency(realizedGain)}
-                                    </span>
                                   ) : (
-                                    <GainLossCell
-                                      symbol={position.symbol}
-                                      cost={position.cost}
-                                      quantity={getRemainingShares(position)}
-                                      type={position.type}
-                                    />
+                                    <GainLossCell position={position} />
                                   )}
+                                </TableCell>
+                              );
+                            case 'fee':
+                              return (
+                                <TableCell key={col.id} className={baseCellClass}>
+                                  <span className="font-medium tabular-nums">
+                                    {formatCurrency(
+                                      isSummaryRow
+                                        ? row.positions.reduce((sum, p) => sum + getTotalFees(p), 0)
+                                        : getTotalFees(position)
+                                    )}
+                                  </span>
                                 </TableCell>
                               );
                             case 'portfolioGain':

@@ -31,6 +31,7 @@ interface DraftExit {
   shares: number;
   exitDate: Date | null;
   notes: string;
+  fee: number;
 }
 
 export interface EditPositionModalProps {
@@ -70,6 +71,7 @@ export function EditPositionModal({
   const [stopLoss, setStopLoss] = useState('');
   const [openDate, setOpenDate] = useState<Date | undefined>(undefined);
   const [type, setType] = useState<'Long' | 'Short'>('Long');
+  const [fee, setFee] = useState('');
 
   // Exits draft state
   const [draftExits, setDraftExits] = useState<DraftExit[]>([]);
@@ -91,6 +93,7 @@ export function EditPositionModal({
       setStopLoss(position.stopLoss.toString());
       setOpenDate(position.openDate);
       setType(position.type);
+      setFee((position.fee ?? 0).toString());
       setDraftExits(
         position.exits.map((e) => ({
           id: e.id,
@@ -99,6 +102,7 @@ export function EditPositionModal({
           shares: e.shares,
           exitDate: e.exitDate,
           notes: e.notes ?? '',
+          fee: e.fee ?? 0,
         }))
       );
       setOriginalExitIds(new Set(position.exits.map((e) => e.id)));
@@ -127,11 +131,17 @@ export function EditPositionModal({
       quantity: quantityNum,
       initialStopLoss: parseFloat(initialStopLoss) || 0,
       type,
+      fee: parseFloat(fee) || 0,
       exits: draftExits
         .filter((e) => Number.isFinite(e.price) && Number.isFinite(e.shares))
-        .map((e) => ({ price: e.price, shares: e.shares, exitDate: e.exitDate })),
+        .map((e) => ({
+          price: e.price,
+          shares: e.shares,
+          exitDate: e.exitDate,
+          fee: Number.isFinite(e.fee) ? e.fee : 0,
+        })),
     }),
-    [cost, quantityNum, initialStopLoss, type, draftExits]
+    [cost, quantityNum, initialStopLoss, type, fee, draftExits]
   );
   const realizedGainPreview = getRealizedGain(draftPositionForCalc);
   const rPreview = getRMultiple(draftPositionForCalc);
@@ -141,7 +151,7 @@ export function EditPositionModal({
     const id = `new-${newExitCounter}`;
     setDraftExits((prev) => [
       ...prev,
-      { id, isNew: true, price: lastPrice, shares: 0, exitDate: null, notes: '' },
+      { id, isNew: true, price: lastPrice, shares: 0, exitDate: null, notes: '', fee: 0 },
     ]);
     setNewExitCounter((n) => n + 1);
   };
@@ -189,6 +199,8 @@ export function EditPositionModal({
       if (Number.isFinite(sl) && sl !== position.stopLoss) positionUpdates.stopLoss = sl;
       if (openDate && openDate.getTime() !== position.openDate.getTime()) positionUpdates.openDate = openDate;
       if (type !== position.type) positionUpdates.type = type;
+      const feeNum = parseFloat(fee);
+      if (Number.isFinite(feeNum) && feeNum !== (position.fee ?? 0)) positionUpdates.fee = feeNum;
 
       if (Object.keys(positionUpdates).length > 0) {
         await onSavePosition(position.id, positionUpdates);
@@ -217,6 +229,7 @@ export function EditPositionModal({
         if ((draft.notes || null) !== original.notes) {
           updates.notes = draft.notes || null;
         }
+        if (draft.fee !== (original.fee ?? 0)) updates.fee = draft.fee;
         if (Object.keys(updates).length > 0) {
           await onUpdateExit(draft.id, updates);
         }
@@ -229,6 +242,7 @@ export function EditPositionModal({
           shares: draft.shares,
           exitDate: draft.exitDate,
           notes: draft.notes || null,
+          fee: draft.fee || 0,
         });
       }
 
@@ -309,6 +323,16 @@ export function EditPositionModal({
                   className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm"
                 />
               </div>
+              <div className="space-y-1">
+                <Label>Fee</Label>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={fee}
+                  onChange={(e) => setFee(e.target.value)}
+                />
+              </div>
               <div className="space-y-1 col-span-2">
                 <Label>Closed Date</Label>
                 <Input value={position.closedDate ? format(position.closedDate, 'yyyy-MM-dd') : '(auto)'} readOnly className="text-muted-foreground" />
@@ -337,6 +361,7 @@ export function EditPositionModal({
                     <th className="text-right py-1 pr-2 font-medium">Price</th>
                     <th className="text-right py-1 pr-2 font-medium">Shares</th>
                     <th className="text-left py-1 pr-2 font-medium">Date</th>
+                    <th className="text-right py-1 pr-2 font-medium">Fee</th>
                     <th className="text-left py-1 pr-2 font-medium">Notes</th>
                     <th className="text-right py-1 pr-2 font-medium">R</th>
                     <th className="py-1"></th>
@@ -387,6 +412,18 @@ export function EditPositionModal({
                               }
                             }}
                             className="w-full rounded border border-border bg-background px-1.5 py-1 text-xs"
+                          />
+                        </td>
+                        <td className="text-right py-1 pr-2">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={draft.fee}
+                            onChange={(e) =>
+                              handleUpdateDraft(draft.id, { fee: parseFloat(e.target.value) || 0 })
+                            }
+                            className="h-7 text-right text-xs w-20"
                           />
                         </td>
                         <td className="text-left py-1 pr-2">

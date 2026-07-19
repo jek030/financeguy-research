@@ -3,7 +3,13 @@
 import { ColumnDef, FilterFn } from '@tanstack/react-table';
 import { ArrowUpDown, ArrowUp, ArrowDown, FolderInput } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
-import { BrokerageTransaction, getActionCategory, isOptionAction, isTradeAction } from '@/lib/types/transactions';
+import {
+  BrokerageTransaction,
+  getActionCategory,
+  isExpiredOptionAction,
+  isOptionAction,
+  isTradeAction,
+} from '@/lib/types/transactions';
 import { formatCurrency } from '@/utils/transactionCalculations';
 import { cn } from '@/lib/utils';
 
@@ -85,8 +91,10 @@ interface ColumnOptions {
 }
 
 function canPortTransactionToPortfolio(txn: BrokerageTransaction): boolean {
-  const hasTradeFields = txn.quantity !== null && txn.price !== null;
-  if (!hasTradeFields) return false;
+  if (txn.quantity === null) return false;
+  // Expired options omit Price; settlement is derived from Amount in the modal.
+  if (isExpiredOptionAction(txn.action)) return true;
+  if (txn.price === null) return false;
   return isTradeAction(txn.action) || isOptionAction(txn.action);
 }
 

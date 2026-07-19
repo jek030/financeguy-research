@@ -19,7 +19,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
-import { BrokerageTransaction, OPTION_ACTIONS, TRADE_ACTIONS, isOptionAction } from '@/lib/types/transactions';
+import {
+  BrokerageTransaction,
+  OPTION_ACTIONS,
+  TRADE_ACTIONS,
+  isExpiredOptionAction,
+  isPortfolioOptionAction,
+  resolveTransactionTradePrice,
+} from '@/lib/types/transactions';
 import { usePortfolio, StockPosition } from '@/hooks/usePortfolio';
 import { useAuth } from '@/lib/context/auth-context';
 import { calculateRPriceTargets, getRemainingShares } from '@/utils/portfolioCalculations';
@@ -41,6 +48,7 @@ function isOpeningAction(action: string): boolean {
 }
 
 function getDefaultMode(action: string): Mode {
+  if (isExpiredOptionAction(action)) return 'offset';
   if (isOpeningAction(action)) return 'new';
   return 'offset';
 }
@@ -89,7 +97,16 @@ export default function AddToPortfolioModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
-  const isOptionTransaction = Boolean(transaction && isOptionAction(transaction.action));
+  const isOptionTransaction = Boolean(
+    transaction && isPortfolioOptionAction(transaction.action)
+  );
+  const isExpiredTransaction = Boolean(
+    transaction && isExpiredOptionAction(transaction.action)
+  );
+  const resolvedTradePrice = useMemo(
+    () => (transaction ? resolveTransactionTradePrice(transaction) : null),
+    [transaction]
+  );
 
   // Sync the local dropdown to whichever portfolio the hook already loaded
   useEffect(() => {
@@ -133,7 +150,8 @@ export default function AddToPortfolioModal({
     return positions.filter(
       (p) =>
         p.symbol === transaction.symbol &&
-        !p.closedDate
+        !p.closedDate &&
+        getRemainingShares(p) > 0
     );
   }, [positions, transaction]);
 
@@ -150,8 +168,9 @@ export default function AddToPortfolioModal({
 
   // Computed values for new position
   const newPositionPreview = useMemo(() => {
-    if (!transaction || !transaction.price || !transaction.quantity) return null;
-    const cost = transaction.price;
+    if (!transaction || resolvedTradePrice === null || !transaction.quantity) return null;
+    if (isExpiredTransaction) return null;
+    const cost = resolvedTradePrice;
     const contractsOrShares = Math.abs(transaction.quantity);
     const qty = isOptionTransaction
       ? contractsOrShares * OPTION_CONTRACT_MULTIPLIER
@@ -171,7 +190,7 @@ export default function AddToPortfolioModal({
       openDate: parseTxnDate(transaction.date),
       rTargets,
     };
-  }, [isOptionTransaction, stopLoss, transaction]);
+  }, [isExpiredTransaction, isOptionTransaction, resolvedTradePrice, stopLoss, transaction]);
 
   // Remaining (unfilled) shares on the selected position.
   const remainingShares = useMemo(() => {
@@ -181,8 +200,8 @@ export default function AddToPortfolioModal({
 
   // Computed values for offset
   const offsetPreview = useMemo(() => {
-    if (!transaction || !selectedPosition || !transaction.price) return null;
-    const sellPrice = transaction.price;
+    if (!transaction || !selectedPosition || resolvedTradePrice === null) return null;
+    const sellPrice = resolvedTradePrice;
 
     const offsetInput = parseFloat(offsetQty) || 0;
     const soldQty = isOptionTransaction
@@ -205,7 +224,14 @@ export default function AddToPortfolioModal({
       displayQty: offsetInput,
       willClose,
     };
-  }, [isOptionTransaction, transaction, selectedPosition, offsetQty, remainingShares]);
+  }, [
+    isOptionTransaction,
+    transaction,
+    selectedPosition,
+    offsetQty,
+    remainingShares,
+    resolvedTradePrice,
+  ]);
 
   const selectedPortfolio = useMemo(() => {
     return portfolios.find((p) => String(p.portfolio_key) === selectedPortfolioKey) ?? null;
@@ -241,6 +267,7 @@ export default function AddToPortfolioModal({
         stopLoss: resolvedStopLoss,
         type: newPositionPreview.type,
         instrument: isOptionTransaction ? 'option' : 'stock',
+        fee: Math.abs(transaction.feesAndComm ?? 0),
         openDate: newPositionPreview.openDate,
         closedDate: null,
       };
@@ -277,6 +304,7 @@ export default function AddToPortfolioModal({
         shares: offsetPreview.soldQty,
         exitDate: parseTxnDate(transaction.date),
         notes: trimmed.length > 0 ? trimmed : null,
+        fee: Math.abs(transaction.feesAndComm ?? 0),
       });
       setSubmitSuccess(true);
       setTimeout(() => onOpenChange(false), 1200);
@@ -302,7 +330,8 @@ export default function AddToPortfolioModal({
 
   const canHandleAction =
     TRADE_ACTIONS.includes(transaction.action as typeof TRADE_ACTIONS[number]) ||
-    OPTION_ACTIONS.includes(transaction.action as typeof OPTION_ACTIONS[number]);
+    OPTION_ACTIONS.includes(transaction.action as typeof OPTION_ACTIONS[number]) ||
+    isExpiredOptionAction(transaction.action);
   if (!canHandleAction) return null;
 
   return (
@@ -314,7 +343,7 @@ export default function AddToPortfolioModal({
             {transaction.action} {transaction.quantity ? Math.abs(transaction.quantity) : 0}{' '}
             {isOptionTransaction ? 'contracts' : 'shares'}{' '}
             <span className="font-semibold text-foreground">{transaction.symbol}</span>
-            {transaction.price ? ` @ ${formatCurrency(transaction.price)}` : ''}
+            {resolvedTradePrice !== null ? ` @ ${formatCurrency(resolvedTradePrice)}` : ''}
           </DialogDescription>
         </DialogHeader>
 
@@ -371,36 +400,49 @@ export default function AddToPortfolioModal({
               </Select>
             </div>
 
-            {/* Mode Toggle */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">Action</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setMode('new')}
-                  className={cn(
-                    'rounded-md border px-3 py-2 text-xs font-medium transition-colors',
-                    mode === 'new'
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
-                  )}
-                >
-                  New Position
-                </button>
-                <button
-                  onClick={() => setMode('offset')}
-                  className={cn(
-                    'rounded-md border px-3 py-2 text-xs font-medium transition-colors',
-                    mode === 'offset'
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
-                  )}
-                >
-                  Offset Existing
-                </button>
+            {/* Mode Toggle — Expired can only offset an open option position */}
+            {!isExpiredTransaction && (
+              <div className="space-y-1.5">
+                <Label className="text-xs">Action</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setMode('new')}
+                    className={cn(
+                      'rounded-md border px-3 py-2 text-xs font-medium transition-colors',
+                      mode === 'new'
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
+                    )}
+                  >
+                    New Position
+                  </button>
+                  <button
+                    onClick={() => setMode('offset')}
+                    className={cn(
+                      'rounded-md border px-3 py-2 text-xs font-medium transition-colors',
+                      mode === 'offset'
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'
+                    )}
+                  >
+                    Offset Existing
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
+            {isExpiredTransaction && (
+              <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                Expired options can only offset an open position
+                {resolvedTradePrice !== null && transaction.price === null && (
+                  <span>
+                    {' '}
+                    (exit price from Amount: {formatCurrency(resolvedTradePrice)})
+                  </span>
+                )}
+              </div>
+            )}
 
-            {mode === 'new' ? (
+            {mode === 'new' && !isExpiredTransaction ? (
               <NewPositionForm
                 preview={newPositionPreview}
                 stopLoss={stopLoss}
@@ -540,8 +582,13 @@ function NewPositionForm({
           className="h-8 text-sm font-mono"
         />
         {stopLoss && parseFloat(stopLoss) > 0 && (
-          <div className="text-[10px] text-muted-foreground">
-            Risk per share: {formatCurrency(Math.abs(preview.cost - parseFloat(stopLoss)))}
+          <div className="text-[10px] text-muted-foreground space-y-0.5">
+            <div>
+              Risk per share: {formatCurrency(Math.abs(preview.cost - parseFloat(stopLoss)))}
+            </div>
+            <div>
+              Total risk: {formatCurrency(Math.abs(preview.cost - parseFloat(stopLoss)) * preview.quantity)}
+            </div>
           </div>
         )}
       </div>

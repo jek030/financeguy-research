@@ -52,6 +52,7 @@ export interface PositionExit {
   exitDate: Date | null;
   notes: string | null;
   sortOrder: number;
+  fee: number;
 }
 
 export interface StockPosition {
@@ -64,6 +65,7 @@ export interface StockPosition {
   stopLoss: number;
   type: 'Long' | 'Short';
   instrument: PortfolioInstrument;
+  fee: number;
   openDate: Date;
   closedDate: Date | null;
   exits: PositionExit[];
@@ -108,6 +110,7 @@ export function usePortfolio() {
     exitDate: data.exit_date ? parseLocalDate(data.exit_date) : null,
     notes: data.notes,
     sortOrder: data.sort_order,
+    fee: data.fee ?? 0,
   });
 
   const sortExitsForDisplay = (exits: PositionExit[]): PositionExit[] => {
@@ -137,11 +140,13 @@ export function usePortfolio() {
     const exits = sortExitsForDisplay(rawExits);
     const type = data.type as 'Long' | 'Short';
 
+    const fee = data.fee ?? 0;
     const realizedGain = getRealizedGain({
       cost: data.cost,
       quantity: data.quantity,
       initialStopLoss: data.initial_stop_loss,
       type,
+      fee,
       exits,
     });
 
@@ -155,6 +160,7 @@ export function usePortfolio() {
       stopLoss: stopLossValue,
       type,
       instrument: data.instrument === 'option' ? 'option' : 'stock',
+      fee,
       openDate: parseLocalDate(data.open_date),
       closedDate: data.close_date ? parseLocalDate(data.close_date) : null,
       exits,
@@ -193,6 +199,7 @@ export function usePortfolio() {
       open_risk: openRiskPercentage,
       open_heat: 0,
       realized_gain: 0,
+      fee: position.fee ?? 0,
       open_date: formatDateForDb(position.openDate),
       close_date: position.closedDate ? formatDateForDb(position.closedDate) : null,
       days_in_trade: diffDays,
@@ -420,7 +427,8 @@ export function usePortfolio() {
     cost: number,
     quantity: number,
     initialStopLoss: number,
-    type: 'Long' | 'Short'
+    type: 'Long' | 'Short',
+    fee: number
   ): Promise<void> => {
     const [, tradeKeyStr] = positionId.split('-');
     const tradeKey = parseInt(tradeKeyStr, 10);
@@ -436,7 +444,7 @@ export function usePortfolio() {
       mapSupabaseExitToPositionExit(e, positionId)
     );
 
-    const closed = isFullyClosed({ cost, quantity, initialStopLoss, type, exits });
+    const closed = isFullyClosed({ cost, quantity, initialStopLoss, type, fee, exits });
     const newClosedDate = closed
       ? exits
           .filter((e) => e.exitDate !== null)
@@ -448,7 +456,7 @@ export function usePortfolio() {
 
     const newClosedDateStr = newClosedDate ? formatDateForDb(newClosedDate) : null;
 
-    const realized = getRealizedGain({ cost, quantity, initialStopLoss, type, exits });
+    const realized = getRealizedGain({ cost, quantity, initialStopLoss, type, fee, exits });
 
     await supabase
       .from('tblPortfolioPositions')
@@ -501,6 +509,7 @@ export function usePortfolio() {
       exit_date: exit.exitDate ? formatDateForDb(exit.exitDate) : null,
       notes: exit.notes,
       sort_order: nextSortOrder,
+      fee: exit.fee ?? 0,
     });
 
     if (error) throw error;
@@ -510,7 +519,8 @@ export function usePortfolio() {
       position.cost,
       position.quantity,
       position.initialStopLoss,
-      position.type
+      position.type,
+      position.fee
     );
 
     await fetchPositionsForPortfolio(parseInt(positionId.split('-')[0], 10));
@@ -545,6 +555,7 @@ export function usePortfolio() {
     }
     if (updates.notes !== undefined) supabaseUpdates.notes = updates.notes;
     if (updates.sortOrder !== undefined) supabaseUpdates.sort_order = updates.sortOrder;
+    if (updates.fee !== undefined) supabaseUpdates.fee = updates.fee;
 
     const { error } = await supabase
       .from('tblPositionExits')
@@ -558,7 +569,8 @@ export function usePortfolio() {
       position.cost,
       position.quantity,
       position.initialStopLoss,
-      position.type
+      position.type,
+      position.fee
     );
 
     await fetchPositionsForPortfolio(parseInt(position.id.split('-')[0], 10));
@@ -578,7 +590,8 @@ export function usePortfolio() {
       position.cost,
       position.quantity,
       position.initialStopLoss,
-      position.type
+      position.type,
+      position.fee
     );
 
     await fetchPositionsForPortfolio(parseInt(position.id.split('-')[0], 10));
@@ -621,6 +634,9 @@ export function usePortfolio() {
     if (updates.initialStopLoss !== undefined) {
       supabaseUpdates.initial_stop_loss = updates.initialStopLoss;
     }
+    if (updates.fee !== undefined) {
+      supabaseUpdates.fee = updates.fee;
+    }
 
     if (updates.cost !== undefined || updates.quantity !== undefined) {
       const cost = updates.cost ?? currentPosition.cost;
@@ -633,6 +649,17 @@ export function usePortfolio() {
       const portfolioValue = portfolio.portfolio_value || 0;
       supabaseUpdates.equity = equity;
       supabaseUpdates.percent_of_portfolio = portfolioValue > 0 ? (equity / portfolioValue) * 100 : 0;
+    }
+
+    if (
+      updates.fee !== undefined ||
+      updates.cost !== undefined ||
+      updates.quantity !== undefined ||
+      updates.type !== undefined ||
+      updates.initialStopLoss !== undefined
+    ) {
+      const merged = { ...currentPosition, ...updates };
+      supabaseUpdates.realized_gain = getRealizedGain(merged);
     }
 
     if (updates.openDate !== undefined || updates.closedDate !== undefined) {

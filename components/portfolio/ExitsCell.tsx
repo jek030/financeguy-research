@@ -18,6 +18,7 @@ function PositionExitsTable({ position }: { position: StockPosition }) {
           <th className="text-right py-1 pr-3 font-medium">Price</th>
           <th className="text-right py-1 pr-3 font-medium">Shares</th>
           <th className="text-left py-1 pr-3 font-medium">Date</th>
+          <th className="text-right py-1 pr-3 font-medium">Fee</th>
           <th className="text-right py-1 pr-3 font-medium">R</th>
           <th className="text-left py-1 font-medium">Notes</th>
         </tr>
@@ -34,6 +35,9 @@ function PositionExitsTable({ position }: { position: StockPosition }) {
               <td className="text-right py-1 pr-3 tabular-nums">{exit.shares}</td>
               <td className="text-left py-1 pr-3 tabular-nums">
                 {exit.exitDate ? format(exit.exitDate, 'yyyy-MM-dd') : '—'}
+              </td>
+              <td className="text-right py-1 pr-3 tabular-nums">
+                ${(exit.fee ?? 0).toFixed(2)}
               </td>
               <td className="text-right py-1 pr-3 tabular-nums">
                 {rText}
