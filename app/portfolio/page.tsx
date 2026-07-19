@@ -3980,7 +3980,6 @@ export default function Portfolio() {
                     {tableRows.map((row) => {
                       const isSummaryRow = row.kind === 'summary';
                       const position = row.kind === 'position' ? row.position : row.positions[0];
-                      const isFullyClosed = isPositionFullyClosed(position);
                       const realizedGain = row.kind === 'summary' ? row.realizedGain : calculateRealizedGainForPosition(position);
                       const openRiskDisplay = getOpenRiskDisplay(position);
                       const openHeatPercent = getOpenHeatPercent(position, portfolioValueNumber);
